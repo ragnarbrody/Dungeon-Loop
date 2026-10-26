@@ -137,7 +137,7 @@ function requestNewGame() {
       playerStats.xp = 0;
       playerStats.xpToNextLevel = 50;
       playerStats.points = 0;
-      playerStats.gold = 1000;  
+      playerStats.gold = 0;  
 
       const room = getRoom(0, 0);
       setCurrentRoom(room);
