@@ -9,6 +9,11 @@ import { openDialogue, closeDialogue, isDialogueOpen } from './dialogue.js';
 import { portalText } from '../world/interactables.js';
 import { enterBuilding } from '../world/rooms.js';
 import { openShop, closeShop, isShopOpen } from './shop.js';
+import {
+  openWorldMap, closeWorldMap, isWorldMapOpen,
+  handleMapClick, handleMapMove, handleMapRelease, handleMapWheel,
+  centerOnPlayer,
+} from './worldmap.js';
 
 export const keys = {};
 
@@ -42,6 +47,50 @@ export function installInput() {
     // Coloca o ícone antes do texto "Mochila (I)"
     btnInv.insertBefore(icon, btnInv.firstChild);
   }
+
+  const btnMap = document.getElementById('btn-map');
+  if (btnMap && !btnMap.dataset.iconInjected) {
+    btnMap.dataset.iconInjected = '1';
+
+    const icon = getIcon('map');
+    icon.style.width = '20px';
+    icon.style.height = '20px';
+    icon.style.imageRendering = 'pixelated';
+
+    btnMap.insertBefore(icon, btnMap.firstChild);
+  }
+
+  // ---------- World Map: drag & zoom ----------
+  canvas.addEventListener('mousedown', (e) => {
+    if (gameState !== STATE.WORLDMAP) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    handleMapClick(mx, my, e);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (gameState !== STATE.WORLDMAP) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    handleMapMove(mx, my);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (gameState !== STATE.WORLDMAP) return;
+    handleMapRelease();
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    if (gameState !== STATE.WORLDMAP) return;
+    e.preventDefault();
+    handleMapWheel(e.deltaY);
+  }, { passive: false });
 
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
@@ -103,6 +152,28 @@ export function installInput() {
       return;
     }
 
+    // ---- World map: M abre/fecha ----
+    if (k === 'm' && (gameState === STATE.EXPLORE || gameState === STATE.WORLDMAP)) {
+      if (gameState === STATE.EXPLORE) {
+        openWorldMap();
+        setGameState(STATE.WORLDMAP);
+      } else {
+        closeWorldMap();
+        setGameState(STATE.EXPLORE);
+      }
+      return;
+    }
+
+    if (gameState === STATE.WORLDMAP) {
+      if (k === 'escape') {
+        closeWorldMap();
+        setGameState(STATE.EXPLORE);
+        return;
+      }
+      if (k === 'c') { centerOnPlayer(); return; }
+      return; // bloqueia outras teclas
+    }
+
     if (gameState === STATE.INVENTORY) return; // Pausa as outras teclas
 
     keys[k] = true;
@@ -158,10 +229,10 @@ export function installInput() {
 
       // Atalhos do menu principal
       if (battle.menuMode === 'main') {
-        if (k === 'a' || k === '1') { playerAction('menu_skills'); return; }
-        if (k === 'i' || k === '2') { playerAction('menu_items'); return; }
-        if (k === 'r' || k === '3') { playerAction('rest'); return; }
-        if (k === 'f' || k === '4') { playerAction('flee'); return; }
+        if (k === 'h' || k === '1') { playerAction('menu_skills'); return; }
+        if (k === 'j' || k === '2') { playerAction('menu_items'); return; }
+        if (k === 'k' || k === '3') { playerAction('rest'); return; }
+        if (k === 'l' || k === '4') { playerAction('flee'); return; }
         return;
       }
 
@@ -198,6 +269,17 @@ export function installInput() {
 
   // Clique no botão da mochila
   document.getElementById('btn-inventory').addEventListener('click', toggleInventory);
+
+  // Clique no botão do mapa
+  document.getElementById('btn-map').addEventListener('click', () => {
+    if (gameState === STATE.EXPLORE) {
+      openWorldMap();
+      setGameState(STATE.WORLDMAP);
+    } else if (gameState === STATE.WORLDMAP) {
+      closeWorldMap();
+      setGameState(STATE.EXPLORE);
+    }
+  });
 
   // Clique nos botões de combate
   canvas.addEventListener('click', e => {

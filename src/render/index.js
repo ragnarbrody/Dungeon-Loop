@@ -5,18 +5,21 @@ import { renderBattle } from '../battle/render.js';
 import { renderExplore } from './explore.js';
 import { renderMinimap } from './minimap.js';
 import { renderMenu } from './menu.js';
+import { renderWorldMap } from '../ui/worldmap.js';
 
 export function render(dt) {
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  
-  if (gameState === STATE.MENU) {
+
+  if (gameState === STATE.WORLDMAP) {
+    renderWorldMap();
+  } else if (gameState === STATE.MENU) {
     renderMenu(dt || 0.016);
   } else if (gameState === STATE.BATTLE) {
     renderBattle();
   } else {
-    renderExplore(); 
+    renderExplore();
     if (gameState === STATE.EXPLORE) {
-      renderMinimap(); 
+      renderMinimap();
     }
   }
 }

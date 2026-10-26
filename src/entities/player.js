@@ -8,6 +8,7 @@ import { startBattle } from '../battle/battle.js';
 import { keys } from '../ui/input.js';
 import { clearLeaves } from './leaves.js';
 import { findNearbyInteractable } from '../world/interactables.js';
+import { revealRoom } from '../world/knowledge.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -76,6 +77,7 @@ function checkDoorTransition() {
     setCurrentRoom(back);
     clearLeaves();
     updateHud();
+    revealRoom(back.gx, back.gy);
 
     if (door) {
       // Coloca o player em cima da porta (ou 1 tile abaixo, para não disparar
@@ -105,13 +107,14 @@ function checkDoorTransition() {
   
   // Gera a nova sala
   const newRoom = getRoom(currentRoom.gx + d.dx, currentRoom.gy + d.dy);
-  
+
   // Muda para a nova sala
   setCurrentRoom(newRoom);
   markRoomVisited(newRoom.gx, newRoom.gy);
+  revealRoom(newRoom.gx, newRoom.gy);   // ← NOVO
   clearLeaves();
   updateHud();
-  
+    
   // Spawna o jogador passando o mapa da nova sala
   spawnAt(d.opposite, newRoom);
   setTransitionCooldown(30);
@@ -198,7 +201,6 @@ export function updatePlayer(dt) {
   if (transitionCooldown > 0) decrementTransitionCooldown();
   else checkDoorTransition();
 
-  // no final de updatePlayer:
   if (currentRoom && !currentRoom.isCity && currentRoom.enemies) {
     const ptx = Math.floor(player.x / TILE_SIZE);
     const pty = Math.floor(player.y / TILE_SIZE);

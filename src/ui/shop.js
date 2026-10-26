@@ -1,5 +1,5 @@
 import { playerStats, saveGame } from '../core/state.js';
-import { ITEMS_DB } from '../items.js';
+import { ITEMS_DB, addItemToInventory, remainingSpace } from '../items.js';
 import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
 
@@ -7,7 +7,16 @@ import { showToast } from './toast.js';
 export const SHOPS = {
   herbalist: {
     name: 'Herbalista',
-    items: ['potion_weak', 'potion_mana', 'potion_medium'],
+    items: [
+      'potion_weak',
+      'potion_medium',
+      'potion_strong',
+      'potion_mana',
+      'potion_mana_medium',
+      'potion_mana_strong',
+      'potion_str',
+      'potion_agi',
+    ],
   },
 };
 
@@ -78,24 +87,28 @@ function renderShopBody(c, shop) {
     name.textContent = item.name;
     info.appendChild(name);
     const desc = document.createElement('div');
+    const cap = item.stackCap;
+    const cur = playerStats.inventory.find(i => i.id === itemId)?.qty || 0;
     desc.className = 'shop-desc';
-    desc.textContent = item.description || '';
+    desc.textContent = `${item.description} (${cur}/${cap})`;
     info.appendChild(desc);
     row.appendChild(info);
+
+    const space = remainingSpace(playerStats.inventory, itemId);
 
     const buyBtn = document.createElement('button');
     buyBtn.className = 'shop-buy';
     buyBtn.textContent = `${item.price} ouro`;
-    buyBtn.disabled = playerStats.gold < item.price;
+    buyBtn.disabled = playerStats.gold < item.price || space <= 0;
     buyBtn.onclick = () => {
       if (playerStats.gold < item.price) return;
+      if (remainingSpace(playerStats.inventory, itemId) <= 0) return;
+
+      // Usa o helper para adicionar respeitando o cap
+      const added = addItemToInventory(playerStats.inventory, itemId, 1);
+      if (added === 0) return;
+
       playerStats.gold -= item.price;
-
-      // Adiciona ao inventário (stack)
-      const existing = playerStats.inventory.find(i => i.id === itemId);
-      if (existing) existing.qty++;
-      else playerStats.inventory.push({ id: itemId, qty: 1 });
-
       saveGame();
       renderShopBody(c, shop);
       showToast({

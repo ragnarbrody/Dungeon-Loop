@@ -15,20 +15,71 @@ export const ITEMS_DB = {
   potion_weak: {
     id: 'potion_weak',
     type: 'consumable',
-    name: 'Poção Fraca',
+    name: 'Poção de Cura Fraca',
     description: 'Cura de 5 a 10 de HP.',
     price: 10,
     stackable: true,
+    stackCap: 10,
     combatOnly: false,
     icon: 'potion_weak',      // chave usada em drawIconOnCanvas / getIcon
     use: (player) => {
       const heal = Math.floor(Math.random() * 6) + 5;
       player.hp = Math.min(player.maxHp, player.hp + heal);
       return {
-        message: `Você bebeu uma Poção Fraca e recuperou ${heal} de HP!`,
+        message: `Você bebeu uma Poção de Cura Fraca e recuperou ${heal} de HP!`,
         toast: {
           itemId: 'potion_weak',
-          title: 'Poção Fraca',
+          title: 'Poção de Cura Fraca',
+          subtitle: `+${heal} HP`,
+          color: '#6fbd63',
+        },
+      };
+    },
+  },
+
+  potion_medium: {
+    id: 'potion_medium',
+    type: 'consumable',
+    name: 'Poção de Cura Média',
+    description: 'Cura de 20 a 35 de HP.',
+    price: 35,
+    stackable: true,
+    stackCap: 5,
+    combatOnly: false,
+    icon: 'potion_medium',
+    use: (player) => {
+      const heal = Math.floor(Math.random() * 16) + 20;
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      return {
+        message: `Você bebeu uma Poção Média e recuperou ${heal} de HP!`,
+        toast: {
+          itemId: 'potion_medium',
+          title: 'Poção de Cura Média',
+          subtitle: `+${heal} HP`,
+          color: '#6fbd63',
+        },
+      };
+    },
+  },
+
+  potion_strong: {
+    id: 'potion_strong',
+    type: 'consumable',
+    name: 'Poção de Cura Forte',
+    description: 'Cura de 50 a 70 de HP.',
+    price: 80,
+    stackable: true,
+    stackCap: 3,           // ← NOVO
+    combatOnly: false,
+    icon: 'potion_strong',
+    use: (player) => {
+      const heal = Math.floor(Math.random() * 21) + 50;
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      return {
+        message: `Você bebeu uma Poção Forte e recuperou ${heal} de HP!`,
+        toast: {
+          itemId: 'potion_strong',
+          title: 'Poção de Cura Forte',
           subtitle: `+${heal} HP`,
           color: '#6fbd63',
         },
@@ -39,10 +90,11 @@ export const ITEMS_DB = {
   potion_mana: {
     id: 'potion_mana',
     type: 'consumable',
-    name: 'Poção de Mana',
+    name: 'Poção de Mana Fraca',
     description: 'Recupera de 5 a 10 de MP.',
     price: 15,
     stackable: true,
+    stackCap: 10,
     combatOnly: false,
     icon: 'potion_mana',
     use: (player) => {
@@ -51,10 +103,64 @@ export const ITEMS_DB = {
       player.mp = Math.min(player.maxMp, player.mp + heal);
       const ganho = player.mp - antes;
       return {
-        message: `Você bebeu uma Poção de Mana e recuperou ${ganho} de MP!`,
+        message: `Você bebeu uma Poção de Mana Fraca e recuperou ${ganho} de MP!`,
         toast: {
           itemId: 'potion_mana',
-          title: 'Poção de Mana',
+          title: 'Poção de Mana Fraca',
+          subtitle: `+${ganho} MP`,
+          color: '#8ad8ff',
+        },
+      };
+    },
+  },
+
+  potion_mana_medium: {
+    id: 'potion_mana_medium',
+    type: 'consumable',
+    name: 'Poção de Mana Média',
+    description: 'Recupera de 20 a 35 de MP.',
+    price: 40,
+    stackable: true,
+    stackCap: 5,
+    combatOnly: false,
+    icon: 'potion_mana_medium',
+    use: (player) => {
+      const heal = Math.floor(Math.random() * 16) + 20;
+      const antes = player.mp;
+      player.mp = Math.min(player.maxMp, player.mp + heal);
+      const ganho = player.mp - antes;
+      return {
+        message: `Você bebeu uma Poção de Mana Média e recuperou ${ganho} de MP!`,
+        toast: {
+          itemId: 'potion_mana_medium',
+          title: 'Poção de Mana Média',
+          subtitle: `+${ganho} MP`,
+          color: '#8ad8ff',
+        },
+      };
+    },
+  },
+
+  potion_mana_strong: {
+    id: 'potion_mana_strong',
+    type: 'consumable',
+    name: 'Poção de Mana Forte',
+    description: 'Recupera de 50 a 70 de MP.',
+    price: 85,
+    stackable: true,
+    stackCap: 3,
+    combatOnly: false,
+    icon: 'potion_mana_strong',
+    use: (player) => {
+      const heal = Math.floor(Math.random() * 21) + 50;
+      const antes = player.mp;
+      player.mp = Math.min(player.maxMp, player.mp + heal);
+      const ganho = player.mp - antes;
+      return {
+        message: `Você bebeu uma Poção de Mana Forte e recuperou ${ganho} de MP!`,
+        toast: {
+          itemId: 'potion_mana_strong',
+          title: 'Poção de Mana Forte',
           subtitle: `+${ganho} MP`,
           color: '#8ad8ff',
         },
@@ -69,6 +175,7 @@ export const ITEMS_DB = {
     description: '+3 Força por 3 rounds de combate.',
     price: 25,
     stackable: true,
+    stackCap: 3,
     combatOnly: true,
     icon: 'potion_str',
     use: (player) => {
@@ -93,6 +200,7 @@ export const ITEMS_DB = {
     description: '+3 Agilidade por 3 rounds de combate.',
     price: 25,
     stackable: true,
+    stackCap: 3,
     combatOnly: true,
     icon: 'potion_agi',
     use: (player) => {
@@ -209,30 +317,6 @@ export const ITEMS_DB = {
     stats: {}, // tocha não dá stats, é decorativa
     draw: null,
   },
-
-  potion_medium: {
-    id: 'potion_medium',
-    type: 'consumable',
-    name: 'Poção Média',
-    description: 'Cura de 20 a 35 de HP.',
-    price: 35,
-    stackable: true,
-    combatOnly: false,
-    icon: 'potion_medium',
-    use: (player) => {
-      const heal = Math.floor(Math.random() * 16) + 20;
-      player.hp = Math.min(player.maxHp, player.hp + heal);
-      return {
-        message: `Você bebeu uma Poção Média e recuperou ${heal} de HP!`,
-        toast: {
-          itemId: 'potion_medium',
-          title: 'Poção Média',
-          subtitle: `+${heal} HP`,
-          color: '#6fbd63',
-        },
-      };
-    },
-  },
 };
 
 // Compat: exporta o mesmo shape que os consumidores antigos esperam.
@@ -248,4 +332,56 @@ export function getItem(id) {
 
 export function getItemsByType(type) {
   return Object.values(ITEMS_DB).filter(i => i.type === type);
+}
+
+/**
+ * Adiciona `qty` unidades de `itemId` ao inventário respeitando o
+ * `stackCap` do item. Retorna quantos foram efetivamente adicionados
+ * (útil pra mostrar "inventário cheio" / "adicionou X de Y").
+ *
+ * O inventário é um array de { id, qty }. Se o item já existe, incrementa
+ * até o cap; se não existe, cria um slot novo (se qty > 0).
+ *
+ * @param {Array<{id:string, qty:number}>} inventory
+ * @param {string} itemId
+ * @param {number} qty
+ * @returns {number} quantidade adicionada de fato
+ */
+export function addItemToInventory(inventory, itemId, qty = 1) {
+  const info = ITEMS_DB[itemId];
+  if (!info) return 0;
+  const cap = info.stackCap ?? Infinity;
+
+  let added = 0;
+  const existing = inventory.find(i => i.id === itemId);
+  if (existing) {
+    const space = cap - existing.qty;
+    const toAdd = Math.min(space, qty);
+    existing.qty += toAdd;
+    added += toAdd;
+    qty -= toAdd;
+  }
+
+  // Se ainda sobra e o cap permite um slot novo, cria.
+  // (Neste jogo, 1 slot por tipo é o padrão; se quiser múltiplos slots
+  // por tipo, remova o `qty -= toAdd` acima e permita push de outro slot.)
+  if (qty > 0 && !existing && cap > 0) {
+    const toAdd = Math.min(cap, qty);
+    inventory.push({ id: itemId, qty: toAdd });
+    added += toAdd;
+  }
+
+  return added;
+}
+
+/**
+ * Retorna o quanto ainda cabe de um item no inventário.
+ */
+export function remainingSpace(inventory, itemId) {
+  const info = ITEMS_DB[itemId];
+  if (!info) return 0;
+  const cap = info.stackCap ?? Infinity;
+  const existing = inventory.find(i => i.id === itemId);
+  const cur = existing ? existing.qty : 0;
+  return Math.max(0, cap - cur);
 }

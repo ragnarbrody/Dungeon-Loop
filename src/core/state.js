@@ -1,9 +1,22 @@
 import { CANVAS_W, CANVAS_H } from './canvas.js';
 import { playerEquip } from '../sprites/equipment.js';
+import { loadKnowledge, serializeKnowledge, revealRoom, addMarker } from '../world/knowledge.js';
 
 const savedData = JSON.parse(localStorage.getItem('dungeonLoop_save')) || {};
 
-export const STATE = { MENU: 'menu', EXPLORE: 'explore', BATTLE: 'battle', INVENTORY: 'inventory', LEVEL_UP: 'level_up', GAME_OVER: 'game_over' };
+if (savedData.knowledge) {
+  loadKnowledge(savedData.knowledge);
+}
+
+export const STATE = {
+  MENU: 'menu',
+  EXPLORE: 'explore',
+  BATTLE: 'battle',
+  INVENTORY: 'inventory',
+  LEVEL_UP: 'level_up',
+  GAME_OVER: 'game_over',
+  WORLDMAP: 'worldmap',
+};
 export let gameState = STATE.MENU;
 export function setGameState(s) { gameState = s; }
 
@@ -91,7 +104,8 @@ export function saveGame() {
       magia: playerStats.magia,
     },
     baseMp: playerStats._baseMp,
-    worldSeed: worldSeed,  // ← ADICIONAR
+    knowledge: serializeKnowledge(),
+    worldSeed: worldSeed,
   };
   localStorage.setItem('dungeonLoop_save', JSON.stringify(dataToSave));
 }
@@ -166,6 +180,9 @@ if (savedData.equip) {
 export function addGold(amount) {
   playerStats.gold = Math.max(0, playerStats.gold + amount);
 }
+
+// Revela ao redor da posição inicial
+revealRoom(startGX, startGY);
 
 export let transitionCooldown = 0;
 export function setTransitionCooldown(v) { transitionCooldown = v; }

@@ -370,6 +370,155 @@ export const ICONS = {
     p(9, 16, 1, 1, string);    // corda (base)
   }),
 
+  map: makeIcon((g) => {
+    const p = px(g);
+    // Pergaminho enrolado
+    const paper     = '#e8d8b0';
+    const paperDark = '#b8a074';
+    const paperHi   = '#f5ebd0';
+    const rope      = '#8a5a3a';
+    const ropeHi    = '#a86b4a';
+    const ink       = '#5a3a24';
+
+    // Corpo do mapa (pergaminho)
+    p(3, 4, 14, 12, paperDark);
+    p(4, 4, 12, 12, paper);
+    // Bordas onduladas (dão "pergaminho")
+    p(4, 4, 12, 1, paperHi);
+    p(4, 15, 12, 1, paperDark);
+    p(3, 4, 1, 12, paperDark);
+    p(16, 4, 1, 12, paperDark);
+
+    // "Linhas" de caminho no mapa (um X / estradas)
+    p(6, 7, 2, 1, ink);      // trilha oeste
+    p(8, 8, 1, 1, ink);
+    p(9, 9, 1, 1, ink);
+    p(10, 10, 1, 1, ink);
+    p(11, 11, 3, 1, ink);    // trilha leste
+    p(6, 12, 1, 1, ink);     // acampamento
+    p(13, 7, 1, 1, ink);     // cidade (ponto)
+
+    // Um "X" marcando o tesouro/objetivo
+    p(11, 7, 1, 1, '#c93030');
+    p(13, 9, 1, 1, '#c93030');
+
+    // "Cordão" embaixo (amarra o pergaminho)
+    p(5, 16, 10, 1, rope);
+    p(5, 17, 10, 1, ropeHi);
+    p(4, 16, 1, 2, rope);
+    p(15, 16, 1, 2, rope);
+  }),
+
+  potion_strong: makeIcon((g) => {
+    const p = px(g);
+    // Frasco maior, líquido vermelho-vivo com brilho mais intenso
+    const glass     = '#c8d8e8';
+    const glassSh   = '#8aa0b8';
+    const cork      = '#8a6b5a';
+    const corkSh    = '#5a4030';
+    const liquid    = '#c93030';   // vermelho vivo (mais "forte" que a fraca)
+    const liquidHi  = '#ff6b6b';   // brilho
+    const liquidSh  = '#7a1010';   // sombra
+    const star      = '#fff5c0';   // estrelinha (diferencia da média)
+
+    // Corpo do frasco (mais largo)
+    p(5, 4, 10, 12, glass);
+    // Sombra lateral direita
+    p(14, 4, 1, 12, glassSh);
+    // Líquido (enche quase tudo)
+    p(6, 5, 8, 10, liquid);
+    p(6, 5, 8, 1, liquidHi);
+    p(6, 13, 8, 2, liquidSh);
+    // Brilho interno (bolha/reflexo)
+    p(7, 6, 2, 2, liquidHi);
+
+    // Gargalo
+    p(8, 2, 4, 2, glass);
+    p(9, 2, 2, 2, glassSh);
+    // Rolha
+    p(8, 1, 4, 2, cork);
+    p(8, 1, 4, 1, corkSh);
+
+    // Base do frasco (mais escura)
+    p(5, 14, 10, 2, glassSh);
+    p(5, 14, 10, 1, '#a8b8c8');
+
+    // Estrelinha dourada (marca de "poção forte")
+    p(10, 8, 1, 3, star);
+    p(9, 9, 3, 1, star);
+    p(10, 9, 1, 1, '#ffffff');
+  }),
+
+  potion_mana_medium: makeIcon((g) => {
+    const p = px(g);
+    const glass   = '#c8d8e8';
+    const glassSh = '#8aa0b8';
+    const cork    = '#8a6b5a';
+    const liquid  = '#2a5fa0';
+    const liquidHi = '#8ad8ff';
+    const star    = '#ffffff';
+
+    // Corpo do frasco
+    p(6, 4, 8, 12, glass);
+    p(14, 4, 1, 12, glassSh);
+    // Líquido (azul médio)
+    p(7, 5, 6, 10, liquid);
+    p(7, 5, 6, 1, liquidHi);
+    // Brilho interno
+    p(8, 6, 2, 2, liquidHi);
+
+    // Gargalo + rolha
+    p(8, 2, 4, 2, glass);
+    p(9, 2, 2, 2, glassSh);
+    p(8, 1, 4, 2, cork);
+    p(8, 1, 4, 1, '#5a4030');
+
+    // Base
+    p(6, 14, 8, 2, glassSh);
+
+    // Estrelinha (marca de "média")
+    p(10, 10, 2, 1, star);
+    p(10, 9, 1, 1, star);
+  }),
+
+  potion_mana_strong: makeIcon((g) => {
+    const p = px(g);
+    const glass    = '#c8d8e8';
+    const glassSh  = '#8aa0b8';
+    const cork     = '#8a6b5a';
+    const corkSh   = '#5a4030';
+    const liquid   = '#2a5fa0';
+    const liquidHi = '#8ad8ff';
+    const liquidSh = '#1a3f70';
+    const star     = '#e8f6ff';
+
+    // Corpo do frasco (mais largo que os outros)
+    p(5, 4, 10, 12, glass);
+    p(14, 4, 1, 12, glassSh);
+    // Líquido (enche quase tudo)
+    p(6, 5, 8, 10, liquid);
+    p(6, 5, 8, 1, liquidHi);
+    p(6, 13, 8, 2, liquidSh);
+    // Brilho interno (bolha/reflexo maior)
+    p(7, 6, 2, 2, liquidHi);
+
+    // Gargalo + rolha
+    p(8, 2, 4, 2, glass);
+    p(9, 2, 2, 2, glassSh);
+    p(8, 1, 4, 2, cork);
+    p(8, 1, 4, 1, corkSh);
+
+    // Base
+    p(5, 14, 10, 2, glassSh);
+    p(5, 14, 10, 1, '#a8b8c8');
+
+    // Estrela grande (marca de "forte")
+    p(10, 7, 1, 5, star);
+    p(8, 9, 5, 1, star);
+    p(9, 8, 3, 3, star);
+    p(10, 9, 1, 1, '#ffffff');
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

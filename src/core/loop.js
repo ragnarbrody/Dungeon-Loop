@@ -13,6 +13,9 @@ import { CLASSES } from '../classes.js';
 import { CANVAS_W, CANVAS_H, TILE_SIZE, GRID_SIZE } from './canvas.js';
 import { isSolid } from '../world/tiles.js';
 import { isDialogueOpen } from '../ui/dialogue.js';
+import { revealRoom, resetKnowledge } from '../world/knowledge.js';
+import { resetCamera } from '../ui/worldmap.js';
+import { addItemToInventory } from '../items.js';
 
 let lastTime = performance.now();
 
@@ -22,6 +25,7 @@ const btnContinue = document.getElementById('btn-continue');
 const continueInfo = document.getElementById('continue-info');
 const hud = document.getElementById('hud');
 const btnInventory = document.getElementById('btn-inventory');
+const btnMap = document.getElementById('btn-map');
 
 function setupMenu() {
   const raw = localStorage.getItem('dungeonLoop_save');
@@ -52,8 +56,10 @@ function goToMenu() {
   document.getElementById('levelup-screen').classList.add('hidden');
   document.getElementById('inventory-screen').classList.add('hidden');
   document.getElementById('class-screen').classList.add('hidden');
+  hud.style.display = '';    // limpa inline (evita ficar escondido)
   hud.classList.add('hidden');
   btnInventory.classList.add('hidden');
+  btnMap.classList.add('hidden');
 
   menuScreen.classList.remove('hidden');
   setupMenu();
@@ -113,6 +119,8 @@ function requestNewGame() {
       clearRoomCache();
       visitedRooms.clear();
       visitedRooms.add('0,0');
+      resetKnowledge();
+      resetCamera();
 
       // NOVO worldSeed para um mapa diferente
       setWorldSeed(Math.floor(Math.random() * 1e9));
@@ -134,6 +142,7 @@ function requestNewGame() {
       const room = getRoom(0, 0);
       setCurrentRoom(room);
       markRoomVisited(room.gx, room.gy);
+      revealRoom(room.gx, room.gy);
       const spawn = getCitySpawn();
       player.x = spawn.tx * TILE_SIZE + TILE_SIZE / 2;
       player.y = spawn.ty * TILE_SIZE + TILE_SIZE / 2;
@@ -157,7 +166,11 @@ function requestNewGame() {
           { id: 'potion_mana', qty: 1 },
         ],
       };
-      playerStats.inventory = starterItems[classId] || [];
+      playerStats.inventory = [];
+      const starters = starterItems[classId] || [];
+      for (const it of starters) {
+        addItemToInventory(playerStats.inventory, it.id, it.qty);
+      }
 
       battle.active = false;
       battle.turn = 'player';
@@ -203,6 +216,8 @@ function finishStart() {
   hud.style.display = '';
   btnInventory.classList.remove('hidden');
   btnInventory.style.display = '';
+  btnMap.classList.remove('hidden');
+  btnMap.style.display = '';
 
   updateHud();
   lastTime = performance.now();
@@ -227,6 +242,7 @@ export function loop(now) {
       document.getElementById('btn-inventory').classList.add('hidden');
       document.getElementById('gameover-screen').classList.remove('hidden');
       clearSave();
+      resetKnowledge();
     }
   } else if (gameState === STATE.EXPLORE) {
     if (playerStats.points > 0) {
