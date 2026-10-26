@@ -255,10 +255,16 @@ export function installInput() {
 
       // Submenu de itens: 1-9 seleciona
       if (battle.menuMode === 'items') {
+        if (k === 'q') { playerAction('item_page_prev'); return; }
+        if (k === 'e') { playerAction('item_page_next'); return; }
+
+        const PER_PAGE = 4;
+        const page = battle.itemPage;
         const usableItems = playerStats.inventory.filter(i => i.qty > 0 && CONSUMABLES[i.id]);
+        const pageItems = usableItems.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
         const idx = parseInt(k) - 1;
-        if (idx >= 0 && idx < usableItems.length) {
-          playerAction(`use_item_${usableItems[idx].id}`);
+        if (idx >= 0 && idx < pageItems.length) {
+          playerAction(`use_item_${pageItems[idx].id}`);
         }
         return;
       }

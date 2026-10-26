@@ -287,6 +287,7 @@ export function startBattle(opts = {}) {
   battle.fadingEnemies = [];
   battle.menuMode = 'main';
   battle.skillPage = 0;
+  battle.itemPage = 0;
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
   battle.goldEarned = 0;
@@ -348,6 +349,7 @@ export function endBattle(escaped) {
   battle.fadingEnemies = [];
   battle.menuMode = 'main';
   battle.skillPage = 0;
+  battle.itemPage = 0;
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
   battle.goldEarned = 0;
@@ -618,7 +620,20 @@ export function playerAction(action) {
   }
   if (action === 'menu_items') {
     battle.menuMode = 'items';
+    battle.itemPage = 0;
     battle.showItems = true;
+    return;
+  }
+  if (action === 'item_page_prev') {
+    battle.itemPage = Math.max(0, battle.itemPage - 1);
+    return;
+  }
+  if (action === 'item_page_next') {
+    const usableCount = playerStats.inventory
+      .filter(i => i.qty > 0 && CONSUMABLES[i.id])
+      .length;
+    const maxPage = Math.max(0, Math.ceil(usableCount / 4) - 1);
+    battle.itemPage = Math.min(maxPage, battle.itemPage + 1);
     return;
   }
   if (action === 'skill_page_prev') {
@@ -777,6 +792,7 @@ export function endPlayerTurn() {
   battle.activeEnemyIndex = -1;
   battle.menuMode = 'main';
   battle.skillPage = 0;
+  battle.itemPage = 0;
 }
 
 function tickMpRegen() {

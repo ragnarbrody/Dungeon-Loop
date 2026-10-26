@@ -164,6 +164,7 @@ export const battle = {
   showItems: false,
   menuMode: 'main',       // 'main' | 'skills' | 'items'
   skillPage: 0,           // página atual de skills (3 por página)
+  itemPage: 0, 
   xpEarned: 0,
   fadingEnemies: [],
 

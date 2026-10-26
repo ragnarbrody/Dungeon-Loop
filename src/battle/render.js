@@ -258,11 +258,12 @@ export function renderBattleInner() {
 
   // ============ SUBMENU DE ITENS ============
   if (battle.menuMode === 'items') {
-    const bY = CANVAS_H - 160;
+    const PER_PAGE = 4;
     const bH = 50;
     const usableItems = playerStats.inventory.filter(i => i.qty > 0 && CONSUMABLES[i.id]);
 
     if (usableItems.length === 0) {
+      const bY = CANVAS_H - 160;
       ctx.fillStyle = 'rgba(0,0,0,0.8)';
       ctx.fillRect(20, bY, CANVAS_W - 40, 100);
       ctx.fillStyle = '#eee';
@@ -270,47 +271,98 @@ export function renderBattleInner() {
       ctx.font = 'bold 16px "Courier New", monospace';
       ctx.fillText('Nenhum item utilizável!', CANVAS_W / 2, bY + 35);
 
-      const bx = 20;
-      battle.buttons.push({ x: bx, y: bY + 60, w: CANVAS_W - 40, h: bH, action: 'menu_main' });
-      drawButton(bx, bY + 60, CANVAS_W - 40, bH, 'Voltar');
-    } else {
-      usableItems.forEach((item, i) => {
-        const info = CONSUMABLES[item.id];
-        if (!info) return;
+      battle.buttons.push({ x: 20, y: bY + 60, w: CANVAS_W - 40, h: bH, action: 'menu_main' });
+      drawButton(20, bY + 60, CANVAS_W - 40, bH, 'Voltar');
+      return;
+    }
 
-        const bW = (CANVAS_W - 40 - gap) / 2;
-        const x = 20 + (i % 2) * (bW + gap);
-        const y = bY + Math.floor(i / 2) * (bH + gap);
+    const totalPages = Math.max(1, Math.ceil(usableItems.length / PER_PAGE));
+    const page = Math.min(battle.itemPage, totalPages - 1);
+    const start = page * PER_PAGE;
+    const pageItems = usableItems.slice(start, start + PER_PAGE);
 
-        battle.buttons.push({ x, y, w: bW, h: bH, action: `use_item_${item.id}` });
+    const bY = CANVAS_H - 170;
+    const nOnPage = pageItems.length;
+    const bW = (CANVAS_W - 40 - gap) / 2;
+    const rows = Math.ceil(nOnPage / 2);
 
+    pageItems.forEach((item, i) => {
+      const info = CONSUMABLES[item.id];
+      if (!info) return;
+
+      const x = 20 + (i % 2) * (bW + gap);
+      const y = bY + Math.floor(i / 2) * (bH + gap);
+
+      battle.buttons.push({ x, y, w: bW, h: bH, action: `use_item_${item.id}` });
+
+      ctx.fillStyle = '#2a2a3e';
+      ctx.fillRect(x, y, bW, bH);
+      ctx.strokeStyle = '#c9a24d';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, bW - 2, bH - 2);
+
+      const iconScale = 1.6;
+      const iconW = 20 * iconScale;
+      const iconX = x + 12;
+      const iconY = y + (bH - iconW) / 2;
+      drawIconOnCanvas(ctx, item.id, iconX, iconY, iconScale);
+
+      ctx.fillStyle = '#eee';
+      ctx.font = 'bold 14px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(info.name, iconX + iconW + 10, y + bH / 2 - 8);
+
+      ctx.fillStyle = '#aaa';
+      ctx.font = '11px "Courier New", monospace';
+      ctx.fillText(`x${item.qty}`, iconX + iconW + 10, y + bH / 2 + 10);
+    });
+
+    // Paginação (setas nas laterais, igual às skills)
+    if (totalPages > 1) {
+      const arrowW = 28;
+      const arrowH = 60;
+      const arrowY = bY + (rows * (bH + gap) - gap - arrowH) / 2;
+
+      if (page > 0) {
+        battle.buttons.push({ x: 2, y: arrowY, w: arrowW, h: arrowH, action: 'item_page_prev' });
         ctx.fillStyle = '#2a2a3e';
-        ctx.fillRect(x, y, bW, bH);
+        ctx.fillRect(2, arrowY, arrowW, arrowH);
         ctx.strokeStyle = '#c9a24d';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x + 1, y + 1, bW - 2, bH - 2);
-
-        const iconScale = 1.6;
-        const iconW = 20 * iconScale;
-        const iconX = x + 12;
-        const iconY = y + (bH - iconW) / 2;
-        drawIconOnCanvas(ctx, item.id, iconX, iconY, iconScale);
-
-        ctx.fillStyle = '#eee';
-        ctx.font = 'bold 14px "Courier New", monospace';
-        ctx.textAlign = 'left';
+        ctx.strokeRect(3, arrowY + 1, arrowW - 2, arrowH - 2);
+        ctx.fillStyle = '#c9a24d';
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(info.name, iconX + iconW + 10, y + bH / 2 - 8);
+        ctx.fillText('◄', 2 + arrowW / 2, arrowY + arrowH / 2);
+      }
+      if (page < totalPages - 1) {
+        battle.buttons.push({ x: CANVAS_W - arrowW - 2, y: arrowY, w: arrowW, h: arrowH, action: 'item_page_next' });
+        ctx.fillStyle = '#2a2a3e';
+        ctx.fillRect(CANVAS_W - arrowW - 2, arrowY, arrowW, arrowH);
+        ctx.strokeStyle = '#c9a24d';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(CANVAS_W - arrowW - 1, arrowY + 1, arrowW - 2, arrowH - 2);
+        ctx.fillStyle = '#c9a24d';
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('►', CANVAS_W - arrowW / 2 - 2, arrowY + arrowH / 2);
+      }
 
-        ctx.fillStyle = '#aaa';
-        ctx.font = '11px "Courier New", monospace';
-        ctx.fillText(`x${item.qty}`, iconX + iconW + 10, y + bH / 2 + 10);
-      });
-
-      const backY = bY + Math.ceil(usableItems.length / 2) * (bH + gap) + 4;
-      battle.buttons.push({ x: 20, y: backY, w: CANVAS_W - 40, h: bH, action: 'menu_main' });
-      drawButton(20, backY, CANVAS_W - 40, bH, 'Voltar');
+      // Indicador de página
+      ctx.fillStyle = '#aaa';
+      ctx.font = '11px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(`${page + 1} / ${totalPages}`, CANVAS_W / 2, bY - 8);
     }
+
+    // Botão "Voltar" (embaixo)
+    const backY = bY + rows * (bH + gap) + 4;
+    battle.buttons.push({ x: 20, y: backY, w: CANVAS_W - 40, h: bH, action: 'menu_main' });
+    drawButton(20, backY, CANVAS_W - 40, bH, 'Voltar');
 
     return;
   }
