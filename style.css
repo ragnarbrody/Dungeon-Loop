@@ -80,32 +80,6 @@ canvas {
   font-size: 12px;
 }
 
-/* Botão da mochila: fora do canvas, ao lado */
-#btn-inventory {
-  background: #2a2a3e;
-  color: #c9a24d;
-  border: 2px solid #c9a24d;
-  padding: 10px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: bold;
-  font-size: 13px;
-  transition: 0.2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  white-space: nowrap;
-  width: 100%;
-}
-
-#btn-inventory:hover {
-  background: #c9a24d;
-  color: #1a1a2e;
-}
-
 #inventory-screen {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -173,34 +147,6 @@ canvas {
 
 .hidden {
   display: none !important;
-}
-
-/* Em telas pequenas, mochila vira botão pequeno no topo */
-@media (max-width: 640px) {
-  #app {
-    flex-direction: column;
-    gap: 6px;
-    padding: 4px;
-  }
-  #left-panel {
-    flex-direction: row;
-    width: auto;
-    padding-top: 0;
-  }
-  #btn-inventory {
-    padding: 6px 10px;
-    font-size: 12px;
-    width: auto;
-  }
-  #game-container {
-    width: min(96vw, 96vh);
-    height: min(96vw, 96vh);
-  }
-  #btn-map {
-    padding: 6px 10px;
-    font-size: 12px;
-    width: auto;
-  }
 }
 
 #menu-screen {
@@ -504,6 +450,16 @@ canvas {
 }
 #shop-screen.hidden { display: none; }
 
+.shop-greeting {
+  color: #bbb;
+  font-size: 13px;
+  font-style: italic;
+  text-align: center;
+  margin: 0 0 8px 0;
+  padding: 0 8px;
+  line-height: 1.4;
+}
+
 .shop-box {
   width: min(85%, 500px);
   max-height: 80%;
@@ -552,7 +508,201 @@ canvas {
   align-self: flex-end;
 }
 
-#btn-map {
+/* ============================================================
+   QUEST LOG — mesmo padrão visual do inventário
+   ============================================================ */
+#questlog-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.95);
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+#questlog-screen.hidden { display: none; }
+
+.questlog-box {
+  width: min(85%, 520px);
+  max-height: 80%;
+  background: #1a1a2e;
+  border: 2px solid #c9a24d;
+  border-radius: 6px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.questlog-box h2 {
+  color: #c9a24d;
+  font-size: 22px;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.questlog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 320px;
+}
+
+/* Card da quest */
+.questlog-card {
+  background: #2a2a3e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.questlog-card h3 {
+  color: #feca57;
+  font-size: 16px;
+  margin: 0;
+}
+
+.questlog-desc {
+  color: #bbb;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.questlog-objectives {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.questlog-objectives li {
+  color: #ddd;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.questlog-objectives li.done {
+  color: #6fbd63;
+}
+
+.questlog-track-btn {
+  align-self: flex-start;
+  background: #2a2a3e;
+  color: #c9a24d;
+  border: 1px solid #c9a24d;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: bold;
+  transition: 0.2s;
+}
+.questlog-track-btn:hover {
+  background: #c9a24d;
+  color: #1a1a2e;
+}
+
+.questlog-ready {
+  color: #feca57;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Botão "Fechar" no rodapé */
+.questlog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #333;
+  padding-top: 12px;
+}
+
+.questlog-close {
+  background: transparent;
+  color: #888;
+  border: 1px solid #555;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: 0.2s;
+}
+.questlog-close:hover {
+  color: #eee;
+  border-color: #c9a24d;
+}
+
+/* Abas do quest log */
+.questlog-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+
+.questlog-tab {
+  flex: 1;
+  background: transparent;
+  color: #888;
+  border: 1px solid transparent;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.questlog-tab:hover {
+  color: #eee;
+  background: #2a2a3e;
+}
+
+.questlog-tab.active {
+  color: #1a1a2e;
+  background: #c9a24d;
+  border-color: #c9a24d;
+}
+
+/* Card de quest concluída (mais apagado, com check verde) */
+.questlog-card-done {
+  border-color: #3a5a3a;
+  background: #222a24;
+}
+
+.questlog-card-done h3 {
+  color: #6fbd63;
+}
+
+/* Recompensa */
+.questlog-reward {
+  color: #f0c060;
+  font-size: 11px;
+  margin: 0;
+  padding-top: 4px;
+  border-top: 1px dashed #333;
+}
+
+/* Botões laterais (mochila, mapa, missões): mesmo visual */
+#btn-inventory,
+#btn-map,
+#btn-questlog {
   background: #2a2a3e;
   color: #c9a24d;
   border: 2px solid #c9a24d;
@@ -572,7 +722,9 @@ canvas {
   width: 100%;
 }
 
-#btn-map:hover {
+#btn-inventory:hover,
+#btn-map:hover,
+#btn-questlog:hover {
   background: #c9a24d;
   color: #1a1a2e;
 }
@@ -593,4 +745,39 @@ canvas {
 @media (max-height: 520px) {
   #inventory-screen h2 { display: none; } /* ganha espaço vertical */
   #inventory-preview { display: none; }
+  .questlog-box { padding: 14px 18px; }
+  .questlog-box h2 { font-size: 18px; }
+}
+
+/* Em telas pequenas, mochila vira botão pequeno no topo */
+@media (max-width: 640px) {
+  #app {
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+  }
+  #left-panel {
+    flex-direction: row;
+    width: auto;
+    padding-top: 0;
+  }
+  #btn-inventory {
+    padding: 6px 10px;
+    font-size: 12px;
+    width: auto;
+  }
+  #game-container {
+    width: min(96vw, 96vh);
+    height: min(96vw, 96vh);
+  }
+  #btn-map {
+    padding: 6px 10px;
+    font-size: 12px;
+    width: auto;
+  }
+  #btn-questlog {
+    padding: 6px 10px;
+    font-size: 12px;
+    width: auto;
+  }
 }

@@ -1,13 +1,26 @@
 import { CANVAS_W, CANVAS_H } from './canvas.js';
 import { playerEquip } from '../sprites/equipment.js';
-import { loadKnowledge, serializeKnowledge, revealRoom, addMarker } from '../world/knowledge.js';
+import {
+  loadSave, writeSave, clearSave as clearSaveFs, getDefaultSave,
+  SAVE_VERSION,
+} from './save.js';
+import { loadKnowledge, serializeKnowledge, revealRoom } from '../world/knowledge.js';
+import { serializeQuests, loadQuests } from '../quests.js';
 
-const savedData = JSON.parse(localStorage.getItem('dungeonLoop_save')) || {};
+// ---------- Carrega o save ----------
+const savedData = loadSave() || getDefaultSave();
 
+// Aplica knowledge (o `loadKnowledge` já lida com array vazio)
 if (savedData.knowledge) {
   loadKnowledge(savedData.knowledge);
 }
 
+//
+if (savedData.quests) {
+  loadQuests(savedData.quests);
+}
+
+// ---------- Estados ----------
 export const STATE = {
   MENU: 'menu',
   EXPLORE: 'explore',
@@ -16,61 +29,43 @@ export const STATE = {
   LEVEL_UP: 'level_up',
   GAME_OVER: 'game_over',
   WORLDMAP: 'worldmap',
+  QUEST_LOG: 'quest_log',
 };
 export let gameState = STATE.MENU;
 export function setGameState(s) { gameState = s; }
 
-// Atributos base (Nível 1)
-const baseStats = { str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0 };
-// Se houver save, carrega os atributos salvos
-const loadedStats = savedData.stats || baseStats;
+// ---------- PlayerStats ----------
+const loadedStats = savedData.stats || { str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0 };
 
 export const playerStats = {
-  level: savedData.level !== undefined ? savedData.level : 1,
-  xp: savedData.xp !== undefined ? savedData.xp : 0,
-  xpToNextLevel: savedData.xpToNextLevel !== undefined ? savedData.xpToNextLevel : 50,
-  points: savedData.points !== undefined ? savedData.points : 0,
+  level: savedData.level ?? 1,
+  xp: savedData.xp ?? 0,
+  xpToNextLevel: savedData.xpToNextLevel ?? 50,
+  points: savedData.points ?? 0,
 
-  classId: savedData.classId || null,
+  classId: savedData.classId ?? null,
 
   str: loadedStats.str,
   agi: loadedStats.agi,
   int: loadedStats.int,
   def: loadedStats.def,
   vit: loadedStats.vit,
-  magia: loadedStats.magia !== undefined ? loadedStats.magia : 0,
+  magia: loadedStats.magia ?? 0,
 
   get maxHp() { return 15 + (this.vit * 5); },
-  hp: savedData.hp !== undefined ? savedData.hp : (15 + (loadedStats.vit * 5)),
+  hp: savedData.hp ?? (15 + (loadedStats.vit * 5)),
 
-  // Mana base por classe + bônus de magia (3 MP por ponto de magia)
-  _baseMp: savedData._baseMp !== undefined ? savedData._baseMp : 5,
+  _baseMp: savedData._baseMp ?? 5,
   get maxMp() { return this._baseMp + this.magia * 3; },
-  mp: savedData.mp !== undefined ? savedData.mp : 5,
+  mp: savedData.mp ?? 5,
 
-  // Acumulador de regeneração de MP (para não perder frações)
   _mpRegenAcc: 0,
-
-  // Buffs temporários de combate: { str: {amount, rounds}, agi: {amount, rounds}, ... }
   buffs: {},
-
-  inventory: savedData.inventory || [
-    { id: 'potion_weak', qty: 2 },
-  ],
-
-  // efeitos em batalha
-  shadowActive: false, // Ladrão: próximo ataque do inimigo erra
-  
-  // Status effects persistentes entre turnos (fora dos buffs)
-  poisoned: null,  // { turns: number, dmg: number } | null
-
-  // ---- Moedas ----
-  gold: savedData.gold !== undefined ? savedData.gold : 0,
-
-  // ---- Portal (núcleos coletados) ----
-  // Set com os IDs dos biomas cujos bosses foram derrotados
-  // (ex: 'fields', 'desert'). Cada núcleo = 1 boss morto.
-  portalCores: new Set(savedData.portalCores || []),
+  inventory: savedData.inventory ?? [],
+  shadowActive: false,
+  poisoned: null,
+  gold: savedData.gold ?? 0,
+  portalCores: new Set(savedData.portalCores ?? []),
 };
 
 // Garante que o HP/MP não passem do máximo
@@ -84,47 +79,83 @@ export function effStat(id) {
   return base + (b ? b.amount : 0);
 }
 
-export function saveGame() {
-  const dataToSave = {
-    ...playerStats,
+// ---------- Save (única função de escrita) ----------
+// Centraliza "o que é serializável" do state.
+// Se você adicionar um campo em `playerStats` que precisa
+// persistir entre sessões, ele DEVE entrar aqui. Se você adicionar
+// um campo que NÃO precisa persistir (ex.: `_nearInteractable`), ele
+// deve ficar FORA do playerStats (ou ser limpo ao recarregar).
+export function buildSaveData() {
+
+  return {
+    version: SAVE_VERSION,
+
+    // progressão
+    level: playerStats.level,
+    xp: playerStats.xp,
+    xpToNextLevel: playerStats.xpToNextLevel,
+    points: playerStats.points,
+    gold: playerStats.gold,
+    hp: playerStats.hp,
+    mp: playerStats.mp,
+
+    // classe / stats
     classId: playerStats.classId,
+    stats: {
+      str: playerStats.str, agi: playerStats.agi,
+      int: playerStats.int, def: playerStats.def,
+      vit: playerStats.vit, magia: playerStats.magia,
+    },
+    _baseMp: playerStats._baseMp,
+
+    // inventário / equipamento
+    inventory: playerStats.inventory,
+    equip: {
+      rightHand: playerEquip.rightHand,
+      leftHand:  playerEquip.leftHand,
+    },
+
+    // mundo
     gx: startGX,
     gy: startGY,
     px: player.x,
     py: player.y,
     visited: Array.from(visitedRooms),
-    portalCores: Array.from(playerStats.portalCores),
-    equip: {
-      rightHand: playerEquip.rightHand,
-      leftHand:  playerEquip.leftHand,
-    },
-    stats: {
-      str: playerStats.str, agi: playerStats.agi,
-      int: playerStats.int, def: playerStats.def, vit: playerStats.vit,
-      magia: playerStats.magia,
-    },
-    baseMp: playerStats._baseMp,
-    knowledge: serializeKnowledge(),
     worldSeed: worldSeed,
+
+    // knowledge
+    knowledge: serializeKnowledge(),
+
+    // portal
+    portalCores: Array.from(playerStats.portalCores),
+
+    // Missões
+    quests: serializeQuests(),
   };
-  localStorage.setItem('dungeonLoop_save', JSON.stringify(dataToSave));
 }
 
+export function saveGame() {
+  writeSave(buildSaveData());
+}
+
+export function clearSave() {
+  clearSaveFs();
+}
+
+// ---------- Player físico ----------
 export const player = {
-  x: savedData.px !== undefined ? savedData.px : CANVAS_W / 2,
-  y: savedData.py !== undefined ? savedData.py : CANVAS_H / 2,
+  x: savedData.px ?? CANVAS_W / 2,
+  y: savedData.py ?? CANVAS_H / 2,
   size: 18,
   speed: 2.2,
   facing: 'down',
   step: 0,
-  // cooldown de fuga por inimigo do mapa
-  // Map<enemyRef, tempoRestanteEmSegundos>
   fleeImmune: new Map(),
 };
 
 export let currentRoom = null;
-export let startGX = savedData.gx !== undefined ? savedData.gx : 0;
-export let startGY = savedData.gy !== undefined ? savedData.gy : 0;
+export let startGX = savedData.gx ?? 0;
+export let startGY = savedData.gy ?? 0;
 
 export function setCurrentRoom(r) {
   currentRoom = r;
@@ -150,27 +181,20 @@ export const battle = {
   mapEnemy: null,
   log: [],
   anim: {
-    shake: 0,
-    flashPlayer: 0,
-    flashPlayerType: 'white',
-    flashEnemy: 0,
-    flashEnemyIndex: -1,
-    flashEnemyType: 'red',
-    lungePlayer: 0,
-    lungeEnemy: 0,
+    shake: 0, flashPlayer: 0, flashPlayerType: 'white',
+    flashEnemy: 0, flashEnemyIndex: -1, flashEnemyType: 'red',
+    lungePlayer: 0, lungeEnemy: 0,
   },
   floatingTexts: [],
   buttons: [],
   showItems: false,
-  menuMode: 'main',       // 'main' | 'skills' | 'items'
-  skillPage: 0,           // página atual de skills (3 por página)
-  itemPage: 0, 
+  menuMode: 'main',
+  skillPage: 0,
+  itemPage: 0,
   xpEarned: 0,
   fadingEnemies: [],
-
-  // NOVO: tooltip de skill
-  tooltipSkill: null,     // objeto da skill sendo mostrada (ou null)
-  tooltipPos: null,       // { x, y } da posição do ⓘ clicado
+  tooltipSkill: null,
+  tooltipPos: null,
 };
 
 if (savedData.equip) {
@@ -182,13 +206,16 @@ export function addGold(amount) {
   playerStats.gold = Math.max(0, playerStats.gold + amount);
 }
 
-// Revela ao redor da posição inicial
+if (savedData.quests) {
+  loadQuests(savedData.quests);
+}
+
+// Revela a sala inicial
 revealRoom(startGX, startGY);
 
 export let transitionCooldown = 0;
 export function setTransitionCooldown(v) { transitionCooldown = v; }
 export function decrementTransitionCooldown() { if (transitionCooldown > 0) transitionCooldown--; }
-export function clearSave() { localStorage.removeItem('dungeonLoop_save'); }
 
 export let worldSeed = savedData.worldSeed ?? Math.floor(Math.random() * 1e9);
 export function setWorldSeed(s) { worldSeed = s; }

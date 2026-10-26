@@ -17,14 +17,25 @@ export function getInteractables(room) {
   // ---- INTERIOR: só o NPC ----
   if (room.isInterior) {
     if (room.npc) {
-      list.push({
-        tx: room.npc.tx,
-        ty: room.npc.ty,
-        kind: 'shop_keep',
-        buildingId: room.buildingId,
-        title: 'Herbalista',
-        text: 'Bem-vindo! Quer comprar alguma poção?',
-      });
+      const npc = room.npc;
+      // Herbalista: abre loja
+      if (npc.buildingId === 'herbalist') {
+        list.push({
+          tx: npc.tx, ty: npc.ty,
+          kind: 'shop_keep',
+          buildingId: npc.buildingId,
+          title: 'Herbalista',
+          text: 'Bem-vindo! Quer comprar alguma poção?',
+        });
+      }
+      // Ancião: abre diálogo de quests
+      else if (npc.buildingId === 'quest_giver') {
+        list.push({
+          tx: npc.tx, ty: npc.ty,
+          kind: 'elder',
+          title: 'Ancião de Aethel',
+        });
+      }
     }
     return list;
   }
@@ -78,7 +89,7 @@ function signTextFor(id) {
     jeweler:
       'Joalheiro. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro. [EM BREVE]',
     quest_giver:
-      'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes. [EM BREVE]',
+      'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes.',
   };
   return texts[id] || 'Uma placa desgastada. Não dá pra ler direito.';
 }
@@ -110,6 +121,7 @@ export function findNearbyInteractable(room) {
   const priority = {
     building_entrance: 0,
     shop_keep:         0,
+    elder:             0,
     portal:            1,
     sign:              2,
   };
@@ -121,7 +133,7 @@ export function findNearbyInteractable(room) {
   for (const it of list) {
     const dx = Math.abs(it.tx - ptx);
     const dy = Math.abs(it.ty - pty);
-    const maxDist = it.kind === 'shop_keep' ? 2 : 1;
+    const maxDist = (it.kind === 'shop_keep' || it.kind === 'elder') ? 2 : 1;
     if (dx + dy > maxDist) continue;
 
     const pri = priority[it.kind] ?? 99;

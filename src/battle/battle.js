@@ -8,6 +8,7 @@ import { CLASSES } from '../classes.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { showToast } from '../ui/toast.js';
 import { getBiomeEnemies } from '../world/biomes.js';
+import { notifyEnemyKilled } from '../quests.js';
 
 const ENEMIES = {
   slime: {
@@ -241,6 +242,7 @@ function clearDeadEnemies() {
           battle.goldEarned = (battle.goldEarned || 0) + gold;
         }
       }
+      notifyEnemyKilled(e.id);
       battle.fadingEnemies.push({
         ref: e,
         timer: FADE_DURATION,

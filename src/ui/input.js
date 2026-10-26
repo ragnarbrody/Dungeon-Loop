@@ -9,6 +9,8 @@ import { openDialogue, closeDialogue, isDialogueOpen } from './dialogue.js';
 import { portalText } from '../world/interactables.js';
 import { enterBuilding } from '../world/rooms.js';
 import { openShop, closeShop, isShopOpen } from './shop.js';
+import { openQuestLog, closeQuestLog, isQuestLogOpen } from './questlog.js';
+import { talkToElder } from './elderdialog.js';
 import {
   openWorldMap, closeWorldMap, isWorldMapOpen,
   handleMapClick, handleMapMove, handleMapRelease, handleMapWheel,
@@ -20,7 +22,7 @@ export const keys = {};
 // Função para abrir/fechar inventário
 function toggleInventory() {
   const invScreen = document.getElementById('inventory-screen');
-  
+
   if (gameState === STATE.EXPLORE) {
     setGameState(STATE.INVENTORY);
     renderInventory();
@@ -29,7 +31,19 @@ function toggleInventory() {
     setGameState(STATE.EXPLORE);
     invScreen.classList.add('hidden');
     // Reseta as teclas para o player não sair andando sozinho ao fechar
-    for (let k in keys) keys[k] = false; 
+    for (let k in keys) keys[k] = false;
+  }
+}
+
+// Função para abrir/fechar o quest log
+function toggleQuestLog() {
+  if (gameState === STATE.EXPLORE) {
+    openQuestLog();
+    setGameState(STATE.QUEST_LOG);
+  } else if (gameState === STATE.QUEST_LOG) {
+    closeQuestLog();
+    setGameState(STATE.EXPLORE);
+    for (let k in keys) keys[k] = false;
   }
 }
 
@@ -58,6 +72,18 @@ export function installInput() {
     icon.style.imageRendering = 'pixelated';
 
     btnMap.insertBefore(icon, btnMap.firstChild);
+  }
+
+  const btnQuest = document.getElementById('btn-questlog');
+  if (btnQuest && !btnQuest.dataset.iconInjected) {
+    btnQuest.dataset.iconInjected = '1';
+
+    const icon = getIcon('questlog');
+    icon.style.width = '20px';
+    icon.style.height = '20px';
+    icon.style.imageRendering = 'pixelated';
+
+    btnQuest.insertBefore(icon, btnQuest.firstChild);
   }
 
   // ---------- World Map: drag & zoom ----------
@@ -95,8 +121,19 @@ export function installInput() {
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
 
+    // ---- Loja aberta: só ESC fecha ----
     if (isShopOpen()) {
       if (k === 'escape') closeShop();
+      return;
+    }
+
+    // ---- Quest log aberto: só ESC/Q fecha ----
+    if (gameState === STATE.QUEST_LOG) {
+      if (k === 'escape' || k === 'q') {
+        closeQuestLog();
+        setGameState(STATE.EXPLORE);
+        for (let kk in keys) keys[kk] = false;
+      }
       return;
     }
 
@@ -124,8 +161,6 @@ export function installInput() {
                 label: `Colocar núcleos (${playerStats.portalCores.size}/8)`,
                 disabled: playerStats.portalCores.size === 0,
                 action: () => {
-                  // por enquanto, só mostra o status
-                  // o consumo real dos núcleos será feito quando o boss final existir
                   openDialogue({
                     title: 'Núcleos',
                     text:
@@ -139,6 +174,8 @@ export function installInput() {
           });
         } else if (it.kind === 'building_entrance') {
           enterBuilding(it.buildingId);
+        } else if (it.kind === 'elder') {
+          talkToElder();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
         }
@@ -146,9 +183,15 @@ export function installInput() {
       }
       return;
     }
-    
+
     if (k === 'i' && gameState !== STATE.BATTLE) {
       toggleInventory();
+      return;
+    }
+
+    // ---- Quest log: Q abre/fecha (só em explore) ----
+    if (k === 'q' && gameState === STATE.EXPLORE) {
+      toggleQuestLog();
       return;
     }
 
@@ -283,6 +326,17 @@ export function installInput() {
       setGameState(STATE.WORLDMAP);
     } else if (gameState === STATE.WORLDMAP) {
       closeWorldMap();
+      setGameState(STATE.EXPLORE);
+    }
+  });
+
+  // Clique no botão de missões
+  document.getElementById('btn-questlog').addEventListener('click', () => {
+    if (gameState === STATE.EXPLORE) {
+      openQuestLog();
+      setGameState(STATE.QUEST_LOG);
+    } else if (gameState === STATE.QUEST_LOG) {
+      closeQuestLog();
       setGameState(STATE.EXPLORE);
     }
   });

@@ -4,6 +4,12 @@ import { T } from './tiles.js';
 const INTERIOR_COLS = 9;
 const INTERIOR_ROWS = 9;
 
+// Mapeamento buildingId -> id do NPC (para o sprite)
+const NPC_FOR_BUILDING = {
+  herbalist: 'herbalist',
+  quest_giver: 'elder',
+};
+
 export function createInterior(buildingId, gx, gy) {
   const cols = INTERIOR_COLS;
   const rows = INTERIOR_ROWS;
@@ -36,7 +42,8 @@ export function createInterior(buildingId, gx, gy) {
 
   // NPC atrás da mesa
   const npc = {
-    id: buildingId,
+    id: NPC_FOR_BUILDING[buildingId] || 'herbalist',
+    buildingId,
     tx: mid,
     ty: tableY - 1,
   };
@@ -47,7 +54,7 @@ export function createInterior(buildingId, gx, gy) {
     map,
     doors: ['bottom'],
     biomeId: 'interior',
-    name: 'Interior',
+    name: buildingId === 'quest_giver' ? 'Salão do Ancião' : 'Interior',
     nameCoords: `${gx}, ${gy}`,
     isInterior: true,
     buildingId,

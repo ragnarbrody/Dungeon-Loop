@@ -16,6 +16,10 @@ export function render(dt) {
     renderMenu(dt || 0.016);
   } else if (gameState === STATE.BATTLE) {
     renderBattle();
+  } else if (gameState === STATE.QUEST_LOG) {
+    // A tela é DOM (overlay), então o canvas fica congelado no fundo.
+    // Só renderiza o explore por baixo.
+    renderExplore();
   } else {
     renderExplore();
     if (gameState === STATE.EXPLORE) {

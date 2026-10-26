@@ -9,7 +9,8 @@ import { composeFrame } from '../sprites/compose.js';
 import { getActiveLeaves } from '../entities/leaves.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { drawMapEnemies } from '../entities/enemies.js';
-import { herbalistFrames } from '../sprites/herbalist.js';
+import { NPC_SPRITES } from '../sprites/npcs.js';
+import { getTrackedQuest, getProgress, isQuestReadyToComplete } from '../quests.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -140,6 +141,68 @@ export function renderExplore() {
     player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
+
+  // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
+  drawQuestTracker();
+}
+
+// ============================================================
+// HUD DE QUEST — desenha a quest rastreada no canto inferior esquerdo.
+// Chamado por renderExplore e renderCity.
+// ============================================================
+function drawQuestTracker() {
+  const tracked = getTrackedQuest();
+  if (!tracked) return;
+
+  // Monta a linha: "★ Limpeza nos Arredores | Derrote slimes: 1/3"
+  // e (se pronta) adiciona "✔ Volte ao Ancião".
+  const parts = [];
+  for (const obj of tracked.objectives) {
+    const cur = getProgress(tracked.id, obj.id);
+    parts.push(`${obj.text}: ${cur}/${obj.target}`);
+  }
+  const ready = isQuestReadyToComplete(tracked.id);
+
+  const title = `★ ${tracked.title}`;
+  const detail = parts.join('  |  ');
+
+  ctx.font = 'bold 11px "Courier New", monospace';
+  const titleW = ctx.measureText(title).width;
+  ctx.font = '10px "Courier New", monospace';
+  const detailW = ctx.measureText(detail).width;
+  const readyW = ready ? ctx.measureText('  ✔ Volte ao Ancião').width : 0;
+
+  const boxW = Math.max(titleW, detailW + readyW) + 20;
+  const boxH = 36;
+  const bx = 10;
+  const by = CANVAS_H - boxH - 10;
+
+  // Fundo
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = '#c9a24d';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
+
+  // Linha 1: título em dourado
+  ctx.fillStyle = '#feca57';
+  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(title, bx + 10, by + 12);
+
+  // Linha 2: detalhe (e "volte ao ancião" se pronta)
+  let x = bx + 10;
+  const y = by + 26;
+  ctx.font = '10px "Courier New", monospace';
+  ctx.fillStyle = '#ddd';
+  ctx.fillText(detail, x, y);
+  x += detailW;
+
+  if (ready) {
+    ctx.fillStyle = '#6fbd63';
+    ctx.fillText('  ✔ Volte ao Ancião', x, y);
+  }
 }
 
 // ---------- CHÃO DE AREIA PROCEDURAL ----------
@@ -410,6 +473,9 @@ function renderCity(room) {
     player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
+
+  // ---------- HUD DE QUEST ----------
+  drawQuestTracker();
 }
 
 // ============================================================
@@ -874,7 +940,8 @@ function renderInterior(room) {
   // NPC
   const npc = room.npc;
   if (npc) {
-    const frame = herbalistFrames.idle[0];
+    const npcSprites = NPC_SPRITES[npc.id] || NPC_SPRITES.herbalist;
+    const frame = npcSprites.idle[0];
     const nx = offX + npc.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
     const ny = offY + npc.ty * TILE_SIZE + TILE_SIZE - 30;
     ctx.globalAlpha = 0.95;
@@ -882,12 +949,12 @@ function renderInterior(room) {
     ctx.globalAlpha = 1;
   }
 
-  // Prompt de interação
+  // Prompt de interação (tanto herbalista quanto ancião)
   const it = playerStats._nearInteractable;
-  if (it && it.kind === 'shop_keep') {
+  if (it && (it.kind === 'shop_keep' || it.kind === 'elder')) {
     const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
     const cy = offY + it.ty * TILE_SIZE - 16;
-    const text = 'Aperte [E]';
+    const text = it.kind === 'elder' ? 'Conversar: Ancião [E]' : 'Aperte [E]';
     ctx.font = 'bold 10px "Courier New", monospace';
     const w = ctx.measureText(text).width + 10;
     const h = 16;

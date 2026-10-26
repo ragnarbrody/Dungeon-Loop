@@ -8,7 +8,7 @@ import { updateBattle } from '../battle/battle.js';
 import { render } from '../render/index.js';
 import { updateHud } from '../ui/hud.js';
 import { renderLevelUp } from '../ui/levelup.js';
-import { showClassSelect } from '../ui/classselect.js';
+import { applyClass, showClassSelect } from '../ui/classselect.js';
 import { CLASSES } from '../classes.js';
 import { CANVAS_W, CANVAS_H, TILE_SIZE, GRID_SIZE } from './canvas.js';
 import { isSolid } from '../world/tiles.js';
@@ -16,6 +16,8 @@ import { isDialogueOpen } from '../ui/dialogue.js';
 import { revealRoom, resetKnowledge } from '../world/knowledge.js';
 import { resetCamera } from '../ui/worldmap.js';
 import { addItemToInventory } from '../items.js';
+import { getDefaultSave, writeSave } from '../core/save.js';
+import { resetQuests } from '../quests.js';
 
 let lastTime = performance.now();
 
@@ -60,6 +62,7 @@ function goToMenu() {
   hud.classList.add('hidden');
   btnInventory.classList.add('hidden');
   btnMap.classList.add('hidden');
+  document.getElementById('btn-questlog').classList.add('hidden');
 
   menuScreen.classList.remove('hidden');
   setupMenu();
@@ -114,31 +117,55 @@ function requestNewGame() {
   // 2) Mostra a tela de seleção de classe SEM apagar nada ainda.
   showClassSelect(
     (classId) => {
-      // ---- Aqui o jogador CONFIRMOU. Agora sim limpamos e criamos o novo jogo. ----
-      clearSave();
+      // ---- 1) Limpa caches e "mundo" ----
+      clearSave();                 // apaga o save antigo
       clearRoomCache();
       visitedRooms.clear();
       visitedRooms.add('0,0');
       resetKnowledge();
+      resetQuests();
       resetCamera();
-
-      // NOVO worldSeed para um mapa diferente
       setWorldSeed(Math.floor(Math.random() * 1e9));
 
-      // Limpa estado residual
-      playerStats.shadowActive = false;
-      playerStats.buffs = {};
-      playerStats._mpRegenAcc = 0;
-      playerStats.poisoned = null;        
-      playerStats.portalCores = new Set(); // (zera os núcleos)
+      // ---- 2) Reseta playerStats pro default de forma segura ----
+      //     (evita "esquecer" um campo)
+      const defSave  = getDefaultSave();
+      Object.assign(playerStats, {
+        level: defSave.level,
+        xp: defSave.xp,
+        xpToNextLevel: defSave.xpToNextLevel,
+        points: defSave.points,
+        gold: defSave.gold,
+        hp: defSave.hp,
+        mp: defSave.mp,
+        classId: null,       // applyClass abaixo preenche
+        str: defSave.stats.str, agi: defSave.stats.agi,
+        int: defSave.stats.int, def: defSave.stats.def,
+        vit: defSave.stats.vit, magia: defSave.stats.magia,
+        _baseMp: defSave._baseMp,
+        inventory: [],
+        buffs: {},
+        _mpRegenAcc: 0,
+        shadowActive: false,
+        poisoned: null,
+        portalCores: new Set(),
+      });
 
-      // reseta progressão
-      playerStats.level = 1;
-      playerStats.xp = 0;
-      playerStats.xpToNextLevel = 50;
-      playerStats.points = 0;
-      playerStats.gold = 0;  
+      // ---- 3) Aplica a classe escolhida ----
+      applyClass(classId);
 
+      // ---- 4) Inventário inicial por classe ----
+      const starterItems = {
+        knightess: [{ id: 'potion_weak', qty: 2 }, { id: 'potion_str', qty: 1 }],
+        mage:      [{ id: 'potion_weak', qty: 1 }, { id: 'potion_mana', qty: 2 }],
+        thief:     [{ id: 'potion_weak', qty: 2 }, { id: 'potion_agi', qty: 1 }],
+        huntress:  [{ id: 'potion_weak', qty: 1 }, { id: 'potion_mana', qty: 1 }],
+      };
+      for (const it of (starterItems[classId] || [])) {
+        addItemToInventory(playerStats.inventory, it.id, it.qty);
+      }
+
+      // ---- 5) Posiciona o player na cidade ----
       const room = getRoom(0, 0);
       setCurrentRoom(room);
       markRoomVisited(room.gx, room.gy);
@@ -147,31 +174,7 @@ function requestNewGame() {
       player.x = spawn.tx * TILE_SIZE + TILE_SIZE / 2;
       player.y = spawn.ty * TILE_SIZE + TILE_SIZE / 2;
 
-      // Inventário inicial por classe
-      const starterItems = {
-        knightess: [
-          { id: 'potion_weak', qty: 2 },
-          { id: 'potion_str',  qty: 1 },
-        ],
-        mage: [
-          { id: 'potion_weak', qty: 1 },
-          { id: 'potion_mana', qty: 2 },
-        ],
-        thief: [
-          { id: 'potion_weak', qty: 2 },
-          { id: 'potion_agi',  qty: 1 },
-        ],
-        huntress: [
-          { id: 'potion_weak', qty: 1 },
-          { id: 'potion_mana', qty: 1 },
-        ],
-      };
-      playerStats.inventory = [];
-      const starters = starterItems[classId] || [];
-      for (const it of starters) {
-        addItemToInventory(playerStats.inventory, it.id, it.qty);
-      }
-
+      // ---- 6) Reseta estado de batalha ----
       battle.active = false;
       battle.turn = 'player';
       battle.showItems = false;
@@ -179,8 +182,11 @@ function requestNewGame() {
       battle.anim = { shake: 0, flashPlayer: 0, flashEnemy: 0, lungePlayer: 0, lungeEnemy: 0 };
       battle.menuMode = 'main';
       battle.skillPage = 0;
-      battle.showItems = false;
+      battle.itemPage = 0;
+      battle.tooltipSkill = null;
+      battle.tooltipPos = null;
 
+      // ---- 7) Grava já de cara ----
       saveGame();
       finishStart();
     },
@@ -218,6 +224,13 @@ function finishStart() {
   btnInventory.style.display = '';
   btnMap.classList.remove('hidden');
   btnMap.style.display = '';
+
+  // ---- NOVO: botão de missões ----
+  const btnQuest = document.getElementById('btn-questlog');
+  if (btnQuest) {
+    btnQuest.classList.remove('hidden');
+    btnQuest.style.display = '';
+  }
 
   updateHud();
   lastTime = performance.now();

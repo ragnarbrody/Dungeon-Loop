@@ -2,6 +2,7 @@ import { playerStats, saveGame } from '../core/state.js';
 import { ITEMS_DB, addItemToInventory, remainingSpace } from '../items.js';
 import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
+import { greeting } from './classvocative.js';
 
 // Estoque por loja
 export const SHOPS = {
@@ -30,6 +31,7 @@ function ensureContainer() {
   container.innerHTML = `
     <div class="shop-box">
       <h2 class="shop-title"></h2>
+      <p class="shop-greeting"></p>
       <div class="shop-gold"></div>
       <div class="shop-items"></div>
       <button class="shop-close">Fechar (ESC)</button>
@@ -47,6 +49,10 @@ export function openShop(buildingId) {
   const c = ensureContainer();
   c.classList.remove('hidden');
   c.querySelector('.shop-title').textContent = shop.name;
+
+  // Saudação dinâmica ("Bem-vindo, Mago." / "Bem-vinda, Caçadora.")
+  const greetEl = c.querySelector('.shop-greeting');
+  if (greetEl) greetEl.textContent = greeting();
 
   renderShopBody(c, shop);
 }

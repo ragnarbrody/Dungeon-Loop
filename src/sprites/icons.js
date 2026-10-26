@@ -519,6 +519,39 @@ export const ICONS = {
     p(10, 9, 1, 1, '#ffffff');
   }),
 
+  questlog: makeIcon((g) => {
+    const p = px(g);
+    // Pergaminho
+    const paper     = '#e8d8b0';
+    const paperDark = '#b8a074';
+    const paperHi   = '#f5ebd0';
+    const ink       = '#5a3a24';
+    const gold      = '#feca57';
+    const goldSh    = '#c9a24d';
+
+    // Corpo do pergaminho (levemente enrolado nas pontas)
+    p(4, 3, 12, 14, paperDark);   // sombra/borda
+    p(5, 4, 10, 12, paper);       // papel
+    p(5, 4, 10, 1, paperHi);      // brilho topo
+    // Enrolado no topo (barra horizontal)
+    p(3, 2, 14, 2, paperDark);
+    p(4, 2, 12, 1, paperHi);
+    // Enrolado na base
+    p(3, 16, 14, 2, paperDark);
+    p(4, 16, 12, 1, paperHi);
+
+    // Linhas de "texto" (fracas, pro fundo não competir com o "!")
+    p(7, 7, 6, 1, ink);
+    p(7, 9, 4, 1, ink);
+
+    // Exclamação dourada (símbolo de quest)
+    p(10, 6, 2, 5, gold);         // haste
+    p(10, 12, 2, 2, gold);        // ponto
+    p(10, 6, 1, 5, goldSh);       // sombra lateral esq da haste
+    p(10, 12, 1, 2, goldSh);      // sombra lateral esq do ponto
+    p(11, 6, 1, 5, '#fff5c0');    // brilho lateral dir da haste
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));
