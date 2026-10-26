@@ -1,5 +1,5 @@
 // src/sprites/mummy.js
-// Múmia 32x32, 2 frames idle (leve sway) + 1 attack (braços pra frente).
+// MÃºmia 32x32, 2 frames idle (leve sway) + 1 attack (braÃ§os pra frente).
 // Humanoide envolto em bandagens, olhos brilhantes.
 export function makeMummyFrames() {
   const S = 32;
@@ -30,7 +30,7 @@ export function makeMummyFrames() {
     const armOut  = isAttack ? 3 : 0;
     const headLean = isAttack ? 1 : 0;
 
-    // Sombra no chão
+    // Sombra no chÃ£o
     g.fillStyle = 'rgba(0,0,0,0.3)';
     g.beginPath();
     g.ellipse(16, 30, 11, 3, 0, 0, Math.PI * 2);
@@ -43,7 +43,7 @@ export function makeMummyFrames() {
     px(17 + sway, 24, 4, 5, wrap);
     px(11 + sway, 24, 4, 1, wrapHi);
     px(17 + sway, 24, 4, 1, wrapHi);
-    // Tiras soltas embaixo (a múmia "arrasta")
+    // Tiras soltas embaixo (a mÃºmia "arrasta")
     px(11 + sway, 29, 4, 1, wrapSh);
     px(17 + sway, 29, 4, 1, wrapSh);
     px(10 + sway, 29, 1, 1, wrapOld);
@@ -55,32 +55,32 @@ export function makeMummyFrames() {
     px(9 + sway, 14, 14, 10, wrap);
     px(9 + sway, 14, 14, 1, wrapHi);
     px(9 + sway, 23, 14, 1, wrapSh);
-    // Tiras horizontais (dar impressão de bandagem enrolada)
+    // Tiras horizontais (dar impressÃ£o de bandagem enrolada)
     px(9 + sway, 16, 14, 1, wrapSh);
     px(9 + sway, 19, 14, 1, wrapSh);
     px(9 + sway, 22, 14, 1, wrapSh);
-    // Manchas de "podridão"
+    // Manchas de "podridÃ£o"
     px(12 + sway, 15, 2, 1, wrapOld);
     px(18 + sway, 18, 1, 2, wrapOld);
     px(14 + sway, 21, 1, 1, wrapOld);
 
     // ============================================================
-    // BRAÇOS (na frente no attack, do lado no idle)
+    // BRAÃ‡OS (na frente no attack, do lado no idle)
     // ============================================================
     if (isAttack) {
-      // Braços esticados pra frente (zumbi/múmia)
+      // BraÃ§os esticados pra frente (zumbi/mÃºmia)
       px(6 + sway, 15, 3, 6, wrap);
       px(23 + sway, 15, 3, 6, wrap);
       px(6 + sway, 15, 3, 1, wrapHi);
       px(23 + sway, 15, 3, 1, wrapHi);
-      // "Mãos" esfarrapadas (descem um pouco)
+      // "MÃ£os" esfarrapadas (descem um pouco)
       px(5 + sway, 21, 4, 2, wrapSh);
       px(24 + sway, 21, 3, 2, wrapSh);
       // Tiras soltas
       px(4 + sway, 23, 2, 1, wrapOld);
       px(26 + sway, 23, 2, 1, wrapOld);
     } else {
-      // Braços caídos ao lado
+      // BraÃ§os caÃ­dos ao lado
       px(6 + sway, 15, 3, 9, wrap);
       px(23 + sway, 15, 3, 9, wrap);
       px(6 + sway, 15, 3, 1, wrapHi);
@@ -91,14 +91,14 @@ export function makeMummyFrames() {
     }
 
     // ============================================================
-    // CABEÇA (envolta em bandagem, olhos brilhantes)
+    // CABEÃ‡A (envolta em bandagem, olhos brilhantes)
     // ============================================================
     const hx = 11 + sway + headLean;
-    // Cabeça base
+    // CabeÃ§a base
     px(hx, 6, 10, 8, wrap);
     px(hx, 6, 10, 1, wrapHi);
     px(hx, 13, 10, 1, wrapSh);
-    // Tiras na cabeça
+    // Tiras na cabeÃ§a
     px(hx, 8, 10, 1, wrapSh);
     px(hx, 11, 10, 1, wrapSh);
     // Manchas

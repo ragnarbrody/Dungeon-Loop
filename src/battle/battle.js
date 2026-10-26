@@ -12,12 +12,12 @@ import { getBiomeEnemies } from '../world/biomes.js';
 const ENEMIES = {
   slime: {
     name: 'Slime',
-    hp: 8, maxHp: 8, atk: 4, def: 0, xp: 5,
+    hp: 8, maxHp: 8, atk: 4, def: 0, xp: 5, goldMin: 0,  goldMax: 3
     // Slime é o mais básico: só ataca, sem skill
   },
   rat: {
     name: 'Rato do Campo',
-    hp: 12, maxHp: 12, atk: 5, def: 1, xp: 12,
+    hp: 12, maxHp: 12, atk: 5, def: 1, xp: 12, goldMin: 1,  goldMax: 5
     //  Habilidade especial: entrar na toca
     // - A cada N turnos, esconde (não atacável)
     // - Próximo turno, sai e ataca normalmente
@@ -25,20 +25,20 @@ const ENEMIES = {
   },
   goblin: {
     name: 'Goblin',
-    hp: 18, maxHp: 18, atk: 8, def: 2, xp: 30,
+    hp: 18, maxHp: 18, atk: 8, def: 2, xp: 30, goldMin: 3,  goldMax: 10
     // Habilidades: Enfurecer (solo) / Fortalecer Aliado (multi)
     // Ver enemyTurn() abaixo
   },
   scorpion: {
     name: 'Escorpião',
-    hp: 20, maxHp: 20, atk: 5, def: 0, xp: 22,
+    hp: 20, maxHp: 20, atk: 5, def: 0, xp: 22, goldMin: 2,  goldMax: 8,
     // Veneno: chance de aplicar "envenenado por 2 turnos" ao acertar.
     // Dano 1-2 por turno. Aplicado via enemyTurn() abaixo.
     poisonChance: 0.35,
   },
   vulture: {
     name: 'Abutre',
-    hp: 8, maxHp: 8, atk: 6, def: 0, xp: 25,
+    hp: 8, maxHp: 8, atk: 6, def: 0, xp: 25, goldMin: 2,  goldMax: 9,
     // Alta esquiva: 35% de chance do ataque do jogador errar.
     dodgeChance: 0.35,
     // Voar pra longe: 1x a cada N turnos, fica "escondido" por 1 turno.
@@ -46,7 +46,7 @@ const ENEMIES = {
   },
   mummy: {
     name: 'Múmia',
-    hp: 28, maxHp: 28, atk: 9, def: 3, xp: 40,
+    hp: 28, maxHp: 28, atk: 9, def: 3, xp: 40, goldMin: 6,  goldMax: 20,
     // Dano bruto: carrega um ataque forte a cada N turnos.
     // Chance de começar a carregar por turno (quando não está carregando).
     chargeChance: 0.5,
@@ -56,7 +56,7 @@ const ENEMIES = {
 
   scarab: {
     name: 'Escaravelho',
-    hp: 7, maxHp: 7, atk: 3, def: 0, xp: 15,
+    hp: 7, maxHp: 7, atk: 3, def: 0, xp: 15, goldMin: 1,  goldMax: 4,
     // Suporte: buffa aliados NÃO-escaravelhos (nem a si mesmo).
     // Não stacka — se o aliado já tem buff do escaravelho, renova.
     isBuffer: true,
@@ -232,6 +232,13 @@ function clearDeadEnemies() {
       survivors.push(e);
     } else {
       battle.xpEarned += e.xp;
+      // Ouro dropado
+      if (e.goldMin !== undefined) {
+        const gold = rand(e.goldMin, e.goldMax);
+        if (gold > 0) {
+          battle.goldEarned = (battle.goldEarned || 0) + gold;
+        }
+      }
       battle.fadingEnemies.push({
         ref: e,
         timer: FADE_DURATION,
@@ -261,7 +268,7 @@ function clearDeadEnemies() {
 export function startBattle(opts = {}) {
   // Cidade é safezone — nunca entra em combate
   if (currentRoom && currentRoom.isCity) return;
-  
+
   const { enemyId, mapEnemy, biomeGX, biomeGY } = opts;
   const wb = weaponBonus(playerEquip);
 
@@ -280,6 +287,7 @@ export function startBattle(opts = {}) {
   battle.skillPage = 0;
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
+  battle.goldEarned = 0;
 
   playerStats.buffs = {};
   playerStats._mpRegenAcc = 0;
@@ -340,6 +348,7 @@ export function endBattle(escaped) {
   battle.skillPage = 0;
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
+  battle.goldEarned = 0;
   encounter.cooldownPx = escaped ? 600 : 800;
   encounter.walkedSinceLast = 0;
   hud.style.display = '';
@@ -835,6 +844,12 @@ export function updateBattle(dt) {
         playerStats.hp = playerStats.maxHp;
         playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
       }
+      if (battle.goldEarned) {
+        playerStats.gold += battle.goldEarned;
+        battle.message = `Você venceu! +${battle.goldEarned} de ouro.`;
+      } else {
+        battle.message = 'Você venceu!';
+      }
       saveGame();
     }
     battle.turnTimer -= dt;
@@ -1147,4 +1162,13 @@ export function enemyScreenPos(enemy) {
     x: startX + idx * spacing,
     y: CANVAS_H * 0.30,
   };
+}
+
+// chamar quando um boss for derrotado
+export function dropPortalCore(biomeId) {
+  if (!playerStats.portalCores.has(biomeId)) {
+    playerStats.portalCores.add(biomeId);
+    battle.message += ` Você obteve o Núcleo do Portal (${biomeId})! (${playerStats.portalCores.size}/8)`;
+    saveGame();
+  }
 }

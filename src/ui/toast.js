@@ -9,7 +9,7 @@ function ensureContainer() {
   if (container) return container;
   container = document.createElement('div');
   container.id = 'toast-container';
-  // CSS embutido pra n„o depender de style.css
+  // CSS embutido pra n√£o depender de style.css
   container.style.cssText = `
     position: fixed;
     bottom: 24px;
@@ -28,10 +28,10 @@ function ensureContainer() {
 
 /**
  * @param {object} opts
- * @param {string} opts.itemId      ? id do consumÌvel (pra puxar o Ìcone)
- * @param {string} opts.title       ? nome do item (ex: 'PoÁ„o Fraca')
- * @param {string} [opts.subtitle]  ? ex: '+7 HP' / '+3 ForÁa (3 turnos)'
- * @param {string} [opts.color]     ? cor do subtÌtulo
+ * @param {string} opts.itemId      ? id do consum√≠vel (pra puxar o √≠cone)
+ * @param {string} opts.title       ? nome do item (ex: 'Po√ß√£o Fraca')
+ * @param {string} [opts.subtitle]  ? ex: '+7 HP' / '+3 For√ßa (3 turnos)'
+ * @param {string} [opts.color]     ? cor do subt√≠tulo
  */
 export function showToast({ itemId, title, subtitle, color = '#8ad8ff' }) {
   const root = ensureContainer();

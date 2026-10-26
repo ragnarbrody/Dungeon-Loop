@@ -11,7 +11,7 @@ export function makeScarabFrames() {
   const shell     = '#3a2418';   // marrom-escuro do casco
   const shellSh   = '#1f120a';   // sombra profunda
   const shellHi   = '#5a3a24';   // brilho do casco
-  const shellMid  = '#4a2e1a';   // tom intermediário
+  const shellMid  = '#4a2e1a';   // tom intermediÃ¡rio
   const gold      = '#c9a24d';   // detalhe dourado
   const goldHi    = '#f0d27a';   // brilho dourado
   const goldSh    = '#8a6b2a';   // sombra dourada
@@ -35,10 +35,10 @@ export function makeScarabFrames() {
 
     const isAttack = kind === 'attack';
     const legSwap  = step === 1 ? 1 : 0;
-    const headLift = isAttack ? -2 : 0;   // cabeça sobe (chifres pra frente)
+    const headLift = isAttack ? -2 : 0;   // cabeÃ§a sobe (chifres pra frente)
     const bodyLean = isAttack ? -1 : 0;   // corpo "inclina" pra frente
 
-    // Sombra no chão (oval achatada, embaixo do besouro)
+    // Sombra no chÃ£o (oval achatada, embaixo do besouro)
     g.fillStyle = 'rgba(0,0,0,0.35)';
     g.beginPath();
     g.ellipse(16, 29, 12, 3, 0, 0, Math.PI * 2);
@@ -54,9 +54,9 @@ export function makeScarabFrames() {
       { x: 8,  y: 25, off: -legSwap },
     ];
     leftLegs.forEach((L) => {
-      // Fêmur (do corpo pra fora)
+      // FÃªmur (do corpo pra fora)
       px(L.x + 2, L.y, 2, 1, leg);
-      // Tíbia (desce)
+      // TÃ­bia (desce)
       px(L.x, L.y + 1, 1, 2 + Math.max(0, L.off), leg);
       // Brilho
       px(L.x + 2, L.y, 1, 1, legHi);
@@ -81,7 +81,7 @@ export function makeScarabFrames() {
     const cy = 19 + bodyLean;
 
     // Corpo principal (oval)
-    // Desenha como retângulo arredondado "manual" em pixels
+    // Desenha como retÃ¢ngulo arredondado "manual" em pixels
     // Topo (linha arredondada)
     px(cx - 5, cy - 5, 10, 1, shell);       // topo reto
     px(cx - 6, cy - 4, 1, 1, shell);        // canto sup esq
@@ -99,16 +99,16 @@ export function makeScarabFrames() {
     px(cx - 7, cy + 4, 14, 1, shellSh);
     px(cx - 6, cy + 5, 12, 1, shellSh);
 
-    // Volume central (brilho que dá "curvatura" ao casco)
+    // Volume central (brilho que dÃ¡ "curvatura" ao casco)
     px(cx - 3, cy - 2, 6, 4, shellMid);
     px(cx - 2, cy - 1, 4, 2, shellHi);
 
     // ============================================================
     // DETALHE DOURADO ? linha vertical central + "asas" em V
     // ============================================================
-    // Linha vertical central (do meio da cabeça até a base do corpo)
+    // Linha vertical central (do meio da cabeÃ§a atÃ© a base do corpo)
     px(cx, cy - 4, 1, 8, gold);
-    // Pequenos detalhes laterais (marcas nas "élitros")
+    // Pequenos detalhes laterais (marcas nas "Ã©litros")
     px(cx - 4, cy - 1, 1, 2, gold);
     px(cx + 3, cy - 1, 1, 2, gold);
     // Brilho no centro
@@ -118,12 +118,12 @@ export function makeScarabFrames() {
     px(cx, cy + 3, 1, 1, goldSh);
 
     // ============================================================
-    // CABEÇA (no topo-central, vista de frente)
+    // CABEÃ‡A (no topo-central, vista de frente)
     // ============================================================
     const hx = cx - 3;
     const hy = cy - 9 + headLift;
 
-    // Cabeça (retângulo arredondado)
+    // CabeÃ§a (retÃ¢ngulo arredondado)
     px(hx, hy, 6, 5, shell);
     px(hx, hy, 6, 1, shellHi);
     px(hx, hy + 4, 6, 1, shellSh);
@@ -156,7 +156,7 @@ export function makeScarabFrames() {
     px(hx + 4, hy + 1, 1, 1, eye);
 
     // ============================================================
-    // DETALHE FINAL ? pontos dourados nas "bochechas" da cabeça
+    // DETALHE FINAL ? pontos dourados nas "bochechas" da cabeÃ§a
     // ============================================================
     px(hx, hy + 3, 1, 1, goldHi);
     px(hx + 5, hy + 3, 1, 1, goldHi);

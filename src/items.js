@@ -209,6 +209,30 @@ export const ITEMS_DB = {
     stats: {}, // tocha não dá stats, é decorativa
     draw: null,
   },
+
+  potion_medium: {
+    id: 'potion_medium',
+    type: 'consumable',
+    name: 'Poção Média',
+    description: 'Cura de 20 a 35 de HP.',
+    price: 35,
+    stackable: true,
+    combatOnly: false,
+    icon: 'potion_medium',
+    use: (player) => {
+      const heal = Math.floor(Math.random() * 16) + 20;
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      return {
+        message: `Você bebeu uma Poção Média e recuperou ${heal} de HP!`,
+        toast: {
+          itemId: 'potion_medium',
+          title: 'Poção Média',
+          subtitle: `+${heal} HP`,
+          color: '#6fbd63',
+        },
+      };
+    },
+  },
 };
 
 // Compat: exporta o mesmo shape que os consumidores antigos esperam.

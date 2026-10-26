@@ -1,12 +1,13 @@
 import { GRID_SIZE, TILE_SIZE, CANVAS_W, CANVAS_H, SPAWN_MARGIN } from '../core/canvas.js';
 import { T, DIRS, isSolid, tileAt } from '../world/tiles.js';
 import { player, encounter, currentRoom, transitionCooldown,
-         decrementTransitionCooldown, setCurrentRoom, setTransitionCooldown, markRoomVisited } from '../core/state.js';
+         decrementTransitionCooldown, setCurrentRoom, setTransitionCooldown, markRoomVisited, playerStats } from '../core/state.js';
 import { getRoom } from '../world/rooms.js';
 import { updateHud } from '../ui/hud.js';
 import { startBattle } from '../battle/battle.js';
 import { keys } from '../ui/input.js';
 import { clearLeaves } from './leaves.js';
+import { findNearbyInteractable } from '../world/interactables.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -63,6 +64,21 @@ function checkDoorTransition() {
   const tx = Math.floor(player.x / TILE_SIZE);
   const ty = Math.floor(player.y / TILE_SIZE);
   if (currentRoom.map[ty]?.[tx] !== T.DOOR) return;
+
+  // Interior: sair restaura sala externa
+  if (currentRoom.isInterior) {
+    const back = currentRoom._returnRoom;
+    if (!back) return;
+    setCurrentRoom(back);
+    // posiciona o jogador logo abaixo da porta da casa
+    const mid = Math.floor(GRID_SIZE / 2);
+    player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+    player.y = (back.map.length - 1) * TILE_SIZE - TILE_SIZE; // acima da borda
+    // Achar a porta de entrada da casa para posicionar melhor:
+    // fica na base da casa; usar o centro como fallback
+    setTransitionCooldown(30);
+    return;
+  }
 
   let side = null;
   if (ty === 0)                side = 'top';
@@ -164,27 +180,12 @@ export function updatePlayer(dt) {
       }
     }
   }
-  const movedDist = Math.hypot(player.x - oldX, player.y - oldY);
-  if (movedDist > 0.01) {
-    if (encounter.cooldownPx > 0) {
-      encounter.cooldownPx -= movedDist;
-    } else {
-      encounter.walkedSinceLast += movedDist;
-      if (encounter.walkedSinceLast > 200) {
-        if (Math.random() < encounter.chancePerPixel * 200) {
-          // Passa a sala atual para o startBattle respeitar o bioma
-          startBattle({ biomeGX: currentRoom.gx, biomeGY: currentRoom.gy });
-        }
-        encounter.walkedSinceLast = 0;
-      }
-    }
-  }
 
   if (transitionCooldown > 0) decrementTransitionCooldown();
   else checkDoorTransition();
 
   // no final de updatePlayer:
-  if (!currentRoom.isCity && currentRoom.enemies) {
+  if (currentRoom && !currentRoom.isCity && currentRoom.enemies) {
     const ptx = Math.floor(player.x / TILE_SIZE);
     const pty = Math.floor(player.y / TILE_SIZE);
     for (const e of currentRoom.enemies) {
@@ -197,4 +198,7 @@ export function updatePlayer(dt) {
       }
     }
   }
+
+  // Não roda em combate (o loop nem chama updatePlayer em combate).
+  playerStats._nearInteractable = findNearbyInteractable(currentRoom);
 }

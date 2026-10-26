@@ -34,13 +34,13 @@ export function makeMageFrames() {
       pxGround(11, 26 + legL, 4, 4, pal.boot);
       pxGround(17, 26 + legR, 4, 4, pal.boot);
 
-      // BraÁos (mangas)
+      // Bra√ßos (mangas)
       px(7, 15, 3, 10, pal.robeSh);
       px(22, 15, 3, 10, pal.robeSh);
-      px(7, 24, 3, 2, pal.skinSh); // m„os
+      px(7, 24, 3, 2, pal.skinSh); // m√£os
       px(22, 24, 3, 2, pal.skinSh);
 
-      // CabeÁa / Rosto
+      // Cabe√ßa / Rosto
       px(12, 6, 8, 8, pal.skin);
       // Olhos
       px(13, 9, 1, 2, pal.eye);
@@ -49,7 +49,7 @@ export function makeMageFrames() {
       px(12, 12, 8, 3, pal.hair);
       px(13, 11, 6, 1, pal.hairSh);
       
-      // ChapÈu Pontudo
+      // Chap√©u Pontudo
       px(11, 4, 10, 2, pal.robe);       // aba
       px(13, 2, 6, 2, pal.robe);        // topo
       px(15, 0, 2, 2, pal.robeHi);      // ponta
@@ -62,13 +62,13 @@ export function makeMageFrames() {
       px(8, 14, 16, 16, pal.robe);
       px(8, 14, 16, 2, pal.robeHi);
       px(9, 22, 14, 2, pal.belt);
-      // BraÁos
+      // Bra√ßos
       px(7, 15, 3, 8, pal.robeSh);
       px(22, 15, 3, 8, pal.robeSh);
-      // CabeÁa (de costas com cabelo)
+      // Cabe√ßa (de costas com cabelo)
       px(12, 6, 8, 8, pal.skinSh);
       px(11, 8, 10, 6, pal.hair);
-      // ChapÈu
+      // Chap√©u
       px(11, 4, 10, 2, pal.robe);
       px(13, 2, 6, 2, pal.robe);
       px(15, 0, 2, 2, pal.robeHi);
@@ -83,15 +83,15 @@ export function makeMageFrames() {
       // Pernas
       pxGround(13, 26 + legL, 4, 4, pal.boot);
       pxGround(17, 26 + legR, 4, 4, pal.boot);
-      // BraÁo
+      // Bra√ßo
       px(19, 15, 3, 10, pal.robeSh);
       px(19, 24, 3, 2, pal.skinSh);
-      // CabeÁa de perfil
+      // Cabe√ßa de perfil
       px(14, 6, 8, 8, pal.skin);
       px(20, 9, 1, 2, pal.eye);
       // Barba
       px(18, 12, 4, 3, pal.hair);
-      // ChapÈu de perfil
+      // Chap√©u de perfil
       px(12, 4, 10, 2, pal.robe);
       px(16, 2, 6, 2, pal.robe);
       px(20, 0, 2, 2, pal.robeHi);

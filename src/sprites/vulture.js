@@ -1,6 +1,6 @@
 // src/sprites/vulture.js
 // Abutre 32x32, 2 frames idle (asa pra cima / asa pra baixo) + 1 attack (bicada).
-// Corpo marrom-escuro, cabeÁa vermelha, asas abertas.
+// Corpo marrom-escuro, cabe√ßa vermelha, asas abertas.
 export function makeVultureFrames() {
   const S = 32;
   const frames = { idle: [], attack: [] };
@@ -9,9 +9,9 @@ export function makeVultureFrames() {
   const feather   = '#3a2418';   // marrom-escuro do corpo
   const featherHi = '#5a3a24';   // brilho das penas
   const featherSh = '#1f120a';   // sombra
-  const skin      = '#c93030';   // cabeÁa vermelha (carniÁa)
-  const skinHi    = '#ff6b6b';   // brilho da cabeÁa
-  const skinSh    = '#7a1010';   // sombra da cabeÁa
+  const skin      = '#c93030';   // cabe√ßa vermelha (carni√ßa)
+  const skinHi    = '#ff6b6b';   // brilho da cabe√ßa
+  const skinSh    = '#7a1010';   // sombra da cabe√ßa
   const beak      = '#e8d890';   // bico amarelado
   const beakSh    = '#a89040';
   const eye       = '#feca57';
@@ -30,14 +30,14 @@ export function makeVultureFrames() {
     // Movimento:
     // - idle 0: asa "no meio" (parada)
     // - idle 1: asa pra baixo (batendo)
-    // - attack: corpo inclinado pra frente, cabeÁa esticada (bicada)
+    // - attack: corpo inclinado pra frente, cabe√ßa esticada (bicada)
     const isAttack = kind === 'attack';
     const wingDown  = step === 1 && !isAttack;   // asa pra baixo no segundo frame
-    const lean      = isAttack ? 2 : 0;          // corpo avanÁa
-    const headLean  = isAttack ? 3 : 0;          // cabeÁa estica
-    const headDown  = isAttack ? 1 : 0;          // cabeÁa baixa (bicada)
+    const lean      = isAttack ? 2 : 0;          // corpo avan√ßa
+    const headLean  = isAttack ? 3 : 0;          // cabe√ßa estica
+    const headDown  = isAttack ? 1 : 0;          // cabe√ßa baixa (bicada)
 
-    // Sombra no ch„o (fica mais larga quando a asa t· pra cima ? p·ssaro pousado)
+    // Sombra no ch√£o (fica mais larga quando a asa t√° pra cima ? p√°ssaro pousado)
     g.fillStyle = 'rgba(0,0,0,0.3)';
     g.beginPath();
     const shadowW = isAttack ? 15 : 13;
@@ -49,8 +49,8 @@ export function makeVultureFrames() {
     // ============================================================
     px(13 + lean, 25, 1, 3, beakSh);      // perna esquerda
     px(18 + lean, 25, 1, 3, beakSh);      // perna direita
-    px(12 + lean, 28, 3, 1, beakSh);      // pÈ esq
-    px(17 + lean, 28, 3, 1, beakSh);      // pÈ dir
+    px(12 + lean, 28, 3, 1, beakSh);      // p√© esq
+    px(17 + lean, 28, 3, 1, beakSh);      // p√© dir
 
     // ============================================================
     // CORPO (centro, mais pesado)
@@ -64,12 +64,12 @@ export function makeVultureFrames() {
     // ASAS (dependem do frame)
     // ============================================================
     if (isAttack) {
-      // Attack: asas abertas "pra tr·s" (como se estivesse atacando)
-      // Asa esquerda (atr·s do corpo)
+      // Attack: asas abertas "pra tr√°s" (como se estivesse atacando)
+      // Asa esquerda (atr√°s do corpo)
       px(4 + lean, 14, 6, 8, featherSh);
       px(4 + lean, 14, 6, 1, feather);
       px(3 + lean, 15, 1, 5, featherSh);
-      // Asa direita (atr·s do corpo)
+      // Asa direita (atr√°s do corpo)
       px(22 + lean, 14, 6, 8, featherSh);
       px(22 + lean, 14, 6, 1, feather);
       px(28 + lean, 15, 1, 5, featherSh);
@@ -105,15 +105,15 @@ export function makeVultureFrames() {
     }
 
     // ============================================================
-    // CABE«A (vermelha, pescoÁo curto, bico amarelado)
+    // CABE√áA (vermelha, pesco√ßo curto, bico amarelado)
     // ============================================================
     const hx = 13 + lean + headLean;
     const hy = 10 + headDown;
 
-    // PescoÁo (sai do corpo pra frente)
+    // Pesco√ßo (sai do corpo pra frente)
     px(hx - 1, hy + 5, 3, 2, featherSh);
 
-    // CabeÁa vermelha (mais ‡ frente e pra cima)
+    // Cabe√ßa vermelha (mais √† frente e pra cima)
     px(hx, hy, 5, 5, skin);
     px(hx, hy, 5, 1, skinHi);         // brilho superior
     px(hx, hy + 4, 5, 1, skinSh);     // sombra inferior
@@ -127,7 +127,7 @@ export function makeVultureFrames() {
     px(hx - 3, hy + 2, 1, 1, beakSh);   // ponta
     px(hx - 2, hy + 3, 1, 1, beakSh);   // parte de baixo do bico
 
-    // Detalhe: "careca" (abutres tÍm cabeÁa sem pena) ? pequeno brilho
+    // Detalhe: "careca" (abutres t√™m cabe√ßa sem pena) ? pequeno brilho
     px(hx + 2, hy + 1, 2, 1, skinHi);
 
     return c;

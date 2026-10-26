@@ -1,7 +1,7 @@
 // src/sprites/scorpion.js
-// Escorpi„o 32x32, 3 frames (idle 0, idle 1, attack).
-// Layout: corpo horizontal centro-baixo, pinÁas ‡ ESQUERDA (frente),
-// cauda subindo ‡ DIREITA (atr·s), 8 patas laterais.
+// Escorpi√£o 32x32, 3 frames (idle 0, idle 1, attack).
+// Layout: corpo horizontal centro-baixo, pin√ßas √† ESQUERDA (frente),
+// cauda subindo √† DIREITA (atr√°s), 8 patas laterais.
 export function makeScorpionFrames() {
   const S = 32;
   const frames = { idle: [], attack: [] };
@@ -30,14 +30,14 @@ export function makeScorpionFrames() {
     };
 
     // Movimento:
-    // - idle: cauda balanÁa 1px, patas alternam 1px
+    // - idle: cauda balan√ßa 1px, patas alternam 1px
     // - attack: cauda erguida, corpo "investindo" 2px pra esquerda
     const isAttack = kind === 'attack';
-    const bodyLean = isAttack ? -2 : 0;         // corpo avanÁa
+    const bodyLean = isAttack ? -2 : 0;         // corpo avan√ßa
     const tailLift = isAttack ? 4 : (step === 1 ? 1 : 0);
     const legSwap  = step === 1 ? 1 : 0;
 
-    // Sombra no ch„o
+    // Sombra no ch√£o
     g.fillStyle = 'rgba(0,0,0,0.3)';
     g.beginPath();
     g.ellipse(15, 29, 13, 3, 0, 0, Math.PI * 2);
@@ -45,9 +45,9 @@ export function makeScorpionFrames() {
 
     // ============================================================
     // PATAS (8 patas, saindo dos lados do corpo)
-    // 4 de cada lado, cada uma com 2 segmentos (joelho + pÈ)
+    // 4 de cada lado, cada uma com 2 segmentos (joelho + p√©)
     // ============================================================
-    // Lado de baixo (vis„o top-down: patas "inferiores")
+    // Lado de baixo (vis√£o top-down: patas "inferiores")
     const lowerLegs = [
       { x: 10, y: 24 },
       { x: 13, y: 25 },
@@ -59,7 +59,7 @@ export function makeScorpionFrames() {
       const offset = (i % 2 === 0 ? legSwap : -legSwap);
       // coxa (sobe)
       px(lx, L.y, 1, 2 + offset, leg);
-      // tÌbia (desce pro lado)
+      // t√≠bia (desce pro lado)
       px(lx - 1, L.y + 3 + offset, 1, 1, legDark);
     });
 
@@ -73,7 +73,7 @@ export function makeScorpionFrames() {
     upperLegs.forEach((L, i) => {
       const lx = L.x + bodyLean;
       const offset = (i % 2 === 0 ? -legSwap : legSwap);
-      px(lx, L.y - 1 + offset, 1, 1, leg);       // fÍmur
+      px(lx, L.y - 1 + offset, 1, 1, leg);       // f√™mur
       px(lx, L.y - 2 + offset, 1, 1, legDark);   // tarso
     });
 
@@ -81,44 +81,44 @@ export function makeScorpionFrames() {
     // CORPO (centro)
     // ============================================================
     // Dorso segmentado (2 segmentos: prossomo + mesossomo)
-    // Prossomo (parte da frente, mais ‡ esquerda)
+    // Prossomo (parte da frente, mais √† esquerda)
     px(10 + bodyLean, 19, 5, 5, shell);
     px(10 + bodyLean, 19, 5, 1, shellHi);     // brilho superior
     px(10 + bodyLean, 23, 5, 1, shellDark);   // sombra inferior
-    // Divis„o entre segmentos
+    // Divis√£o entre segmentos
     px(14 + bodyLean, 19, 1, 5, shellDark);
-    // Mesossomo (traseira, mais ‡ direita)
+    // Mesossomo (traseira, mais √† direita)
     px(15 + bodyLean, 18, 6, 7, shell);
     px(15 + bodyLean, 18, 6, 1, shellHi);
     px(15 + bodyLean, 24, 6, 1, shellDark);
-    // Brilho central (d· volume)
+    // Brilho central (d√° volume)
     px(17 + bodyLean, 20, 2, 3, shellMid);
 
     // ============================================================
-    // CABE«A (prossomo dianteiro, ‡ esquerda do corpo)
+    // CABE√áA (prossomo dianteiro, √† esquerda do corpo)
     // ============================================================
     px(8 + bodyLean, 20, 2, 3, shellMid);
     px(8 + bodyLean, 20, 2, 1, shellHi);
 
-    // Olhos (2 pontinhos amarelos na frente da cabeÁa)
+    // Olhos (2 pontinhos amarelos na frente da cabe√ßa)
     px(7 + bodyLean, 20, 1, 1, eye);
     px(7 + bodyLean, 22, 1, 1, eye);
 
     // ============================================================
-    // PIN«AS (pedipalpos) ? bem separadas na frente, ‡ esquerda
-    // Formato: braÁo curto + "m„o" com 2 dedos ABERTOS
+    // PIN√áAS (pedipalpos) ? bem separadas na frente, √† esquerda
+    // Formato: bra√ßo curto + "m√£o" com 2 dedos ABERTOS
     // ============================================================
-    // PinÁa SUPERIOR (mais alta)
-    // BraÁo
+    // Pin√ßa SUPERIOR (mais alta)
+    // Bra√ßo
     px(6 + bodyLean, 18, 2, 2, shell);
     px(6 + bodyLean, 18, 2, 1, shellHi);
-    // "M„o" (2 dedos)
+    // "M√£o" (2 dedos)
     px(4 + bodyLean, 16, 3, 2, shell);       // parte larga
     px(4 + bodyLean, 16, 3, 1, shellHi);
     px(3 + bodyLean, 15, 1, 1, shell);       // dedo superior
     px(3 + bodyLean, 18, 1, 1, shell);       // dedo inferior
 
-    // PinÁa INFERIOR (mais baixa)
+    // Pin√ßa INFERIOR (mais baixa)
     px(6 + bodyLean, 22, 2, 2, shell);
     px(6 + bodyLean, 22, 2, 1, shellHi);
     px(4 + bodyLean, 23, 3, 2, shell);
@@ -127,8 +127,8 @@ export function makeScorpionFrames() {
     px(3 + bodyLean, 25, 1, 1, shell);
 
     // ============================================================
-    // CAUDA (metassomo) ? ‡ DIREITA do corpo, subindo em arco
-    // 3 segmentos, terminando no ferr„o
+    // CAUDA (metassomo) ? √† DIREITA do corpo, subindo em arco
+    // 3 segmentos, terminando no ferr√£o
     // ============================================================
     // Segmento 1 (base, mais largo, sobe do mesossomo)
     px(20 + bodyLean, 17 - tailLift, 3, 3, shell);
@@ -139,13 +139,13 @@ export function makeScorpionFrames() {
     // Segmento 3 (ponta, mais fino, dobra pra baixo-esquerda)
     px(24 + bodyLean, 12 - tailLift - 1, 2, 2, shellMid);
 
-    // Bulbo do ferr„o (base arredondada)
+    // Bulbo do ferr√£o (base arredondada)
     px(24 + bodyLean, 11 - tailLift - 1, 3, 2, shellDark);
 
-    // FERR√O (vermelho, apontando pra baixo-esquerda, na direÁ„o do player)
+    // FERR√ÉO (vermelho, apontando pra baixo-esquerda, na dire√ß√£o do player)
     px(23 + bodyLean, 10 - tailLift - 1, 2, 2, sting);
     px(22 + bodyLean, 9 - tailLift - 1, 1, 1, stingHi);   // pontinha brilhante
-    px(24 + bodyLean, 9 - tailLift - 1, 1, 1, stingDark); // base do ferr„o
+    px(24 + bodyLean, 9 - tailLift - 1, 1, 1, stingDark); // base do ferr√£o
 
     // Detalhe: pequenos "pelos" no dorso
     px(11 + bodyLean, 20, 1, 1, shellHi);

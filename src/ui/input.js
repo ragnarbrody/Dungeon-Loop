@@ -1,10 +1,14 @@
 import { canvas } from '../core/canvas.js';
-import { STATE, gameState, battle, setGameState, playerStats } from '../core/state.js';
+import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame } from '../core/state.js';
 import { playerAction } from '../battle/battle.js';
 import { renderInventory } from './inventory.js';
 import { CLASSES } from '../classes.js';
 import { getIcon } from '../sprites/icons.js';
 import { CONSUMABLES } from '../items.js';
+import { openDialogue, closeDialogue, isDialogueOpen } from './dialogue.js';
+import { portalText } from '../world/interactables.js';
+import { enterBuilding } from '../world/rooms.js';
+import { openShop, closeShop, isShopOpen } from './shop.js';
 
 export const keys = {};
 
@@ -41,6 +45,58 @@ export function installInput() {
 
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
+
+    if (isShopOpen()) {
+      if (k === 'escape') closeShop();
+      return;
+    }
+
+    // ---- Diálogo aberto: só ESC fecha ----
+    if (isDialogueOpen()) {
+      if (k === 'escape') {
+        closeDialogue();
+        for (let kk in keys) keys[kk] = false;
+      }
+      return;
+    }
+
+    // ---- Interagir (E) no mapa ----
+    if (k === 'e' && gameState === STATE.EXPLORE) {
+      const it = playerStats._nearInteractable;
+      if (it) {
+        if (it.kind === 'sign') {
+          openDialogue({ title: it.title, text: it.text });
+        } else if (it.kind === 'portal') {
+          openDialogue({
+            title: it.title,
+            text: portalText(),
+            actions: [
+              {
+                label: `Colocar núcleos (${playerStats.portalCores.size}/8)`,
+                disabled: playerStats.portalCores.size === 0,
+                action: () => {
+                  // por enquanto, só mostra o status
+                  // o consumo real dos núcleos será feito quando o boss final existir
+                  openDialogue({
+                    title: 'Núcleos',
+                    text:
+                      playerStats.portalCores.size === 0
+                        ? 'Você não tem nenhum núcleo ainda.'
+                        : `Você tem ${playerStats.portalCores.size} núcleo(s). O portal precisa dos 8 para abrir. (combate final em breve)`,
+                  });
+                },
+              },
+            ],
+          });
+        } else if (it.kind === 'building_entrance') {
+          enterBuilding(it.buildingId);
+        } else if (it.kind === 'shop_keep') {
+          openShop(it.buildingId);
+        }
+        for (let kk in keys) keys[kk] = false;
+      }
+      return;
+    }
     
     if (k === 'i' && gameState !== STATE.BATTLE) {
       toggleInventory();

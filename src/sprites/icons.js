@@ -1,4 +1,4 @@
-// Ícones desenhados em canvas 20x20 (pixel art), independentes de emoji.
+// Ãcones desenhados em canvas 20x20 (pixel art), independentes de emoji.
 const ICON_SIZE = 20;
 
 function makeIcon(drawFn, size = ICON_SIZE) {
@@ -17,7 +17,7 @@ const px = (g) => (x, y, w, h, color) => {
 };
 
 export const ICONS = {
-  // ---------- POÇÕES ----------
+  // ---------- POÃ‡Ã•ES ----------
   potion_weak: makeIcon((g) => {
     const p = px(g);
     p(7, 2, 6, 2, '#8a6b5a'); p(6, 4, 8, 12, '#c8d8e8');
@@ -69,8 +69,8 @@ export const ICONS = {
     p(7, 12, 6, 1, '#c9a24d'); p(9, 13, 2, 2, '#5a3a1a');
   }),
 
-  // ---------- ÍCONES DE SKILL ----------
-  quick: makeIcon((g) => {   // golpe rápido: espada com rastro
+  // ---------- ÃCONES DE SKILL ----------
+  quick: makeIcon((g) => {   // golpe rÃ¡pido: espada com rastro
     const p = px(g);
     p(9, 3, 2, 11, '#dfe6ee'); p(9, 3, 1, 11, '#ffffff');
     p(5, 12, 4, 1, '#8ad8ff'); p(6, 14, 3, 1, '#8ad8ff'); // rastro azul
@@ -82,7 +82,7 @@ export const ICONS = {
     p(4, 9, 6, 2, '#ff6b3b'); p(10, 9, 6, 2, '#ff6b3b');
     p(8, 8, 4, 4, '#ffb703'); p(9, 9, 2, 2, '#ffffff');
   }),
-  spin: makeIcon((g) => {    // golpe giratório: círculo com seta
+  spin: makeIcon((g) => {    // golpe giratÃ³rio: cÃ­rculo com seta
     const p = px(g);
     p(8, 2, 4, 2, '#c9a24d'); p(14, 6, 2, 4, '#c9a24d');
     p(8, 16, 4, 2, '#c9a24d'); p(4, 10, 2, 4, '#c9a24d');
@@ -118,13 +118,13 @@ export const ICONS = {
     p(8, 5, 2, 9, '#dfe6ee'); p(6, 14, 6, 1, '#c9a24d'); p(8, 15, 2, 2, '#5a3a1a');
     p(13, 3, 4, 4, '#ff7bd0'); p(14, 4, 2, 2, '#ffffff');
   }),
-  shadow: makeIcon((g) => {  // círculo escuro com borda roxa
+  shadow: makeIcon((g) => {  // cÃ­rculo escuro com borda roxa
     const p = px(g);
     p(6, 6, 8, 8, '#1a1a2e'); p(7, 7, 6, 6, '#2a1a3e');
     p(8, 8, 2, 2, '#d78cff'); p(11, 11, 2, 2, '#d78cff');
   }),
 
-  // ---------- ÍCONES DE STAT ----------
+  // ---------- ÃCONES DE STAT ----------
   str: makeIcon((g) => {   // espada pequena
     const p = px(g);
     p(9, 3, 2, 10, '#dfe6ee'); p(7, 13, 6, 1, '#c9a24d'); p(9, 14, 2, 3, '#5a3a1a');
@@ -134,7 +134,7 @@ export const ICONS = {
     p(5, 12, 4, 4, '#4f9a4a'); p(9, 8, 4, 4, '#6fbd63');
     p(13, 4, 4, 4, '#8ad8ff'); p(11, 10, 2, 2, '#8ad8ff');
   }),
-  int: makeIcon((g) => {   // cérebro/estrela roxa
+  int: makeIcon((g) => {   // cÃ©rebro/estrela roxa
     const p = px(g);
     p(6, 6, 8, 6, '#d78cff'); p(7, 7, 2, 2, '#e8c8ff');
     p(11, 9, 2, 2, '#e8c8ff'); p(9, 13, 2, 3, '#9a5fff');
@@ -144,7 +144,7 @@ export const ICONS = {
     p(6, 4, 8, 10, '#c9a24d'); p(7, 5, 6, 8, '#9b1c1c');
     p(9, 7, 2, 2, '#e0e0e0');
   }),
-  vit: makeIcon((g) => {   // coração vermelho
+  vit: makeIcon((g) => {   // coraÃ§Ã£o vermelho
     const p = px(g);
     p(6, 6, 3, 3, '#ff3b3b'); p(11, 6, 3, 3, '#ff3b3b');
     p(6, 8, 8, 4, '#ff3b3b'); p(7, 12, 6, 2, '#ff3b3b');
@@ -166,7 +166,7 @@ export const ICONS = {
     p(5, 12, 10, 2, '#8892a0'); p(7, 8, 2, 3, '#1a1a2e'); p(11, 8, 2, 3, '#1a1a2e');
     p(9, 14, 2, 4, '#8892a0');
   }),
-  mage: makeIcon((g) => {        // chapéu de mago
+  mage: makeIcon((g) => {        // chapÃ©u de mago
     const p = px(g);
     p(6, 12, 8, 4, '#4a2a8a'); p(9, 6, 2, 6, '#4a2a8a');
     p(8, 4, 4, 2, '#6a4aaa'); p(9, 2, 2, 2, '#8ad8ff');
@@ -178,7 +178,7 @@ export const ICONS = {
     p(7, 10, 2, 2, '#f0e0a0'); p(11, 10, 2, 2, '#f0e0a0');
     p(4, 14, 12, 2, '#2a1a0e');
   }),
-  huntress: makeIcon((g) => {   // capuz + flecha (ícone de caçadora)
+  huntress: makeIcon((g) => {   // capuz + flecha (Ã­cone de caÃ§adora)
     const p = px(g);
     // Capuz verde
     p(4, 6, 12, 10, '#2a4a2a');
@@ -201,11 +201,11 @@ export const ICONS = {
     const strap        = '#5a3a1a';
     const gold         = '#c9a24d';
 
-    // Alças laterais
+    // AlÃ§as laterais
     p(3, 8, 1, 8, strap);
     p(16, 8, 1, 8, strap);
 
-    // Alça superior
+    // AlÃ§a superior
     p(8, 2, 4, 1, strap);
     p(7, 3, 1, 3, strap);
     p(12, 3, 1, 3, strap);
@@ -237,7 +237,7 @@ export const ICONS = {
     p(8, 14, 4, 1, strap);
   }),
 
-  flee: makeIcon((g) => {        // bandeira branca (rendição/fuga)
+  flee: makeIcon((g) => {        // bandeira branca (rendiÃ§Ã£o/fuga)
     const p = px(g);
     const pole     = '#6b4a2b';   // mastro (madeira)
     const poleSh   = '#4a3018';   // sombra do mastro
@@ -246,7 +246,7 @@ export const ICONS = {
     const clothHi  = '#ffffff';   // brilho do pano
     const rope     = '#c9a24d';   // cordinha no topo
 
-    // Mastro (vertical, à esquerda)
+    // Mastro (vertical, Ã  esquerda)
     p(5, 3, 1, 15, pole);
     p(6, 3, 1, 15, poleSh);
 
@@ -258,7 +258,7 @@ export const ICONS = {
     p(7, 4, 10, 1, clothHi);
     // Corpo principal
     p(7, 5, 11, 5, cloth);
-    // Sombra de baixo (dá volume)
+    // Sombra de baixo (dÃ¡ volume)
     p(7, 10, 11, 1, clothSh);
     // Pontinha ondulando no fim (desce 1px)
     p(16, 9, 2, 2, cloth);
@@ -268,7 +268,7 @@ export const ICONS = {
     p(10, 5, 1, 5, clothSh);      // dobra vertical 1
     p(13, 5, 1, 5, clothSh);      // dobra vertical 2
 
-    // Brilho extra na parte de cima (dá a sensação de pano "levantado")
+    // Brilho extra na parte de cima (dÃ¡ a sensaÃ§Ã£o de pano "levantado")
     p(8, 5, 2, 1, clothHi);
     p(11, 5, 2, 1, clothHi);
   }),
@@ -282,10 +282,10 @@ export const ICONS = {
     const flameIn  = '#ffe24a';  // amarelo claro interno
     const ember    = '#c93030';  // brasa vermelha
 
-    // Tora de baixo (horizontal, à esquerda)
+    // Tora de baixo (horizontal, Ã  esquerda)
     p(4, 15, 8, 2, log);
     p(4, 15, 8, 1, logDark);
-    // Tora de baixo (horizontal, à direita)
+    // Tora de baixo (horizontal, Ã  direita)
     p(8, 16, 8, 2, log);
     p(8, 16, 8, 1, logDark);
 
@@ -305,16 +305,38 @@ export const ICONS = {
     p(9, 10, 2, 3, flameIn);
     p(10, 8, 1, 2, flameIn);
 
-    // Faíscas (2 pontinhos soltos)
+    // FaÃ­scas (2 pontinhos soltos)
     p(13, 5, 1, 1, '#ffe24a');
     p(5, 7, 1, 1, '#ffe24a');
+  }),
+
+  gold: makeIcon((g) => {
+    const p = px(g);
+    // Moeda dourada com brilho
+    p(6, 6, 8, 8, '#8a6b2a');       // borda escura (cÃ­rculo externo)
+    p(5, 7, 10, 6, '#8a6b2a');
+    p(7, 5, 6, 10, '#8a6b2a');
+    p(7, 7, 6, 6, '#f0d27a');       // corpo dourado
+    p(6, 8, 8, 4, '#f0d27a');
+    p(8, 6, 4, 8, '#f0d27a');
+    p(8, 8, 2, 2, '#fff5c0');       // brilho
+    p(7, 9, 1, 1, '#fff5c0');
+    p(11, 11, 1, 1, '#a88a3a');     // sombra inferior direita
+  }),
+
+  potion_medium: makeIcon((g) => {
+    const p = px(g);
+    p(7, 2, 6, 2, '#8a6b5a'); p(6, 4, 8, 12, '#c8d8e8');
+    p(7, 5, 6, 10, '#5a9b1c'); p(8, 6, 2, 2, '#8fdb4a'); p(6, 14, 8, 2, '#8a6b5a');
+    // detalhe extra (uma estrelinha) pra diferenciar da fraca
+    p(9, 10, 2, 1, '#ffffff'); p(10, 9, 1, 1, '#ffffff');
   }),
 
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));
 
-/** Retorna uma CÓPIA do canvas (pra poder inserir várias vezes no DOM). */
+/** Retorna uma CÃ“PIA do canvas (pra poder inserir vÃ¡rias vezes no DOM). */
 export function getIcon(id) {
   const src = ICONS[id] || fallbackIcon;
   const copy = document.createElement('canvas');
@@ -326,7 +348,7 @@ export function getIcon(id) {
   return copy;
 }
 
-/** Insere o ícone como <canvas> num elemento qualquer do DOM. */
+/** Insere o Ã­cone como <canvas> num elemento qualquer do DOM. */
 export function appendIcon(parent, id, sizePx = 20) {
   const c = getIcon(id);
   c.style.width = sizePx + 'px';
@@ -337,7 +359,7 @@ export function appendIcon(parent, id, sizePx = 20) {
   return c;
 }
 
-/** Desenha o ícone no canvas 2D na posição (dx, dy), escalado por `scale`. */
+/** Desenha o Ã­cone no canvas 2D na posiÃ§Ã£o (dx, dy), escalado por `scale`. */
 export function drawIconOnCanvas(ctx, id, dx, dy, scale = 1) {
   const src = ICONS[id] || fallbackIcon;
   ctx.imageSmoothingEnabled = false;

@@ -50,6 +50,14 @@ export const playerStats = {
   
   // Status effects persistentes entre turnos (fora dos buffs)
   poisoned: null,  // { turns: number, dmg: number } | null
+
+  // ---- Moedas ----
+  gold: savedData.gold !== undefined ? savedData.gold : 0,
+
+  // ---- Portal (núcleos coletados) ----
+  // Set com os IDs dos biomas cujos bosses foram derrotados
+  // (ex: 'fields', 'desert'). Cada núcleo = 1 boss morto.
+  portalCores: new Set(savedData.portalCores || []),
 };
 
 // Garante que o HP/MP não passem do máximo
@@ -72,6 +80,7 @@ export function saveGame() {
     px: player.x,
     py: player.y,
     visited: Array.from(visitedRooms),
+    portalCores: Array.from(playerStats.portalCores),
     equip: {
       rightHand: playerEquip.rightHand,
       leftHand:  playerEquip.leftHand,
@@ -152,6 +161,10 @@ export const battle = {
 if (savedData.equip) {
   playerEquip.rightHand = savedData.equip.rightHand ?? playerEquip.rightHand;
   playerEquip.leftHand  = savedData.equip.leftHand  ?? playerEquip.leftHand;
+}
+
+export function addGold(amount) {
+  playerStats.gold = Math.max(0, playerStats.gold + amount);
 }
 
 export let transitionCooldown = 0;

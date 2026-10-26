@@ -1,5 +1,5 @@
-// Cacto 24x32 no mesmo estilo das árvores (para o tile alinhar bonito).
-// Dois frames para dar um "balanço" sutil no topo.
+// Cacto 24x32 no mesmo estilo das Ã¡rvores (para o tile alinhar bonito).
+// Dois frames para dar um "balanÃ§o" sutil no topo.
 export function makeCactusFrames() {
   const W = 24, H = 32;
   const frames = [];
@@ -22,7 +22,7 @@ export function makeCactusFrames() {
       g.fillRect(x, y, w, h);
     };
 
-    // Sombra no chão (igual das árvores)
+    // Sombra no chÃ£o (igual das Ã¡rvores)
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.beginPath();
     g.ellipse(W / 2, H - 2, 8, 3, 0, 0, Math.PI * 2);
@@ -35,18 +35,18 @@ export function makeCactusFrames() {
     px(10, 12, 1, 18, bodyDark);   // sombra lateral esq
     px(13, 12, 1, 18, bodyDark);   // sombra lateral dir
     px(11, 12, 2, 18, bodyHi);     // brilho central (faz parecer cilindro)
-    // Base mais escura (dá peso)
+    // Base mais escura (dÃ¡ peso)
     px(10, 28, 4, 2, bodyDark);
 
-    // Braço esquerdo (mais baixo)
+    // BraÃ§o esquerdo (mais baixo)
     // Sobe da lateral esq e dobra pra cima
-    px(6, 16, 4, 8, bodyMid);       // parte horizontal do braço
+    px(6, 16, 4, 8, bodyMid);       // parte horizontal do braÃ§o
     px(6, 16, 1, 8, bodyDark);
     px(6, 16, 4, 1, bodyDark);
     px(6 + sway * 0.3, 10, 4, 7, bodyMid); // parte vertical (sobe)
     px(6 + sway * 0.3, 10, 1, 7, bodyDark);
 
-    // Braço direito (mais alto)
+    // BraÃ§o direito (mais alto)
     px(14, 18, 4, 7, bodyMid);
     px(17, 18, 1, 7, bodyDark);
     px(14, 18, 4, 1, bodyDark);
@@ -61,7 +61,7 @@ export function makeCactusFrames() {
     g.fillStyle = spike;
     spikes.forEach(([x, y]) => g.fillRect(x, y, 1, 1));
 
-    // Flor no topo (vermelha ou amarela) - usa sway pra "balançar"
+    // Flor no topo (vermelha ou amarela) - usa sway pra "balanÃ§ar"
     const flowerColor = (W + sway) % 2 === 0 ? flowerPink : flowerYellow;
     px(10 + sway, 9, 4, 3, flowerColor);
     px(11 + sway, 8, 2, 1, flowerColor);

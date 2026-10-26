@@ -36,20 +36,20 @@ export function makeThiefFrames() {
       pxGround(11, 28 + legL, 4, 2, pal.hood); // botas
       pxGround(17, 28 + legR, 4, 2, pal.hood);
 
-      // BraÁos
+      // Bra√ßos
       px(7, 15, 3, 8, pal.cloth);
       px(22, 15, 3, 8, pal.cloth);
-      px(7, 22, 3, 2, pal.skinSh); // m„os
+      px(7, 22, 3, 2, pal.skinSh); // m√£os
       px(22, 22, 3, 2, pal.skinSh);
 
-      // CabeÁa (com capuz)
+      // Cabe√ßa (com capuz)
       px(11, 6, 10, 8, pal.skin); // Rosto
       px(10, 4, 12, 4, pal.hood); // Topo do capuz
       px(10, 8, 2, 6, pal.hood);  // Lado esq do capuz
       px(20, 8, 2, 6, pal.hood);  // Lado dir do capuz
       px(11, 12, 10, 2, pal.hoodSh); // Abaixo do queixo
 
-      // M·scara (cobre a boca)
+      // M√°scara (cobre a boca)
       px(12, 10, 8, 2, pal.clothSh);
       
       // Olhos
@@ -70,7 +70,7 @@ export function makeThiefFrames() {
       pxGround(11, 28 + legL, 4, 2, pal.hood);
       pxGround(17, 28 + legR, 4, 2, pal.hood);
 
-      // CabeÁa (sÛ capuz)
+      // Cabe√ßa (s√≥ capuz)
       px(10, 4, 12, 10, pal.hood);
       px(10, 12, 12, 2, pal.hoodSh);
     }
@@ -85,15 +85,15 @@ export function makeThiefFrames() {
       pxGround(17, 24 + legR, 4, 6, pal.clothSh);
       pxGround(13, 28 + legL, 4, 2, pal.hood);
       pxGround(17, 28 + legR, 4, 2, pal.hood);
-      // BraÁo
+      // Bra√ßo
       px(19, 15, 3, 8, pal.cloth);
       px(19, 22, 3, 2, pal.skinSh);
-      // CabeÁa
+      // Cabe√ßa
       px(14, 6, 8, 8, pal.skin);
       px(12, 4, 10, 6, pal.hood);
-      px(12, 8, 2, 6, pal.hood); // capuz tr·s
+      px(12, 8, 2, 6, pal.hood); // capuz tr√°s
       px(19, 8, 2, 1, pal.eye);
-      // M·scara
+      // M√°scara
       px(17, 10, 4, 2, pal.clothSh);
     }
 

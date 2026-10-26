@@ -1,7 +1,7 @@
 import { ctx, GRID_SIZE, TILE_SIZE, CANVAS_W, CANVAS_H } from '../core/canvas.js';
 import { T } from '../world/tiles.js';
 import { BIOMES } from '../world/biomes.js';
-import { player, currentRoom } from '../core/state.js';
+import { player, currentRoom, playerStats } from '../core/state.js';
 import { treeFrames } from '../sprites/tree.js';
 import { cactusFrames } from '../sprites/cactus.js';
 import { grassTiles } from '../sprites/grass.js';
@@ -17,6 +17,11 @@ export function renderExplore() {
   // Se for cidade, renderiza diferente
   if (currentRoom.isCity) {
     renderCity(currentRoom);
+    return;
+  }
+
+  if (currentRoom.isInterior) {
+    renderInterior(currentRoom);
     return;
   }
 
@@ -358,6 +363,26 @@ function renderCity(room) {
       const dy = y * TILE_SIZE + TILE_SIZE - treeFrames[0].height;
       ctx.drawImage(frame, dx, dy);
     }
+  }
+
+  // ---------- PROMPT DE INTERAÇÃO ----------
+  const it = playerStats._nearInteractable;
+  if (it) {
+    const cx = it.tx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = it.ty * TILE_SIZE - 16; // acima do objeto
+    const text = `Aperte [E]`;
+    ctx.font = 'bold 10px "Courier New", monospace';
+    const w = ctx.measureText(text).width + 10;
+    const h = 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(cx - w / 2, cy - h, w, h);
+    ctx.strokeStyle = '#c9a24d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w / 2 + 0.5, cy - h + 0.5, w - 1, h - 1);
+    ctx.fillStyle = '#feca57';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
   // ---------- JOGADOR ----------
@@ -721,4 +746,71 @@ function drawFountain(tx, ty, tilesW = 3, tilesH = 3) {
     ctx.fillStyle = `rgba(200, 230, 255, ${0.8 - phase * 0.4})`;
     ctx.fillRect(dropX, dropY, 2, 2);
   }
+}
+
+function renderInterior(room) {
+  // Chão de madeira (tábuas horizontais)
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const px = x * TILE_SIZE, py = y * TILE_SIZE;
+      ctx.fillStyle = (y % 2 === 0) ? '#6b4a2b' : '#5a3a24';
+      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      ctx.strokeStyle = '#3a2410';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    }
+  }
+
+  // Paredes e porta
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const t = room.map[y][x];
+      const px = x * TILE_SIZE, py = y * TILE_SIZE;
+      if (t === T.WALL) {
+        ctx.fillStyle = '#3a2a1a';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = '#1a0f08';
+        ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+      } else if (t === T.DOOR) {
+        ctx.fillStyle = '#c9a24d';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = '#a07e2f';
+        ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+      } else if (t === T.HOUSE) {
+        // Mesa
+        ctx.fillStyle = '#4a2a1a';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = '#7a4a20';
+        ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+      }
+    }
+  }
+
+  // NPC atrás da mesa (sprites de enemy são 32x32, reusa um)
+  const npc = room.npc;
+  if (npc) {
+    const npcSprites = ENEMY_SPRITES.slime; // placeholder visual, trocar depois
+    const frame = npcSprites.idle[0];
+    const nx = npc.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
+    const ny = npc.ty * TILE_SIZE + TILE_SIZE - 30;
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(frame, nx, ny, 32, 32);
+    ctx.globalAlpha = 1;
+  }
+
+  // Prompt de interação
+  const it = playerStats._nearInteractable;
+  if (it && it.kind === 'shop_keep') {
+    // ... mesmo prompt [E] do renderCity
+  }
+
+  // Jogador
+  const composed = composeFrame(player.facing, player.step);
+  const scale = (player.size + 4) / 32;
+  ctx.drawImage(
+    composed,
+    player.x - (32 * scale) / 2,
+    player.y - (32 * scale) / 2,
+    32 * scale, 32 * scale
+  );
 }

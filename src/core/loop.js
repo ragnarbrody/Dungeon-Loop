@@ -12,6 +12,7 @@ import { showClassSelect } from '../ui/classselect.js';
 import { CLASSES } from '../classes.js';
 import { CANVAS_W, CANVAS_H, TILE_SIZE, GRID_SIZE } from './canvas.js';
 import { isSolid } from '../world/tiles.js';
+import { isDialogueOpen } from '../ui/dialogue.js';
 
 let lastTime = performance.now();
 
@@ -227,7 +228,7 @@ export function loop(now) {
     if (playerStats.points > 0) {
       setGameState(STATE.LEVEL_UP);
       renderLevelUp();
-    } else {
+    } else if (!isDialogueOpen()) {
       updatePlayer(dt);
       updateLeaves(dt);
     }

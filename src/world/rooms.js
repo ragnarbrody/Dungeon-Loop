@@ -1,8 +1,9 @@
-import { GRID_SIZE, SPAWN_MARGIN } from '../core/canvas.js';
+import { GRID_SIZE, SPAWN_MARGIN, TILE_SIZE } from '../core/canvas.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { T, DIRS } from './tiles.js';
 import { BIOMES, pickBiome } from './biomes.js';
-import { worldSeed } from '../core/state.js';
+import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player } from '../core/state.js';
+import { createInterior } from './interiors.js';
 
 const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
 
@@ -389,4 +390,28 @@ export function getRoom(gx, gy) {
 export function getCitySpawn() {
   const mid = Math.floor(GRID_SIZE / 2);
   return { tx: 3, ty: mid };  // logo à direita da porta esquerda
+}
+
+// Chave: `${gx},${gy},${buildingId}`
+export const interiorCache = new Map();
+export function getInterior(gx, gy, buildingId) {
+  const key = `${gx},${gy},${buildingId}`;
+  if (!interiorCache.has(key)) {
+    interiorCache.set(key, createInterior(buildingId, gx, gy));
+  }
+  return interiorCache.get(key);
+}
+
+export function enterBuilding(buildingId) {
+  if (!currentRoom) return;
+  const gx = currentRoom.gx, gy = currentRoom.gy;
+  const interior = getInterior(gx, gy, buildingId);
+  interior._returnRoom = currentRoom;
+  interior._returnGx = gx;
+  interior._returnGy = gy;
+  setCurrentRoom(interior);
+  const mid = Math.floor(GRID_SIZE / 2);
+  player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+  player.y = (GRID_SIZE - 3) * TILE_SIZE + TILE_SIZE / 2;
+  saveGame();
 }
