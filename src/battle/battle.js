@@ -830,7 +830,6 @@ export function updateBattle(dt) {
 
   // Vitória
   if (!isAnyAlive()) {
-    battle.message = 'Você venceu!';
     if (battle.turn !== 'resolve-end') {
       battle.turn = 'resolve-end';
       battle.turnTimer = 1.0;

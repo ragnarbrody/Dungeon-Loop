@@ -9,6 +9,7 @@ import { composeFrame } from '../sprites/compose.js';
 import { getActiveLeaves } from '../entities/leaves.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { drawMapEnemies } from '../entities/enemies.js';
+import { ENEMY_SPRITES } from '../sprites/enemies.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
