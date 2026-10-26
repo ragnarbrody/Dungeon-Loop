@@ -4,7 +4,7 @@ import { ENEMY_SPRITES } from '../sprites/enemies.js';
 import { composeBattleFrame } from '../sprites/compose.js';
 import { drawSpriteWithFlash } from '../sprites/flash.js';
 import { CONSUMABLES } from '../items.js';
-import { enemyScreenPos, effectiveSkillCost } from './battle.js';
+import { enemyScreenPos, effectiveSkillCost, estimateSkillDamage, getVisualTargetIndex } from './battle.js';
 import { CLASSES } from '../classes.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { drawIconOnCanvas } from '../sprites/icons.js';
@@ -107,6 +107,16 @@ export function renderBattleInner() {
     ctx.fillStyle = isDead ? '#555' : '#c93030';
     ctx.fillRect(bx, by, barW * (e.hp / e.maxHp), barH);
 
+    // Número de HP ao lado da barra (à direita)
+    ctx.font = 'bold 10px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    ctx.fillText(`${e.hp}/${e.maxHp}`, bx + barW + 5, by + barH / 2 + 1); // sombra
+    ctx.fillStyle = isDead ? '#777' : '#eee';
+    ctx.fillText(`${e.hp}/${e.maxHp}`, bx + barW + 4, by + barH / 2);
+    ctx.textAlign = 'center';
+
     // Status effects visuais
     let statusText = '';
     let statusColor = '#fff';
@@ -140,7 +150,8 @@ export function renderBattleInner() {
     }
 
     // Seta de alvo
-    if (i === battle.targetIndex && !isDead) {
+    const visualTarget = getVisualTargetIndex();
+    if (i === visualTarget && !isDead) {
       ctx.fillStyle = '#feca57';
       ctx.beginPath();
       ctx.moveTo(pos.x, by - 14);
@@ -188,7 +199,8 @@ export function renderBattleInner() {
 
   // Indicador de alvo (canto superior direito)
   if (battle.enemies.length > 1) {
-    const t = battle.enemies[battle.targetIndex];
+    const vIdx = getVisualTargetIndex();
+    const t = vIdx >= 0 ? battle.enemies[vIdx] : null;
     if (t && t.hp > 0) {
       ctx.fillStyle = '#feca57';
       ctx.font = 'bold 12px "Courier New", monospace';
@@ -341,6 +353,20 @@ export function renderBattleInner() {
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(`${cost} MP`, x + bW / 2, bY + 28 + (nameLines - 1) * 17 + 16);
 
+      // Dano estimado (só skills ofensivas)
+      const dmgEst = estimateSkillDamage(sk.id);
+      if (dmgEst) {
+        const dmgY = bY + 28 + (nameLines - 1) * 17 + 16 + 14;
+        ctx.fillStyle = canUse ? '#ff9f43' : '#444';
+        ctx.font = '11px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const txt = dmgEst.min === dmgEst.max
+          ? `${dmgEst.min} de dano`
+          : `${dmgEst.min}-${dmgEst.max} de dano`;
+        ctx.fillText(txt, x + bW / 2, dmgY);
+      }
+
       // ---- ⓘ (canto superior direito) ----
       drawInfoIcon(x + bW - 18, bY + 8, sk, canUse);
     });
@@ -473,6 +499,20 @@ export function renderBattleInner() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(`${cost} MP`, x + bW1 / 2, bY1 + 24 + (nameLines - 1) * 15 + 14);
+
+      // Dano estimado (só skills ofensivas)
+      const dmgEst = estimateSkillDamage(sk.id);
+      if (dmgEst) {
+        const dmgY = bY1 + 24 + (nameLines - 1) * 15 + 14 + 12;
+        ctx.fillStyle = canUse ? '#ff9f43' : '#444';
+        ctx.font = '10px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const txt = dmgEst.min === dmgEst.max
+          ? `${dmgEst.min} de dano`
+          : `${dmgEst.min}-${dmgEst.max} de dano`;
+        ctx.fillText(txt, x + bW1 / 2, dmgY);
+      }
 
       // ---- ⓘ (canto superior direito) ----
       drawInfoIcon(x + bW1 - 18, bY1 + 8, sk, canUse);

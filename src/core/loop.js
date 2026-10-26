@@ -121,12 +121,15 @@ function requestNewGame() {
       playerStats.shadowActive = false;
       playerStats.buffs = {};
       playerStats._mpRegenAcc = 0;
+      playerStats.poisoned = null;        
+      playerStats.portalCores = new Set(); // (zera os núcleos)
 
       // reseta progressão
       playerStats.level = 1;
       playerStats.xp = 0;
       playerStats.xpToNextLevel = 50;
       playerStats.points = 0;
+      playerStats.gold = 0;  
 
       const room = getRoom(0, 0);
       setCurrentRoom(room);
@@ -165,6 +168,7 @@ function requestNewGame() {
       battle.skillPage = 0;
       battle.showItems = false;
 
+      saveGame();
       finishStart();
     },
     () => {

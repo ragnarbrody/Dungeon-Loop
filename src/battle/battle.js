@@ -25,9 +25,11 @@ const ENEMIES = {
   },
   goblin: {
     name: 'Goblin',
-    hp: 18, maxHp: 18, atk: 8, def: 2, xp: 30, goldMin: 3,  goldMax: 10
-    // Habilidades: Enfurecer (solo) / Fortalecer Aliado (multi)
-    // Ver enemyTurn() abaixo
+    hp: 18, maxHp: 18, atk: 8, def: 2, xp: 30, goldMin: 3,  goldMax: 10,
+    // chance de carregar ataque forte por turno (quando ainda não carregou)
+    chargeChance: 0.35,
+    // multiplicador do ataque carregado
+    chargeMul: 2.0,
   },
   scorpion: {
     name: 'Escorpião',
@@ -965,17 +967,15 @@ export function enemyTurn() {
   else if (e.id === 'goblin' && e.enraged === 0 && e.chargeTurn === 0) {
     // Em combate múltiplo: chance de fortalecer aliado (1x por batalha)
     if (battle.enemies.length > 1 && !e.usedAllyBuff && Math.random() < 0.35) {
-      // Escolhe um aliado vivo (não ele mesmo)
       const allies = battle.enemies.filter(a => a !== e && a.hp > 0);
       if (allies.length > 0) {
         const ally = allies[Math.floor(Math.random() * allies.length)];
         ally.buffDef = (ally.buffDef || 0) + 3;
         ally.defMod = (ally.defMod || 0) + 3;
-        e.buffAtk = (e.buffAtk || 0) - 2;   // fica mais fraco
+        e.buffAtk = (e.buffAtk || 0) - 2;
         e.atkMod = (e.atkMod || 0) - 2;
         e.usedAllyBuff = true;
         battle.message = `${e.name} fortaleceu ${ally.name}! (+3 DEF nele, -2 ATK em si)`;
-        // Flash visual: inimigo "verde" piscando no aliado
         const allyIdx = battle.enemies.indexOf(ally);
         battle.anim.flashEnemy = 0.5;
         battle.anim.flashEnemyIndex = allyIdx;
@@ -984,10 +984,10 @@ export function enemyTurn() {
       }
     }
 
-    // Se não usou buff de aliado: começa a "enfurecer"
-    if (!acted) {
-      e.chargeTurn = 1;      // turno de preparação
-      e.enraged = 1;         // no próximo turno, ataca forte
+    // Se não usou buff de aliado: TALVEZ começa a enfurecer
+    if (!acted && Math.random() < (e.chargeChance ?? 0.35)) {
+      e.chargeTurn = 1;
+      e.enraged = 1;
       battle.message = `${e.name} está bufando e se preparando para um ataque forte!`;
       acted = true;
     }
@@ -1161,6 +1161,120 @@ export function enemyScreenPos(enemy) {
     x: startX + idx * spacing,
     y: CANVAS_H * 0.30,
   };
+}
+
+/**
+ * Retorna { min, max } do dano esperado de uma skill ofensiva,
+ * ou null se a skill não causa dano (shadow, hunters_mark, etc).
+ *
+ * O cálculo considera os stats efetivos (buffs inclusos), o ATK do player
+ * e o multiplicador/random de cada skill. A defesa do inimigo NÃO entra
+ * (seria muito variável) — então é uma estimativa "crua".
+ */
+export function estimateSkillDamage(skillId) {
+  const wb = weaponBonus(playerEquip);
+  const atk = 2 + (effStat('str') + wb.str) * 2;
+  const agi = effStat('agi');
+  const int = effStat('int');
+
+  switch (skillId) {
+    // ---------- CAVALEIRA ----------
+    case 'quick': {
+      // dmg = atk - def + rand(-1,1), crit 1.5x
+      // Estimamos sem def, com rand -1..+1
+      const base = atk;
+      return {
+        min: Math.max(1, base - 1),
+        max: Math.floor((base + 1) * 1.5),
+      };
+    }
+    case 'heavy': {
+      // base = round(atk * 1.8) + rand(-1,2), crit 1.5x
+      const base = Math.round(atk * 1.8);
+      return {
+        min: Math.max(1, base - 1),
+        max: Math.floor((base + 2) * 1.5),
+      };
+    }
+    case 'spin': {
+      // dmg = round(atk * 1.3) - def (sem rand/crit), em todos
+      const base = Math.round(atk * 1.3);
+      return { min: Math.max(1, base), max: base };
+    }
+
+    // ---------- MAGO ----------
+    case 'bolt': {
+      // 3 + int*2 + rand(-1,1)
+      const base = 3 + int * 2;
+      return { min: Math.max(1, base - 1), max: base + 1 };
+    }
+    case 'fireball': {
+      // 5 + int*2 + rand(-1,2)
+      const base = 5 + int * 2;
+      return { min: Math.max(1, base - 1), max: base + 2 };
+    }
+    case 'arcane': {
+      // (5 + int*2) + rand(-2,2), em todos
+      const base = 5 + int * 2;
+      return { min: Math.max(1, base - 2), max: base + 2 };
+    }
+
+    // ---------- LADRÃO ----------
+    case 'stab': {
+      // 2 + str*2 + rand(-1,1)
+      const base = 2 + effStat('str') * 2;
+      return { min: Math.max(1, base - 1), max: base + 1 };
+    }
+    case 'backstab': {
+      // round((2 + str*2) * 1.6) + rand(-1,2)
+      const base = Math.round((2 + effStat('str') * 2) * 1.6);
+      return { min: Math.max(1, base - 1), max: base + 2 };
+    }
+
+    // ---------- CAÇADORA ----------
+    case 'aimed_shot': {
+      // base = atk + agi*1.5 ; dmg = round(base - def*0.5 + rand(-1,1))
+      // (sem def) ; crit 1.5x
+      const base = atk + agi * 1.5;
+      return {
+        min: Math.max(1, Math.round(base - 1)),
+        max: Math.floor(Math.round(base + 1) * 1.5),
+      };
+    }
+    case 'piercing_arrow': {
+      // base = atk + agi ; multiplicadores [1.0, 0.6, 0.4, 0.3]
+      // Mostramos o PRIMEIRO alvo (100%) como referência
+      const base = atk + agi;
+      return {
+        min: Math.max(1, Math.round(base) - 1),
+        max: Math.round(base) + 1,
+      };
+    }
+
+    // ---------- Não-dano ----------
+    case 'shadow':
+    case 'hunters_mark':
+    default:
+      return null;
+  }
+}
+
+/**
+ * Retorna o índice do "alvo visual" — o primeiro inimigo vivo e visível
+ * a partir do targetIndex atual. Usado apenas para desenhar a seta
+ * (o índice real em battle.targetIndex não é alterado por inimigos
+ * se escondendo durante o turno deles).
+ */
+export function getVisualTargetIndex() {
+  const n = battle.enemies.length;
+  if (n === 0) return -1;
+  const cur = battle.enemies[battle.targetIndex];
+  if (cur && cur.hp > 0 && cur.hiding === 0) return battle.targetIndex;
+  // Procura o primeiro vivo e visível
+  for (let i = 0; i < n; i++) {
+    if (battle.enemies[i].hp > 0 && battle.enemies[i].hiding === 0) return i;
+  }
+  return -1;
 }
 
 // chamar quando um boss for derrotado
