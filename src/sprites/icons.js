@@ -312,17 +312,33 @@ export const ICONS = {
 
   gold: makeIcon((g) => {
     const p = px(g);
-    // Moeda dourada com brilho
-    p(6, 6, 8, 8, '#8a6b2a');       // borda escura (círculo externo)
-    p(5, 7, 10, 6, '#8a6b2a');
-    p(7, 5, 6, 10, '#8a6b2a');
-    p(7, 7, 6, 6, '#f0d27a');       // corpo dourado
-    p(6, 8, 8, 4, '#f0d27a');
-    p(8, 6, 4, 8, '#f0d27a');
-    p(8, 8, 2, 2, '#fff5c0');       // brilho
-    p(7, 9, 1, 1, '#fff5c0');
-    p(11, 11, 1, 1, '#a88a3a');     // sombra inferior direita
-  }),
+    // Canvas 28x28 — moeda ocupa quase tudo
+    const cx = 14, cy = 14, r = 11;
+
+    // Borda externa (círculo escuro)
+    g.fillStyle = '#8a6b2a';
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fill();
+
+    // Corpo dourado (círculo interno)
+    g.fillStyle = '#f0d27a';
+    g.beginPath();
+    g.arc(cx, cy, r - 2, 0, Math.PI * 2);
+    g.fill();
+
+    // Brilho
+    g.fillStyle = '#fff5c0';
+    g.beginPath();
+    g.arc(cx - 3, cy - 3, 3, 0, Math.PI * 2);
+    g.fill();
+
+    // Sombra inferior direita
+    g.fillStyle = '#a88a3a';
+    g.beginPath();
+    g.arc(cx + 4, cy + 4, 2, 0, Math.PI * 2);
+    g.fill();
+  }, 28),
 
   potion_medium: makeIcon((g) => {
     const p = px(g);
@@ -330,6 +346,28 @@ export const ICONS = {
     p(7, 5, 6, 10, '#5a9b1c'); p(8, 6, 2, 2, '#8fdb4a'); p(6, 14, 8, 2, '#8a6b5a');
     // detalhe extra (uma estrelinha) pra diferenciar da fraca
     p(9, 10, 2, 1, '#ffffff'); p(10, 9, 1, 1, '#ffffff');
+  }),
+
+  bow: makeIcon((g) => {
+    const p = px(g);
+    const wood   = '#6b4a2b';
+    const woodHi = '#8a6a3a';
+    const woodSh = '#3a2410';
+    const string = '#e8e8e8';
+    // Arco vertical (curva) + corda
+    p(10, 2, 1, 2, wood);      // topo
+    p(11, 4, 1, 2, wood);
+    p(12, 6, 1, 8, wood);      // corpo
+    p(11, 14, 1, 2, wood);
+    p(10, 16, 1, 2, wood);     // base
+    p(9, 3, 1, 1, woodHi);
+    p(11, 5, 1, 1, woodHi);
+    p(12, 7, 1, 6, woodHi);
+    p(11, 15, 1, 1, woodHi);
+    p(13, 6, 1, 8, woodSh);    // sombra lateral
+    p(9, 2, 1, 1, string);     // corda (topo)
+    p(8, 4, 1, 12, string);    // corda (reta)
+    p(9, 16, 1, 1, string);    // corda (base)
   }),
 
 };

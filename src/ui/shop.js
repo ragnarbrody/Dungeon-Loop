@@ -47,8 +47,8 @@ function renderShopBody(c, shop) {
   goldEl.innerHTML = '';
   goldEl.style.cssText = 'display:flex;align-items:center;gap:6px;color:#f0c060;margin-bottom:10px;justify-content:center;';
   const gIcon = getIcon('gold');
-  gIcon.style.width = '16px';
-  gIcon.style.height = '16px';
+  gIcon.style.width = '32px';
+  gIcon.style.height = '32px';
   gIcon.style.imageRendering = 'pixelated';
   goldEl.appendChild(gIcon);
   const gTxt = document.createElement('span');

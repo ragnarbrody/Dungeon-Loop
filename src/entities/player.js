@@ -21,11 +21,13 @@ function isWalkableTile(map, tx, ty) {
 
 // Busca o tile livre mais próximo (espiral)
 function findSafeSpawn(map, tx, ty, reserved) {
+  const rows = map.length;
+  const cols = map[0].length;
   const key = (x, y) => `${x},${y}`;
   
   // Verifica se o tile está livre E não é reservado
   const isSafe = (x, y) => {
-    if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return false;
+    if (x < 0 || x >= cols || y < 0 || y >= rows) return false;
     if (reserved && reserved.has(key(x, y))) return false;
     return !isSolid(map[y][x]);
   };
@@ -69,13 +71,25 @@ function checkDoorTransition() {
   if (currentRoom.isInterior) {
     const back = currentRoom._returnRoom;
     if (!back) return;
+    const door = currentRoom._returnDoor;
+
     setCurrentRoom(back);
-    // posiciona o jogador logo abaixo da porta da casa
-    const mid = Math.floor(GRID_SIZE / 2);
-    player.x = mid * TILE_SIZE + TILE_SIZE / 2;
-    player.y = (back.map.length - 1) * TILE_SIZE - TILE_SIZE; // acima da borda
-    // Achar a porta de entrada da casa para posicionar melhor:
-    // fica na base da casa; usar o centro como fallback
+    clearLeaves();
+    updateHud();
+
+    if (door) {
+      // Coloca o player em cima da porta (ou 1 tile abaixo, para não disparar
+      // o DOOR transition logo em seguida — não há risco porque o mundo
+      // externo não usa T.DOOR para casas, apenas nas bordas do mapa)
+      player.x = door.tx * TILE_SIZE + TILE_SIZE / 2;
+      player.y = door.ty * TILE_SIZE + TILE_SIZE / 2;
+    } else {
+      // fallback (não deveria acontecer)
+      const mid = Math.floor(GRID_SIZE / 2);
+      player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+      player.y = (GRID_SIZE - 3) * TILE_SIZE + TILE_SIZE / 2;
+    }
+
     setTransitionCooldown(30);
     return;
   }
@@ -164,7 +178,7 @@ export function updatePlayer(dt) {
 
   // ---- encontro aleatório ----
   // (não roda na cidade)
-  if (currentRoom && !currentRoom.isCity) {
+  if (currentRoom && !currentRoom.isCity && !currentRoom.isInterior) {
     const movedDist = Math.hypot(player.x - oldX, player.y - oldY);
     if (movedDist > 0.01) {
       if (encounter.cooldownPx > 0) {

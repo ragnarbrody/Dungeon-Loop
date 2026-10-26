@@ -70,15 +70,15 @@ export function getInteractables(room) {
 function signTextFor(id) {
   const texts = {
     blacksmith:
-      'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos.',
+      'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos. [EM BREVE]',
     armorer:
-      'Armeiro. Compra e vende armaduras e escudos. Peças do mesmo conjunto dão bônus extras.',
+      'Armeiro. Compra e vende armaduras e escudos. Peças do mesmo conjunto dão bônus extras. [EM BREVE]',
     herbalist:
       'Herbalista. Vende poções e ervas medicinais. Dizem que ela também prepara remédios raros.',
     jeweler:
-      'Joalheiro. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro.',
+      'Joalheiro. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro. [EM BREVE]',
     quest_giver:
-      'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes.',
+      'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes. [EM BREVE]',
   };
   return texts[id] || 'Uma placa desgastada. Não dá pra ler direito.';
 }
@@ -103,14 +103,36 @@ export function findNearbyInteractable(room) {
   const list = getInteractables(room);
   if (list.length === 0) return null;
 
-    const ptx = Math.floor(player.x / TILE_SIZE);
-    const pty = Math.floor(player.y / TILE_SIZE);
+  const ptx = Math.floor(player.x / TILE_SIZE);
+  const pty = Math.floor(player.y / TILE_SIZE);
+
+  // Prioridade: menor número = mais prioritário
+  const priority = {
+    building_entrance: 0,
+    shop_keep:         0,
+    portal:            1,
+    sign:              2,
+  };
+
+  let best = null;
+  let bestPri = Infinity;
+  let bestDist = Infinity;
 
   for (const it of list) {
     const dx = Math.abs(it.tx - ptx);
     const dy = Math.abs(it.ty - pty);
-    // mesma tile OU adjacente (4 dirs)
-    if (dx + dy <= 1) return it;
+    const maxDist = it.kind === 'shop_keep' ? 2 : 1;
+    if (dx + dy > maxDist) continue;
+
+    const pri = priority[it.kind] ?? 99;
+    const dist = dx + dy;
+
+    // Critério: prioridade primeiro, distância como desempate
+    if (pri < bestPri || (pri === bestPri && dist < bestDist)) {
+      best = it;
+      bestPri = pri;
+      bestDist = dist;
+    }
   }
-  return null;
+  return best;
 }

@@ -1,4 +1,4 @@
-import { TILE_SIZE, GRID_SIZE } from '../core/canvas.js';
+import { TILE_SIZE } from '../core/canvas.js';
 
 export const T = {
   FLOOR: 0,
@@ -30,6 +30,8 @@ export function isSolid(t) {
 export function tileAt(map, px, py) {
   const tx = Math.floor(px / TILE_SIZE);
   const ty = Math.floor(py / TILE_SIZE);
-  if (ty < 0 || ty >= GRID_SIZE || tx < 0 || tx >= GRID_SIZE) return T.WALL;
+  const rows = map.length;
+  const cols = map[0].length;
+  if (ty < 0 || ty >= rows || tx < 0 || tx >= cols) return T.WALL;
   return map[ty][tx];
 }

@@ -1,4 +1,4 @@
-import { GRID_SIZE, TILE_SIZE } from '../core/canvas.js';
+import { TILE_SIZE } from '../core/canvas.js';
 import { T } from '../world/tiles.js';
 import { currentRoom } from '../core/state.js';
 
@@ -35,21 +35,28 @@ function spawnLeaf(px, py) {
 }
 
 export function updateLeaves(dt) {
-  if (!currentRoom) return;
+  if (!currentRoom || !currentRoom.map) return;
 
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-      if (currentRoom.map[y][x] !== T.TREE) continue;
+  // Só em salas com árvores (a própria sala decide via flag).
+  if (currentRoom.hasTrees) {
+    const rows = currentRoom.map.length;
+    const cols = currentRoom.map[0].length;
 
-      const e = getEmitter(x, y);
-      e.timer -= dt;
-      if (e.timer <= 0) {
-        const cx = x * TILE_SIZE + TILE_SIZE / 2;
-        const cy = y * TILE_SIZE - 2;
-        spawnLeaf(cx, cy);
+    for (let y = 0; y < rows; y++) {
+      const row = currentRoom.map[y];
+      for (let x = 0; x < cols; x++) {
+        if (row[x] !== T.TREE) continue;
 
-        const factor = 0.6 + Math.random() * 0.8;
-        e.timer = e.period * factor;
+        const e = getEmitter(x, y);
+        e.timer -= dt;
+        if (e.timer <= 0) {
+          const cx = x * TILE_SIZE + TILE_SIZE / 2;
+          const cy = y * TILE_SIZE - 2;
+          spawnLeaf(cx, cy);
+
+          const factor = 0.6 + Math.random() * 0.8;
+          e.timer = e.period * factor;
+        }
       }
     }
   }

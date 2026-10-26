@@ -7,6 +7,60 @@ import { createInterior } from './interiors.js';
 
 const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
 
+function hashRoom(gx, gy, salt = 0) {
+  let h = 2166136261 ^ gx;
+  h = Math.imul(h, 16777619) ^ gy;
+  h = Math.imul(h, 16777619) ^ salt;
+  return h >>> 0;
+}
+
+// Chave da "borda" entre (gx,gy) e (gx+dx, gy+dy): sempre a mesma pros dois lados
+function edgeKey(gx, gy, side) {
+  // Normaliza: cada borda tem um par canônico
+  //   'left'  de (gx,gy)  ==  'right' de (gx-1,gy)
+  //   'top'   de (gx,gy)  ==  'bottom' de (gx,gy-1)
+  if (side === 'right')  return edgeKey(gx + 1, gy, 'left');
+  if (side === 'bottom') return edgeKey(gx, gy + 1, 'top');
+
+  // lado canônico: left ou top
+  // borda vertical entre (gx-1,gy) e (gx,gy) usa (gx,gy,'V')
+  // borda horizontal entre (gx,gy-1) e (gx,gy) usa (gx,gy,'H')
+  if (side === 'left') return `V:${gx},${gy}`;
+  if (side === 'top')  return `H:${gx},${gy}`;
+  return `?:${gx},${gy}:${side}`;
+}
+
+// Decide deterministicamente se uma borda tem porta
+function edgeHasDoor(key) {
+  // hash do texto (puro, sem Math.random)
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h = (h >>> 0) / 4294967296;
+  // probabilidade de porta: ~70%
+  return h < 0.7;
+}
+
+export function hasDoor(gx, gy, side) {
+  // Cidade: as 4 portas sempre existem
+  if (isCity(gx, gy)) return true;
+
+  // Cidade vizinha: a borda que encosta na cidade sempre abre
+  const DIRS_LOCAL = {
+    top:    { dx: 0,  dy: -1 },
+    bottom: { dx: 0,  dy:  1 },
+    left:   { dx: -1, dy:  0 },
+    right:  { dx: 1,  dy:  0 },
+  };
+  const d = DIRS_LOCAL[side];
+  if (!d) return false;
+  if (isCity(gx + d.dx, gy + d.dy)) return true;
+
+  return edgeHasDoor(edgeKey(gx, gy, side));
+}
+
 // ============================================================
 // CIDADES — salas fixas, sem inimigos, com layout memorável
 // ============================================================
@@ -55,11 +109,12 @@ function createCity(gx, gy) {
   // Cada prédio é um retângulo 3x2 de T.HOUSE (bloqueia passagem)
   // ============================================================
   const cityObjects = [
-    { id: 'blacksmith',  name: 'Ferreiro',    tx: 4,  ty: 5,  w: 5, h: 3, signTx: 5,  signTy: 8  },
-    { id: 'herbalist',   name: 'Herbalista',  tx: 21, ty: 5,  w: 5, h: 3, signTx: 22, signTy: 8  },
-    { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 5,  signTy: 24 },
-    { id: 'jeweler',     name: 'Joalheiro',   tx: 21, ty: 21, w: 5, h: 3, signTx: 22, signTy: 24 },
-    { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 14, signTy: 25 },
+    // Placa à ESQUERDA da porta, 1 tile abaixo da casa
+    { id: 'blacksmith',  name: 'Ferreiro',    tx: 4,  ty: 5,  w: 5, h: 3, signTx: 4,  signTy: 8  }, // porta em tx:6
+    { id: 'herbalist',   name: 'Herbalista',  tx: 21, ty: 5,  w: 5, h: 3, signTx: 21, signTy: 8  }, // porta em tx:23
+    { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 4,  signTy: 24 }, // porta em tx:6
+    { id: 'jeweler',     name: 'Joalheiro',   tx: 21, ty: 21, w: 5, h: 3, signTx: 21, signTy: 24 }, // porta em tx:23
+    { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 13, signTy: 25 }, // porta em tx:15
   ];
 
   for (const obj of cityObjects) {
@@ -219,6 +274,7 @@ function createCity(gx, gy) {
     portal,
     reserved,
     enemies: [], // cidade NUNCA tem inimigos
+    hasTrees: true,
   };
 }
 
@@ -245,9 +301,13 @@ export function createRoom(gx, gy) {
 
   // Portas
   const allSides = ['top', 'bottom', 'left', 'right'];
-  const numDoors = 2 + Math.floor(rng() * 3);
-  const shuffled = allSides.slice().sort(() => rng() - 0.5);
-  const doors = shuffled.slice(0, numDoors);
+  const doors = allSides.filter(side => hasDoor(gx, gy, side));
+
+  // Garantia: pelo menos uma porta (senão a sala é inacessível)
+  if (doors.length === 0) {
+    // força "left" (sempre tem vizinha a oeste) — ou sorteia 1
+    doors.push('left');
+  }
 
   const mid = Math.floor(GRID_SIZE / 2);
   const carve = (side) => {
@@ -292,6 +352,7 @@ export function createRoom(gx, gy) {
   const placedTrees = [];
   const biomeId = pickBiome(gx, gy);
   const biome = BIOMES[biomeId];
+  const hasTrees = biomeId === 'fields';
 
   if (biome.trees || biomeId === 'desert') {
     // Desert usa cactos, então também spawna "obstáculos", mas com outra densidade.
@@ -370,6 +431,7 @@ export function createRoom(gx, gy) {
     nameCoords: `${gx}, ${gy}`,
     reserved,
     enemies: roomEnemies,
+    hasTrees,
   };
 }
 
@@ -404,14 +466,25 @@ export function getInterior(gx, gy, buildingId) {
 
 export function enterBuilding(buildingId) {
   if (!currentRoom) return;
+
   const gx = currentRoom.gx, gy = currentRoom.gy;
+
+  // Acha o cityObject para saber a tile da porta (mesma usada em getInteractables)
+  const obj = currentRoom.cityObjects?.find(o => o.id === buildingId);
+  const doorTx = obj ? obj.tx + Math.floor(obj.w / 2) : Math.floor(GRID_SIZE / 2);
+  const doorTy = obj ? obj.ty + obj.h : Math.floor(GRID_SIZE / 2);
+
   const interior = getInterior(gx, gy, buildingId);
   interior._returnRoom = currentRoom;
   interior._returnGx = gx;
   interior._returnGy = gy;
+  interior._returnDoor = { tx: doorTx, ty: doorTy };  // ← NOVO
+
   setCurrentRoom(interior);
-  const mid = Math.floor(GRID_SIZE / 2);
+
+  // Spawn perto da porta inferior do interior
+  const mid = Math.floor(interior.cols / 2);
   player.x = mid * TILE_SIZE + TILE_SIZE / 2;
-  player.y = (GRID_SIZE - 3) * TILE_SIZE + TILE_SIZE / 2;
+  player.y = (interior.rows - 2) * TILE_SIZE + TILE_SIZE / 2;
   saveGame();
 }

@@ -9,7 +9,7 @@ import { composeFrame } from '../sprites/compose.js';
 import { getActiveLeaves } from '../entities/leaves.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { drawMapEnemies } from '../entities/enemies.js';
-import { ENEMY_SPRITES } from '../sprites/enemies.js';
+import { herbalistFrames } from '../sprites/herbalist.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -116,8 +116,8 @@ export function renderExplore() {
     }
   }
 
-  // ---------- FOLHAS CAINDO (só no campo) ----------
-  if (biomeId === 'fields') {
+  // ---------- FOLHAS CAINDO ----------
+  if (currentRoom.hasTrees) {
     for (const L of getActiveLeaves()) {
       const t = L.age / L.life;
       let color;
@@ -366,12 +366,27 @@ function renderCity(room) {
     }
   }
 
+  // ---------- FOLHAS CAINDO (por cima das árvores) ----------
+  for (const L of getActiveLeaves()) {
+    const tt = L.age / L.life;
+    let color;
+    if (tt < 0.4)      color = '#6fbd63';
+    else if (tt < 0.8) color = '#8a9a4a';
+    else               color = '#c9b048';
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.floor(L.x), Math.floor(L.y), 2, 2);
+  }
+
   // ---------- PROMPT DE INTERAÇÃO ----------
   const it = playerStats._nearInteractable;
   if (it) {
     const cx = it.tx * TILE_SIZE + TILE_SIZE / 2;
     const cy = it.ty * TILE_SIZE - 16; // acima do objeto
-    const text = `Aperte [E]`;
+    const text = it.kind === 'building_entrance'
+    ? `Entrar: ${it.title} [E]`
+    : it.kind === 'sign'
+      ? `Ler: ${it.title} [E]`
+      : `Aperte [E]`;
     ctx.font = 'bold 10px "Courier New", monospace';
     const w = ctx.measureText(text).width + 10;
     const h = 16;
@@ -750,27 +765,95 @@ function drawFountain(tx, ty, tilesW = 3, tilesH = 3) {
 }
 
 function renderInterior(room) {
-  // Chão de madeira (tábuas horizontais)
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-      const px = x * TILE_SIZE, py = y * TILE_SIZE;
-      ctx.fillStyle = (y % 2 === 0) ? '#6b4a2b' : '#5a3a24';
-      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      ctx.strokeStyle = '#3a2410';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+  const cols = room.cols;
+  const rows = room.rows;
+
+  // Offset para centralizar a sala no canvas
+  const roomW = cols * TILE_SIZE;
+  const roomH = rows * TILE_SIZE;
+  const offX = Math.floor((CANVAS_W - roomW) / 2);
+  const offY = Math.floor((CANVAS_H - roomH) / 2);
+
+  // Fundo do canvas inteiro (fica bonito se a sala for menor)
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // ============================================================
+  // CHÃO DE MADEIRA — tábuas horizontais contínuas
+  // ============================================================
+  const BOARD_H = TILE_SIZE; // altura de cada tábua (20px)
+  const numBoards = Math.ceil(rows * TILE_SIZE / BOARD_H);
+
+  // Paleta das tábuas (tons do assoalho)
+  const BOARD_COLORS = [
+    '#6b4a2b', // médio
+    '#6e4c2c',
+    '#65472a', // mais escuro
+    '#714f2e', // mais claro
+    '#6b4a2b',
+    '#68472a',
+  ];
+
+  // Hash determinístico simples por índice de tábua
+  function boardHash(i) {
+    let h = 2166136261 ^ i;
+    h = Math.imul(h, 16777619);
+    return (h >>> 0) / 4294967296;
+  }
+
+  for (let b = 0; b < numBoards; b++) {
+    const py = offY + b * BOARD_H;
+    // Se a tábua passou do limite inferior da sala, apara
+    const drawH = Math.min(BOARD_H, offY + rows * TILE_SIZE - py);
+    if (drawH <= 0) break;
+
+    const color = BOARD_COLORS[Math.floor(boardHash(b) * BOARD_COLORS.length)];
+
+    // Corpo da tábua (faixa horizontal)
+    ctx.fillStyle = color;
+    ctx.fillRect(offX, py, roomW, drawH);
+
+    // Linha de separação (junta) entre tábuas
+    // Desenha só a linha de cima da tábua (a de baixo é da próxima)
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(offX, py, roomW, 1);
+
+    // Brilho sutil na parte de cima da tábua (dá volume)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.fillRect(offX, py + 1, roomW, 1);
+
+    // Sombra sutil na parte de baixo
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+    ctx.fillRect(offX, py + drawH - 2, roomW, 2);
+
+    // Opcional: "nó de madeira" ocasional em algumas tábuas
+    const h = boardHash(b);
+    if (h < 0.35) {
+      const knots = 1 + Math.floor(h * 3); // 1 a 2 nós
+      for (let k = 0; k < knots; k++) {
+        const kx = offX + ((h * 977 + k * 331) % 1) * roomW;
+        const ky = py + drawH * 0.5;
+        // nó: 2 pixels mais escuros
+        ctx.fillStyle = 'rgba(40, 20, 8, 0.45)';
+        ctx.fillRect(Math.floor(kx), Math.floor(ky), 2, 1);
+        ctx.fillStyle = 'rgba(40, 20, 8, 0.25)';
+        ctx.fillRect(Math.floor(kx) - 1, Math.floor(ky) + 1, 3, 1);
+      }
     }
   }
 
-  // Paredes e porta
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
+  // Paredes / porta / mesa
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
       const t = room.map[y][x];
-      const px = x * TILE_SIZE, py = y * TILE_SIZE;
+      const px = offX + x * TILE_SIZE;
+      const py = offY + y * TILE_SIZE;
+
       if (t === T.WALL) {
         ctx.fillStyle = '#3a2a1a';
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.strokeStyle = '#1a0f08';
+        ctx.lineWidth = 1;
         ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
       } else if (t === T.DOOR) {
         ctx.fillStyle = '#c9a24d';
@@ -778,22 +861,22 @@ function renderInterior(room) {
         ctx.fillStyle = '#a07e2f';
         ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
       } else if (t === T.HOUSE) {
-        // Mesa
         ctx.fillStyle = '#4a2a1a';
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.fillStyle = '#7a4a20';
         ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+        ctx.strokeStyle = '#3a1a08';
+        ctx.strokeRect(px + 2.5, py + 2.5, TILE_SIZE - 5, TILE_SIZE - 5);
       }
     }
   }
 
-  // NPC atrás da mesa (sprites de enemy são 32x32, reusa um)
+  // NPC
   const npc = room.npc;
   if (npc) {
-    const npcSprites = ENEMY_SPRITES.slime; // placeholder visual, trocar depois
-    const frame = npcSprites.idle[0];
-    const nx = npc.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
-    const ny = npc.ty * TILE_SIZE + TILE_SIZE - 30;
+    const frame = herbalistFrames.idle[0];
+    const nx = offX + npc.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
+    const ny = offY + npc.ty * TILE_SIZE + TILE_SIZE - 30;
     ctx.globalAlpha = 0.95;
     ctx.drawImage(frame, nx, ny, 32, 32);
     ctx.globalAlpha = 1;
@@ -802,7 +885,21 @@ function renderInterior(room) {
   // Prompt de interação
   const it = playerStats._nearInteractable;
   if (it && it.kind === 'shop_keep') {
-    // ... mesmo prompt [E] do renderCity
+    const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = offY + it.ty * TILE_SIZE - 16;
+    const text = 'Aperte [E]';
+    ctx.font = 'bold 10px "Courier New", monospace';
+    const w = ctx.measureText(text).width + 10;
+    const h = 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(cx - w / 2, cy - h, w, h);
+    ctx.strokeStyle = '#c9a24d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w / 2 + 0.5, cy - h + 0.5, w - 1, h - 1);
+    ctx.fillStyle = '#feca57';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
   // Jogador
@@ -810,8 +907,8 @@ function renderInterior(room) {
   const scale = (player.size + 4) / 32;
   ctx.drawImage(
     composed,
-    player.x - (32 * scale) / 2,
-    player.y - (32 * scale) / 2,
+    offX + player.x - (32 * scale) / 2,
+    offY + player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
 }

@@ -17,8 +17,8 @@ const elGoldIcon = document.getElementById('hud-gold-icon');
 if (elGoldIcon && !elGoldIcon.dataset.iconInjected) {
   elGoldIcon.dataset.iconInjected = '1';
   const icon = getIcon('gold');
-  icon.style.width = '14px';
-  icon.style.height = '14px';
+  icon.style.width = '20px';
+  icon.style.height = '20px';
   icon.style.imageRendering = 'pixelated';
   icon.style.verticalAlign = 'middle';
   elGoldIcon.appendChild(icon);

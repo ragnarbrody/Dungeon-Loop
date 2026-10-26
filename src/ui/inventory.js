@@ -57,8 +57,8 @@ export function renderInventory() {
     const goldLine = document.createElement('div');
     goldLine.style.cssText = 'margin-bottom: 8px; color: #f0c060; display: flex; align-items: center; justify-content: center; gap: 6px;';
     const goldIcon = getIcon('gold');
-    goldIcon.style.width = '16px';
-    goldIcon.style.height = '16px';
+    goldIcon.style.width = '32px';
+    goldIcon.style.height = '32px';
     goldIcon.style.imageRendering = 'pixelated';
     goldLine.appendChild(goldIcon);
     const goldTxt = document.createElement('span');
