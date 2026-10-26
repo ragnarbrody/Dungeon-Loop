@@ -2,7 +2,7 @@ import { playerStats, saveGame } from '../core/state.js';
 import { ITEMS_DB, addItemToInventory, remainingSpace } from '../items.js';
 import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
-import { greeting } from './classvocative.js';
+import { pickShopGreeting } from './shopgreetings.js';   // ← NOVO
 
 // Estoque por loja
 export const SHOPS = {
@@ -50,9 +50,9 @@ export function openShop(buildingId) {
   c.classList.remove('hidden');
   c.querySelector('.shop-title').textContent = shop.name;
 
-  // Saudação dinâmica ("Bem-vindo, Mago." / "Bem-vinda, Caçadora.")
+  // Saudação sorteada do pool (evita repetir a anterior)
   const greetEl = c.querySelector('.shop-greeting');
-  if (greetEl) greetEl.textContent = greeting();
+  if (greetEl) greetEl.textContent = pickShopGreeting(buildingId);
 
   renderShopBody(c, shop);
 }
@@ -110,7 +110,6 @@ function renderShopBody(c, shop) {
       if (playerStats.gold < item.price) return;
       if (remainingSpace(playerStats.inventory, itemId) <= 0) return;
 
-      // Usa o helper para adicionar respeitando o cap
       const added = addItemToInventory(playerStats.inventory, itemId, 1);
       if (added === 0) return;
 

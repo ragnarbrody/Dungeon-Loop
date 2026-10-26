@@ -51,3 +51,7 @@ export function theVocative() {
   const article = gender === 'f' ? 'a' : 'o';
   return `${article} ${vocative}`;
 }
+
+export function agree(masc, fem) {
+  return getVocativeInfo().gender === 'f' ? fem : masc;
+}
