@@ -5,6 +5,7 @@ import {
   hasSeenElderIntro, markElderIntroSeen,
   getAvailableQuests, getActiveQuest, isQuestReadyToComplete,
   activateQuest, completeActiveQuest,
+  getTurnInNpc,
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
@@ -48,8 +49,28 @@ export function talkToElder() {
 export function offerQuests() {
   const active = getActiveQuest();
 
-  // Se tem quest ativa e pronta pra entregar: entrega
-  // (sem saudação — é uma ação direta)
+  // ---- Se a quest ativa NÃO é entregue ao Ancião, ele só orienta ----
+  if (active && getTurnInNpc(active) !== 'elder') {
+    if (isQuestReadyToComplete(active.id)) {
+      openDialogue({
+        title: 'Ancião de Aethel',
+        text:
+          `Você já tem o que a Herbalista precisa, ${vocative()}.\n\n` +
+          `Vá até ela para entregar. O remédio não pode esperar.`,
+      });
+    } else {
+      openDialogue({
+        title: 'Ancião de Aethel',
+        text:
+          `A Herbalista ainda precisa da sua ajuda, ${vocative()}.\n\n` +
+          `${active.description}\n\n` +
+          `Fale com ela quando tiver os itens.`,
+      });
+    }
+    return;
+  }
+
+  // ---- Se tem quest ativa e pronta pra entregar AO ANCIÃO: entrega ----
   if (active && isQuestReadyToComplete(active.id)) {
     const q = active;
     openDialogue({
@@ -64,7 +85,6 @@ export function offerQuests() {
             completeActiveQuest(playerStats, addItemToInventory);
             saveGame();
             closeDialogue();
-            // Recarrega o menu (pode ter próxima quest)
             offerQuests();
           },
         },
@@ -73,8 +93,7 @@ export function offerQuests() {
     return;
   }
 
-  // Se tem quest ativa e não pronta: lembrete
-  // (sem saudação — é uma cobrança direta)
+  // ---- Lembrete de quest ativa (não pronta) ----
   if (active) {
     openDialogue({
       title: 'Ancião de Aethel',
@@ -85,10 +104,9 @@ export function offerQuests() {
     return;
   }
 
-  // Sem quest ativa: oferece as disponíveis
+  // ---- Sem quest ativa: oferece as disponíveis ----
   const available = getAvailableQuests();
   if (available.length === 0) {
-    // Saudação como "despedida" — único momento pós-intro em que cumprimenta
     openDialogue({
       title: 'Ancião de Aethel',
       text:
@@ -99,8 +117,7 @@ export function offerQuests() {
     return;
   }
 
-  // Por enquanto, só uma disponível. Oferece.
-  // (sem saudação — é uma ação direta, "aceita a tarefa?")
+  // Oferece a próxima (a primeira da lista, que respeita prereq)
   const q = available[0];
   openDialogue({
     title: 'Ancião de Aethel',

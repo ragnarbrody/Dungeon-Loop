@@ -951,10 +951,19 @@ function renderInterior(room) {
 
   // Prompt de interação (tanto herbalista quanto ancião)
   const it = playerStats._nearInteractable;
-  if (it && (it.kind === 'shop_keep' || it.kind === 'elder')) {
+  if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'elder')) {
     const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
     const cy = offY + it.ty * TILE_SIZE - 16;
-    const text = it.kind === 'elder' ? 'Conversar: Ancião [E]' : 'Aperte [E]';
+
+    let text;
+    if (it.kind === 'elder') {
+      text = 'Conversar: Ancião [E]';
+    } else if (it.kind === 'herbalist_quest') {
+      text = 'Conversar: Herbalista [E]';
+    } else {
+      text = 'Abrir loja [E]';
+    }
+
     ctx.font = 'bold 10px "Courier New", monospace';
     const w = ctx.measureText(text).width + 10;
     const h = 16;

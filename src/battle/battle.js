@@ -9,6 +9,7 @@ import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { showToast } from '../ui/toast.js';
 import { getBiomeEnemies } from '../world/biomes.js';
 import { notifyEnemyKilled } from '../quests.js';
+import { rollDrops, formatDrop } from '../drops.js';
 
 const ENEMIES = {
   slime: {
@@ -242,6 +243,16 @@ function clearDeadEnemies() {
           battle.goldEarned = (battle.goldEarned || 0) + gold;
         }
       }
+      // ---- NOVO: drops de itens ----
+      const drops = rollDrops(e.id, playerStats.inventory);
+      if (drops.length > 0) {
+        battle.dropEarned = battle.dropEarned || [];
+        for (const d of drops) {
+          battle.dropEarned.push(d);
+          battle.message = battle.message || '';
+          // A mensagem de vitória é montada depois; só acumula aqui
+        }
+      }
       notifyEnemyKilled(e.id);
       battle.fadingEnemies.push({
         ref: e,
@@ -293,6 +304,7 @@ export function startBattle(opts = {}) {
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
   battle.goldEarned = 0;
+  battle.dropEarned = [];
 
   playerStats.buffs = {};
   playerStats._mpRegenAcc = 0;
@@ -355,6 +367,8 @@ export function endBattle(escaped) {
   battle.tooltipSkill = null;
   battle.tooltipPos = null;
   battle.goldEarned = 0;
+  battle.dropEarned = [];
+
   encounter.cooldownPx = escaped ? 600 : 800;
   encounter.walkedSinceLast = 0;
   hud.style.display = '';
@@ -412,17 +426,34 @@ const SKILL_IMPL = {
     spawnFloatingText(t, finalDmg, isCrit ? '#feca57' : '#ff3b3b');
   },
   spin: () => {
+    // Só atinge inimigos visíveis (hiding === 0). Escondidos não são alvo de área.
+    const living = livingEnemies().filter(e => e.hiding === 0);
+    if (living.length === 0) {
+      battle.message = 'Golpe Giratório não acertou ninguém!';
+      return;
+    }
+
     let total = 0;
     let dodged = 0;
-    for (const e of livingEnemies()) {
-      if (tryDodge(e)) { dodged++; continue; }   // ← NOVO
+    let hits = 0;
+    for (const e of living) {
+      if (tryDodge(e)) { dodged++; continue; }
       const dmg = Math.max(1, Math.round(battle.player.atk * 1.3) - e.def);
       e.hp = Math.max(0, e.hp - dmg);
       total += dmg;
+      hits++;
       flashEnemyAt(e, 'white');
       spawnFloatingText(e, dmg, '#feca57');
     }
-    battle.message = `Golpe Giratório! ${total} de dano em todos os inimigos.`;
+
+    if (hits === 0) {
+      battle.message = 'Golpe Giratório não acertou ninguém!';
+      return;
+    }
+
+    battle.message = hits === 1
+      ? `Golpe Giratório! ${total} de dano em ${living[0].name}.`
+      : `Golpe Giratório! ${total} de dano em ${hits} inimigos.`;
     battle.anim.flashEnemy = 0.3;
     battle.anim.shake = 0.3;
   },
@@ -455,24 +486,28 @@ const SKILL_IMPL = {
     spawnFloatingText(t, dmg, '#ff8a3b');
   },
   arcane: () => {
-    // Dano em área: atinge todos os inimigos vivos com dano médio.
-    // Escala com INT mas com multiplicador menor que antes (era 3x, agora 2x).
-    // Bônus de +5 fixo pra manter relevante em níveis baixos.
-    const living = livingEnemies();
+    // Só atinge inimigos visíveis (hiding === 0). Inimigos escondidos
+    // (rato na toca, abutre voando) não são alvo de área.
+    const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) return;
 
     const baseDmg = 5 + effStat('int') * 2;
     let total = 0;
     let hits = 0;
-    //
+
     for (const e of living) {
-      if (tryDodge(e)) continue;                // ← NOVO
+      if (tryDodge(e)) continue;
       const dmg = Math.max(1, baseDmg + rand(-2, 2));
       e.hp = Math.max(0, e.hp - dmg);
       total += dmg;
       hits++;
       flashEnemyAt(e, 'white');
       spawnFloatingText(e, dmg, '#d78cff');
+    }
+
+    if (hits === 0) {
+      battle.message = 'Impacto Arcano não acertou ninguém!';
+      return;
     }
 
     battle.message = hits === 1
@@ -550,10 +585,15 @@ const SKILL_IMPL = {
   },
 
   piercing_arrow: () => {
-    const living = livingEnemies();
-    if (living.length === 0) return;
+    // Só atinge inimigos visíveis (hiding === 0). Escondidos não são alvo de área.
+    const living = livingEnemies().filter(e => e.hiding === 0);
+    if (living.length === 0) {
+      battle.message = 'Flecha Perfurante não acertou ninguém!';
+      return;
+    }
 
     // Dano decrescente por "posição": 100%, 60%, 40%, 30%...
+    // A posição é contada só entre os VISÍVEIS (escondidos não "ocupam" slot).
     const multipliers = [1.0, 0.6, 0.4, 0.3];
     const baseDmg = battle.player.atk + effStat('agi');
     let total = 0;
@@ -562,7 +602,6 @@ const SKILL_IMPL = {
     living.forEach((e, i) => {
       if (tryDodge(e)) return;   // abutre ainda pode esquivar (não é Tiro Certeiro)
       const mul = multipliers[i] ?? 0.3;
-      // Ignora 50% da defesa (perfurante)
       const dmg = Math.max(1, Math.round(baseDmg * mul - e.def * 0.5) + rand(-1, 1));
       e.hp = Math.max(0, e.hp - dmg);
       total += dmg;
@@ -739,6 +778,7 @@ export function playerAction(action) {
     'quick', 'heavy', 'spin',           // Cavaleira
     'bolt', 'fireball', 'arcane',       // Mago
     'stab', 'backstab',                 // Ladrão
+    'piercing_arrow',
   ]);
   if (SKILLS_THAT_DAMAGE.has(skill.id) && !hasVisibleTarget()) {
     // Se a skill ignora hiding, deixa passar
@@ -868,6 +908,12 @@ export function updateBattle(dt) {
         battle.message = `Você venceu! +${battle.goldEarned} de ouro.`;
       } else {
         battle.message = 'Você venceu!';
+      }
+
+      // ---- NOVO: anexar drops na mensagem ----
+      if (battle.dropEarned && battle.dropEarned.length > 0) {
+        const dropStr = battle.dropEarned.map(formatDrop).join(', ');
+        battle.message += ` Dropou: ${dropStr}.`;
       }
       saveGame();
     }

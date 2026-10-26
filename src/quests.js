@@ -24,6 +24,10 @@
 //   - 'kill': conta mortes de inimigos; filter = id do inimigo (ou null = qualquer)
 //   - 'collect': conta itens no inventário; filter = id do item
 //   - 'visit': conta salas visitadas; filter = { gx, gy } (opcional)
+
+let _getInventory = () => [];
+export function setInventoryGetter(fn) { _getInventory = fn; }
+
 export const QUEST_DB = {
   story_slimes: {
     id: 'story_slimes',
@@ -43,6 +47,27 @@ export const QUEST_DB = {
     ],
     rewards: { xp: 30, gold: 20 },
     next: null, // por enquanto, não tem próxima
+  },
+    story_rat_tails: {
+    id: 'story_rat_tails',
+    type: 'story',
+    title: 'Caudas para a Herbalista',
+    giver: 'elder',            // quem OFERECE é o Ancião
+    turnInNpc: 'herbalist',    // mas quem RECEBE é a herbalista
+    prereq: ['story_slimes'],  // precisa ter concluído a dos slimes
+    description:
+      'Uma doença está se espalhando por Aethel. A Herbalista precisa de 3 caudas de rato do campo para preparar o remédio. Peço que a ajude.',
+    objectives: [
+      {
+        id: 'collect_rat_tails',
+        text: 'Colete caudas de rato',
+        target: 3,
+        type: 'collect',
+        filter: 'rat_tail',
+      },
+    ],
+    rewards: { xp: 40, gold: 30, items: [{ id: 'potion_medium', qty: 1 }] },
+    next: null,
   },
 };
 
@@ -87,8 +112,13 @@ export function getAvailableQuests() {
   for (const q of Object.values(QUEST_DB)) {
     if (state.completed.has(q.id)) continue;
     if (state.active === q.id) continue;
-    // Por enquanto, só a primeira quest de história (sem pré-requisito)
-    // Quando houver cadeia, checar `prereq` aqui.
+
+    // Checa pré-requisitos (se houver)
+    if (q.prereq && q.prereq.length > 0) {
+      const missing = q.prereq.some(id => !state.completed.has(id));
+      if (missing) continue;
+    }
+
     list.push(q);
   }
   return list;
@@ -124,6 +154,19 @@ export function getTrackedQuest() {
 }
 
 export function getProgress(questId, objId) {
+  const q = QUEST_DB[questId];
+  if (!q) return 0;
+  const obj = q.objectives.find(o => o.id === objId);
+  if (!obj) return state.progress[questId]?.[objId] ?? 0;
+
+  // 'collect': progresso é o que o jogador TEM no inventário
+  if (obj.type === 'collect') {
+    const inv = _getInventory();
+    const item = inv.find(i => i.id === obj.filter);
+    return Math.min(obj.target, item ? item.qty : 0);
+  }
+
+  // outros tipos: progresso salvo em state.progress
   return state.progress[questId]?.[objId] ?? 0;
 }
 
@@ -170,16 +213,40 @@ export function notifyEnemyKilled(enemyId) {
 
 // Finaliza a quest ativa (chamado quando o jogador entrega ao Ancião).
 // Aplica recompensas e marca como concluída.
+//
+// IMPORTANTE: para objetivos do tipo 'collect', consome do inventário
+// os itens entregues (obj.filter, na quantidade obj.target) ANTES de
+// aplicar as recompensas. Isso evita que o jogador fique com os itens
+// "fantasmas" depois de entregar a quest.
 export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   const q = getActiveQuest();
   if (!q) return null;
   if (!isQuestReadyToComplete(q.id)) return null;
 
+  // ---- 1) Consome os itens de coleta ----
+  for (const obj of q.objectives) {
+    if (obj.type !== 'collect') continue;
+    if (!obj.filter) continue;
+
+    // Remove até obj.target unidades do item do inventário.
+    // (Se o jogador tiver mais que o target, o excedente fica.)
+    let toRemove = obj.target;
+    const inv = playerStats.inventory;
+    for (let i = inv.length - 1; i >= 0 && toRemove > 0; i--) {
+      if (inv[i].id !== obj.filter) continue;
+      const take = Math.min(inv[i].qty, toRemove);
+      inv[i].qty -= take;
+      toRemove -= take;
+      if (inv[i].qty <= 0) inv.splice(i, 1);
+    }
+  }
+
+  // ---- 2) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
   state.tracked = null;
 
-  // Recompensas
+  // ---- 3) Aplica recompensas ----
   const rewards = q.rewards || {};
   if (rewards.xp) playerStats.xp += rewards.xp;
   if (rewards.gold) playerStats.gold += rewards.gold;
@@ -225,4 +292,16 @@ export function getCompletedQuests() {
   return Array.from(state.completed)
     .map(id => QUEST_DB[id])
     .filter(Boolean);
+}
+
+// NPC que OFERECE a quest (para o menu do Ancião)
+export function getQuestGiver(q) {
+  return q ? (q.giver || 'elder') : null;
+}
+
+// NPC que RECEBE a entrega (para o menu da Herbalista)
+// Fallback: se não tiver turnInNpc, é o próprio giver.
+export function getTurnInNpc(q) {
+  if (!q) return null;
+  return q.turnInNpc || q.giver || 'elder';
 }

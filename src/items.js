@@ -15,9 +15,12 @@ export const ITEMS_DB = {
   potion_weak: {
     id: 'potion_weak',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Cura Fraca',
     description: 'Cura de 5 a 10 de HP.',
     price: 10,
+    sellPrice: 4,      // preço de venda
+    rarity: 'common',
     stackable: true,
     stackCap: 10,
     combatOnly: false,
@@ -40,9 +43,12 @@ export const ITEMS_DB = {
   potion_medium: {
     id: 'potion_medium',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Cura Média',
     description: 'Cura de 20 a 35 de HP.',
     price: 35,
+    sellPrice: 15,      // preço de venda
+    rarity: 'uncommon',
     stackable: true,
     stackCap: 5,
     combatOnly: false,
@@ -65,9 +71,12 @@ export const ITEMS_DB = {
   potion_strong: {
     id: 'potion_strong',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Cura Forte',
     description: 'Cura de 50 a 70 de HP.',
     price: 80,
+    sellPrice: 35,      // preço de venda
+    rarity: 'rare',
     stackable: true,
     stackCap: 3,           // ← NOVO
     combatOnly: false,
@@ -90,9 +99,12 @@ export const ITEMS_DB = {
   potion_mana: {
     id: 'potion_mana',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Mana Fraca',
     description: 'Recupera de 5 a 10 de MP.',
     price: 15,
+    sellPrice: 6,      // preço de venda
+    rarity: 'common',
     stackable: true,
     stackCap: 10,
     combatOnly: false,
@@ -117,9 +129,12 @@ export const ITEMS_DB = {
   potion_mana_medium: {
     id: 'potion_mana_medium',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Mana Média',
     description: 'Recupera de 20 a 35 de MP.',
     price: 40,
+    sellPrice: 18,      // preço de venda
+    rarity: 'uncommon',
     stackable: true,
     stackCap: 5,
     combatOnly: false,
@@ -144,9 +159,12 @@ export const ITEMS_DB = {
   potion_mana_strong: {
     id: 'potion_mana_strong',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Mana Forte',
     description: 'Recupera de 50 a 70 de MP.',
     price: 85,
+    sellPrice: 38,      // preço de venda
+    rarity: 'rare',
     stackable: true,
     stackCap: 3,
     combatOnly: false,
@@ -171,9 +189,12 @@ export const ITEMS_DB = {
   potion_str: {
     id: 'potion_str',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Força',
     description: '+3 Força por 3 rounds de combate.',
     price: 25,
+    sellPrice: 12,      // preço de venda
+    rarity: 'uncommon',
     stackable: true,
     stackCap: 3,
     combatOnly: true,
@@ -196,9 +217,12 @@ export const ITEMS_DB = {
   potion_agi: {
     id: 'potion_agi',
     type: 'consumable',
+    kind: 'consumable',
     name: 'Poção de Agilidade',
     description: '+3 Agilidade por 3 rounds de combate.',
     price: 25,
+    sellPrice: 12,      // preço de venda
+    rarity: 'uncommon',
     stackable: true,
     stackCap: 3,
     combatOnly: true,
@@ -224,10 +248,13 @@ export const ITEMS_DB = {
   sword: {
     id: 'sword',
     type: 'weapon',
+    kind: 'weapon',
     slot: 'rightHand',
     name: 'Espada',
     description: 'Uma espada simples de aço.',
     price: 50,
+    sellPrice: 20,      // preço de venda
+    rarity: 'common',
     stackable: false,
     icon: 'sword',
     stats: { str: 2 },
@@ -237,10 +264,13 @@ export const ITEMS_DB = {
   axe: {
     id: 'axe',
     type: 'weapon',
+    kind: 'weapon',
     slot: 'rightHand',
     name: 'Machado',
     description: 'Pesado, mas devastador.',
     price: 70,
+    sellPrice: 18,      // preço de venda
+    rarity: 'uncommon',
     stackable: false,
     icon: 'axe',
     stats: { str: 3 },
@@ -250,10 +280,13 @@ export const ITEMS_DB = {
   dagger: {
     id: 'dagger',
     type: 'weapon',
+    kind: 'weapon',
     slot: 'rightHand',
     name: 'Adaga',
     description: 'Rápida e precisa.',
     price: 45,
+    sellPrice: 18,      // preço de venda
+    rarity: 'common',
     stackable: false,
     icon: 'dagger',
     stats: { str: 1, agi: 2 },
@@ -263,10 +296,13 @@ export const ITEMS_DB = {
   staff: {
     id: 'staff',
     type: 'weapon',
+    kind: 'weapon',
     slot: 'rightHand',
     name: 'Cajado',
     description: 'Foco mágico para conjurar feitiços.',
     price: 60,
+    sellPrice: 25,      // preço de venda
+    rarity: 'uncommon',
     stackable: false,
     icon: 'staff',
     stats: { int: 2 },
@@ -276,10 +312,13 @@ export const ITEMS_DB = {
   bow: {
     id: 'bow',
     type: 'weapon',
+    kind: 'weapon',
     slot: 'rightHand',
     name: 'Arco',
     description: 'Arma de longo alcance da caçadora.',
     price: 55,
+    sellPrice: 22,      // preço de venda
+    rarity: 'uncommon',
     stackable: false,
     icon: 'bow',
     stats: { str: 1, agi: 2 },
@@ -292,10 +331,13 @@ export const ITEMS_DB = {
   shield: {
     id: 'shield',
     type: 'shield',
+    kind: 'shield',
     slot: 'leftHand',
     name: 'Escudo',
     description: 'Um escudo de madeira reforçado com metal.',
     price: 40,
+    sellPrice: 16,      // preço de venda
+    rarity: 'common',
     stackable: false,
     icon: 'shield',
     stats: { def: 2 },
@@ -308,14 +350,33 @@ export const ITEMS_DB = {
   torch: {
     id: 'torch',
     type: 'torch',
+    kind: 'torch',
     slot: 'leftHand',
     name: 'Tocha',
     description: 'Ilumina a escuridão. Dá um pequeno bônus de ATK.',
     price: 5,
+    sellPrice: 2,      // preço de venda
+    rarity: 'common',
     stackable: false,
     icon: 'torch',
     stats: {}, // tocha não dá stats, é decorativa
     draw: null,
+  },
+
+  // ============================================================
+  // LOOT / MATERIAIS
+  // ============================================================
+  rat_tail: {
+    id: 'rat_tail',
+    kind: 'loot',
+    name: 'Cauda de Rato',
+    description: 'Uma cauda fina e comprida. Herbalistas juram que tem propriedades medicinais.',
+    price: 8,          // preço de compra (não usado ainda)
+    sellPrice: 3,      // preço de venda
+    rarity: 'common',
+    stackable: true,
+    stackCap: 20,
+    icon: 'rat_tail',
   },
 };
 
@@ -385,3 +446,17 @@ export function remainingSpace(inventory, itemId) {
   const cur = existing ? existing.qty : 0;
   return Math.max(0, cap - cur);
 }
+
+// Cores por raridade (usadas no inventário e no toast de drop)
+export const RARITY_COLORS = {
+  common:    '#bbb',
+  uncommon:  '#6fbd63',
+  rare:      '#3aa0ff',
+  epic:      '#d78cff',
+  legendary: '#feca57',
+};
+
+// Ordem pra ordenar no inventário (menor = mais comum)
+export const RARITY_ORDER = {
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+};

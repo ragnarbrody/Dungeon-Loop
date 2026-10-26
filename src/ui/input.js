@@ -16,6 +16,7 @@ import {
   handleMapClick, handleMapMove, handleMapRelease, handleMapWheel,
   centerOnPlayer,
 } from './worldmap.js';
+import { talkToHerbalist } from './herbalistdialog.js';
 
 export const keys = {};
 
@@ -176,6 +177,8 @@ export function installInput() {
           enterBuilding(it.buildingId);
         } else if (it.kind === 'elder') {
           talkToElder();
+        } else if (it.kind === 'herbalist_quest') {
+          talkToHerbalist();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
         }

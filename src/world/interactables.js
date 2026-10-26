@@ -1,6 +1,7 @@
 import { playerStats, player, addGold } from '../core/state.js';
 import { ITEMS_DB } from '../items.js';
 import { TILE_SIZE } from '../core/canvas.js';
+import { getActiveQuest } from '../quests.js';
 
 // ============================================================
 // INTERACTABLES
@@ -20,6 +21,7 @@ export function getInteractables(room) {
       const npc = room.npc;
       // Herbalista: abre loja
       if (npc.buildingId === 'herbalist') {
+        // Sempre oferece a loja
         list.push({
           tx: npc.tx, ty: npc.ty,
           kind: 'shop_keep',
@@ -27,6 +29,16 @@ export function getInteractables(room) {
           title: 'Herbalista',
           text: 'Bem-vindo! Quer comprar alguma poção?',
         });
+        // Se tem quest ativa que é entregue a ela, oferece o diálogo
+        // (prioridade maior, ver priority abaixo)
+        const q = getActiveQuest();
+        if (q && q.turnInNpc === 'herbalist') {
+          list.push({
+            tx: npc.tx, ty: npc.ty,
+            kind: 'herbalist_quest',
+            title: 'Herbalista',
+          });
+        }
       }
       // Ancião: abre diálogo de quests
       else if (npc.buildingId === 'quest_giver') {
@@ -119,6 +131,7 @@ export function findNearbyInteractable(room) {
 
   // Prioridade: menor número = mais prioritário
   const priority = {
+    herbalist_quest:  -1,
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
@@ -130,10 +143,13 @@ export function findNearbyInteractable(room) {
   let bestPri = Infinity;
   let bestDist = Infinity;
 
+  // NPCs atrás de balcão precisam de alcance 2 (o balcão ocupa 1 tile).
+  const BEHIND_COUNTER = new Set(['shop_keep', 'elder', 'herbalist_quest']);
+
   for (const it of list) {
     const dx = Math.abs(it.tx - ptx);
     const dy = Math.abs(it.ty - pty);
-    const maxDist = (it.kind === 'shop_keep' || it.kind === 'elder') ? 2 : 1;
+    const maxDist = BEHIND_COUNTER.has(it.kind) ? 2 : 1;
     if (dx + dy > maxDist) continue;
 
     const pri = priority[it.kind] ?? 99;

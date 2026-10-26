@@ -552,6 +552,56 @@ export const ICONS = {
     p(11, 6, 1, 5, '#fff5c0');    // brilho lateral dir da haste
   }),
 
+  rat_tail: makeIcon((g) => {
+    const p = px(g);
+    // Paleta
+    const skin     = '#b89a8a';   // tom rosado-acinzentado do rato
+    const skinHi   = '#d8c0b0';   // brilho
+    const skinSh   = '#8a6a5a';   // sombra
+    const skinDark = '#5a3f32';   // contorno/raiz
+    const ringHi   = '#e8d0c0';   // "anéis" claros
+
+    // Cauda em curva de S, saindo do canto inferior direito (raiz)
+    // e terminando no canto superior esquerdo (ponta). É a "cauda de rato"
+    // clássica: fina, comprida, com anéis.
+
+    // Raiz (parte grossa, embaixo à direita)
+    p(15, 15, 3, 3, skinDark);
+    p(16, 15, 2, 2, skinSh);
+
+    // Segmento 1 (sobe e curva pra esquerda)
+    p(13, 13, 3, 3, skin);
+    p(13, 13, 3, 1, skinHi);
+    p(13, 15, 3, 1, skinSh);
+
+    // Segmento 2 (meio, cruza)
+    p(10, 11, 4, 3, skin);
+    p(10, 11, 4, 1, skinHi);
+    p(10, 13, 4, 1, skinSh);
+
+    // Segmento 3 (sobe mais)
+    p(8, 8, 3, 3, skin);
+    p(8, 8, 3, 1, skinHi);
+    p(8, 10, 3, 1, skinSh);
+
+    // Segmento 4 (curva pro topo)
+    p(6, 5, 3, 3, skin);
+    p(6, 5, 3, 1, skinHi);
+
+    // Ponta (bem fina, aponta pra cima-esquerda)
+    p(5, 3, 2, 2, skin);
+    p(5, 3, 1, 1, skinHi);
+    p(4, 2, 1, 1, skinSh);
+
+    // Anéis (detalhe sutil, um pixel claro em cada segmento)
+    p(11, 12, 1, 1, ringHi);
+    p(9, 9,  1, 1, ringHi);
+    p(7, 6,  1, 1, ringHi);
+
+    // Sombra na base (dá peso à raiz)
+    p(15, 17, 3, 1, skinDark);
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

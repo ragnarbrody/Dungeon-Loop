@@ -5,7 +5,7 @@ import {
   SAVE_VERSION,
 } from './save.js';
 import { loadKnowledge, serializeKnowledge, revealRoom } from '../world/knowledge.js';
-import { serializeQuests, loadQuests } from '../quests.js';
+import { serializeQuests, loadQuests, setInventoryGetter } from '../quests.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -78,6 +78,8 @@ export function effStat(id) {
   const b = playerStats.buffs[id];
   return base + (b ? b.amount : 0);
 }
+
+setInventoryGetter(() => playerStats.inventory);
 
 // ---------- Save (única função de escrita) ----------
 // Centraliza "o que é serializável" do state.
@@ -192,6 +194,8 @@ export const battle = {
   skillPage: 0,
   itemPage: 0,
   xpEarned: 0,
+  goldEarned: 0,
+  dropEarned: [],
   fadingEnemies: [],
   tooltipSkill: null,
   tooltipPos: null,
