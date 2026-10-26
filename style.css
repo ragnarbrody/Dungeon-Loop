@@ -1,0 +1,442 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #1a1a2e;
+  font-family: 'Courier New', monospace;
+  color: #eee;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Container principal: mochila + canvas lado a lado */
+#app {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+/* Coluna da esquerda: botões empilhados a partir do topo */
+#left-panel {
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;   /* empilha a partir do topo */
+  align-items: stretch;          /* botões ocupam a largura da coluna */
+  gap: 8px;
+  width: 110px;                  /* largura fixa — não muda quando o canvas é redimensionado */
+  flex-shrink: 0;
+  /* Alinha o topo da coluna com o topo do canvas (descontando o padding do #app) */
+  padding-top: 0;
+}
+
+/* Canvas quadrado responsivo */
+#game-container {
+  position: relative;
+  width: min(90vw, 90vh);
+  height: min(90vw, 90vh);
+  max-width: 900px;
+  max-height: 900px;
+  flex-shrink: 0;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #0f0f1a;
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  /* Melhor renderização em telas de alta densidade:
+     em vez de pixelated, deixamos o navegador suavizar (fontes ficam mais legíveis) */
+  image-rendering: auto;
+}
+
+#hud {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  background: rgba(0,0,0,0.6);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: clamp(10px, 1.7vmin, 14px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+#room-coords {
+  opacity: 0.55;
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+/* Botão da mochila: fora do canvas, ao lado */
+#btn-inventory {
+  background: #2a2a3e;
+  color: #c9a24d;
+  border: 2px solid #c9a24d;
+  padding: 10px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  transition: 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#btn-inventory:hover {
+  background: #c9a24d;
+  color: #1a1a2e;
+}
+
+#inventory-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.95);
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+#inventory-screen.hidden {
+  display: none;
+}
+
+#inventory-screen h2 {
+  color: #c9a24d;
+  margin-bottom: 20px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px; /* Espaço entre o ícone e o texto */
+}
+
+#inventory-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.inv-slot {
+  width: 140px;
+  height: 60px;
+  background: #2a2a3e;
+  border: 2px solid #555;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  gap: 10px;
+  font-family: inherit;
+  color: inherit;
+  text-align: center;
+  line-height: 1.2;
+  overflow: hidden; /* Impede que o texto vaze */
+  box-sizing: border-box;
+}
+
+.inv-slot.equipped {
+  border-color: #c9a24d;
+  background: #3a2a1e;
+}
+
+.inv-slot.empty {
+  opacity: 0.3;
+}
+
+.inv-item-icon { font-size: 24px; }
+.inv-item-name { font-size: 12px; color: #ddd; }
+.inv-hint { font-size: 12px; color: #888; }
+
+.hidden {
+  display: none !important;
+}
+
+/* Em telas pequenas, mochila vira botão pequeno no topo */
+@media (max-width: 640px) {
+  #app {
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+  }
+  #left-panel {
+    flex-direction: row;
+    width: auto;
+    padding-top: 0;
+  }
+  #btn-inventory {
+    padding: 6px 10px;
+    font-size: 12px;
+    width: auto;
+  }
+  #game-container {
+    width: min(96vw, 96vh);
+    height: min(96vw, 96vh);
+  }
+}
+
+#menu-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4); /* Escurece um pouco o fundo */
+  z-index: 20;
+}
+
+#menu-screen h1 {
+  font-size: 42px;
+  color: #c9a24d;
+  text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+  margin-bottom: 40px;
+  letter-spacing: 2px;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.menu-buttons button {
+  background: #2a2a3e;
+  color: #eee;
+  border: 2px solid #c9a24d;
+  padding: 12px 40px;
+  font-size: 18px;
+  font-family: inherit;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 200px;
+}
+
+.menu-buttons button:hover:not(:disabled) {
+  background: #c9a24d;
+  color: #1a1a2e;
+}
+
+.menu-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #555;
+}
+
+.continue-info {
+  font-size: 11px;
+  color: #4f9a4a;
+  margin-top: 4px;
+  font-weight: normal;
+}
+
+.menu-buttons button:hover .continue-info {
+  color: #1a1a2e;
+}
+
+#levelup-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.95);
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+
+.levelup-row {
+  display: flex;
+  justify-content: space-between;
+  width: 300px;
+  margin-bottom: 10px;
+  background: #2a2a3e;
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: 1px solid #555;
+}
+
+.levelup-row button {
+  background: #c9a24d;
+  border: none;
+  border-radius: 4px;
+  width: 30px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.levelup-row button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+#btn-confirm-levelup {
+  margin-top: 20px;
+  background: #4f9a4a;
+  color: #fff;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#gameover-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(20, 5, 5, 0.95);
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+#class-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.97);
+  border: 4px solid #0f0f1a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+}
+
+#class-screen h2 {
+  color: #c9a24d;
+  margin-bottom: 25px;
+  font-size: 22px;
+}
+
+#class-cards {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.class-card {
+  width: 175px; /* Era 160px */
+  background: #2a2a3e;
+  border: 2px solid #555;
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+}
+
+.class-card:hover {
+  border-color: #c9a24d;
+  transform: translateY(-3px);
+}
+
+.class-card h3 {
+  color: #c9a24d;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.class-card p {
+  font-size: 11px;
+  color: #aaa;
+  margin-bottom: 8px;
+  min-height: 42px;
+}
+
+.class-card .stats {
+  font-size: 11px;
+  color: #ddd;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.class-card .stats span { display: block; }
+
+#btn-cancel-class {
+  background: transparent;
+  color: #888;
+  border: 1px solid #555;
+  padding: 6px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+#inventory-preview {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #c9a24d;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  image-rendering: pixelated;
+}
+
+#inventory-preview canvas {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+/* Fontes responsivas nas telas de menu/inventário */
+#menu-screen h1 { font-size: clamp(28px, 6vmin, 42px); }
+.menu-buttons button { font-size: clamp(14px, 2.4vmin, 18px); padding: 10px 30px; }
+#inventory-screen h2 { font-size: clamp(18px, 3vmin, 24px); }
+.class-card { width: clamp(120px, 20vmin, 175px); }
+#inventory-preview { width: clamp(72px, 12vmin, 96px); height: clamp(72px, 12vmin, 96px); }
+
+/* Em telas muito pequenas, empilhar as cards de classe */
+@media (max-width: 620px) {
+  #class-cards {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .class-card {
+    width: 90%;
+    max-width: 340px;
+  }
+}
+
+/* Ajustes finos em telas baixas (ex: celular deitado) */
+@media (max-height: 520px) {
+  #inventory-screen h2 { display: none; } /* ganha espaço vertical */
+  #inventory-preview { display: none; }
+}

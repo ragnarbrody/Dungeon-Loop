@@ -1,0 +1,392 @@
+import { GRID_SIZE, SPAWN_MARGIN } from '../core/canvas.js';
+import { makeRng, seedFrom } from '../core/rng.js';
+import { T, DIRS } from './tiles.js';
+import { BIOMES, pickBiome } from './biomes.js';
+import { worldSeed } from '../core/state.js';
+
+const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
+
+// ============================================================
+// CIDADES — salas fixas, sem inimigos, com layout memorável
+// ============================================================
+
+// Lista de cidades conhecidas (facilita o minimapa)
+export const CITY_COORDS = new Set(['0,0']);
+
+export function isCity(gx, gy) {
+  return CITY_COORDS.has(`${gx},${gy}`);
+}
+
+function createCity(gx, gy) {
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.FLOOR);
+    map.push(row);
+  }
+
+  // Bordas (muro)
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  // 4 portas (nas 4 direções, sempre abertas)
+  const mid = Math.floor(GRID_SIZE / 2);
+  const doors = ['top', 'bottom', 'left', 'right'];
+  for (let x = mid - 1; x <= mid + 1; x++) {
+    map[0][x] = T.DOOR;
+    map[GRID_SIZE - 1][x] = T.DOOR;
+  }
+  for (let y = mid - 1; y <= mid + 1; y++) {
+    map[y][0] = T.DOOR;
+    map[y][GRID_SIZE - 1] = T.DOOR;
+  }
+
+  // ---- Declara AQUI as constantes compartilhadas ----
+  const mid2 = Math.floor(GRID_SIZE / 2);
+  const STREET_HALF_HEIGHT = 1;
+
+  // ============================================================
+  // PRÉDIOS (5 prédios: ferreiro, herbalista, armeiro, joalheiro, quest giver)
+  // Cada prédio é um retângulo 3x2 de T.HOUSE (bloqueia passagem)
+  // ============================================================
+  const cityObjects = [
+    { id: 'blacksmith',  name: 'Ferreiro',    tx: 4,  ty: 5,  w: 5, h: 3, signTx: 5,  signTy: 8  },
+    { id: 'herbalist',   name: 'Herbalista',  tx: 21, ty: 5,  w: 5, h: 3, signTx: 22, signTy: 8  },
+    { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 5,  signTy: 24 },
+    { id: 'jeweler',     name: 'Joalheiro',   tx: 21, ty: 21, w: 5, h: 3, signTx: 22, signTy: 24 },
+    { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 14, signTy: 25 },
+  ];
+
+  for (const obj of cityObjects) {
+    for (let y = obj.ty; y < obj.ty + obj.h; y++) {
+      for (let x = obj.tx; x < obj.tx + obj.w; x++) {
+        if (y >= 0 && y < GRID_SIZE && x >= 0 && x < GRID_SIZE) {
+          map[y][x] = T.HOUSE;
+        }
+      }
+    }
+  }
+
+  // ============================================================
+  // CAMINHOS até as portas das casas
+  // 1 tile de largura, alinhado com a porta visual (centro da casa).
+  // Casas ACIMA da rua: caminho desce da base até a rua.
+  // Casas ABAIXO da rua: caminho sobe do topo da casa até a rua.
+  // ============================================================
+  for (const obj of cityObjects) {
+    // Centro da porta (em coords de tile)
+    const doorTx = obj.tx + Math.floor((obj.w - 1) / 2);
+
+    // Topo e base da casa (em tiles)
+    const houseTopTy = obj.ty;
+    const houseBotTy = obj.ty + obj.h;
+
+    const streetTop = mid2 - STREET_HALF_HEIGHT;
+    const streetBot = mid2 + STREET_HALF_HEIGHT;
+
+    if (houseBotTy <= streetTop) {
+      // Casa está ACIMA da rua: desce da base da casa até a rua
+      for (let y = houseBotTy; y < streetTop; y++) {
+        if (map[y][doorTx] === T.FLOOR || map[y][doorTx] === T.CITY_FLOOR) {
+          map[y][doorTx] = T.STREET;
+        }
+      }
+    } else if (houseTopTy > streetBot) {
+      // Casa está ABAIXO da rua: sobe do topo da casa até a rua
+      for (let y = streetBot + 1; y < houseTopTy; y++) {
+        if (map[y][doorTx] === T.FLOOR || map[y][doorTx] === T.CITY_FLOOR) {
+          map[y][doorTx] = T.STREET;
+        }
+      }
+    }
+  }
+
+  // ============================================================
+  // RUAS PRINCIPAIS
+  // Calculadas primeiro, pra depois a praça sobrescrever.
+  // ============================================================
+  const streetTop = mid2 - STREET_HALF_HEIGHT;
+  const streetBot = mid2 + STREET_HALF_HEIGHT;
+
+  // Pinta a rua de T.STREET em todo o chão livre (T.FLOOR)
+  for (let dy = -STREET_HALF_HEIGHT; dy <= STREET_HALF_HEIGHT; dy++) {
+    const y = mid2 + dy;
+    if (y < 0 || y >= GRID_SIZE) continue;
+    
+    for (let x = 1; x < GRID_SIZE - 1; x++) {
+      if (map[y][x] === T.FLOOR) {
+        map[y][x] = T.STREET;
+      }
+    }
+  }
+
+  // ============================================================
+  // PRAÇA + PORTAL
+  // A praça sobrescreve a rua, criando o visual de "rua -> praça -> rua".
+  // ============================================================
+  const plazaRadius = 5;
+  const innerPlazaRadius = 2;
+
+  for (let y = mid2 - plazaRadius; y <= mid2 + plazaRadius; y++) {
+    for (let x = mid2 - plazaRadius; x <= mid2 + plazaRadius; x++) {
+      if (y < 0 || y >= GRID_SIZE || x < 0 || x >= GRID_SIZE) continue;
+
+      const dx = x - mid2;
+      const dy = y - mid2;
+      const distSq = dx * dx + dy * dy;
+
+      // Se está dentro do raio da praça, a praça manda.
+      if (distSq <= innerPlazaRadius * innerPlazaRadius) {
+        map[y][x] = T.PLAZA;
+      } else if (distSq <= plazaRadius * plazaRadius) {
+        const outerRingInner = (plazaRadius - 1) * (plazaRadius - 1);
+        if (distSq >= outerRingInner) {
+          map[y][x] = T.PLAZA;  // anel externo
+        } else {
+          map[y][x] = T.FLOOR;  // miolo (grama)
+        }
+      }
+    }
+  }
+
+  // Portal (1x1) no centro exato (sobrescreve praça/rua)
+  const portal = { tx: mid2, ty: mid2, w: 1, h: 1 };
+  map[portal.ty][portal.tx] = T.PORTAL;
+
+  // ============================================================
+  // ÁRVORES decorativas espalhadas (fora da praça e das ruas)
+  // ============================================================
+  const treeRng = makeRng(seedFrom(gx + 1337, gy + 7331));
+  const numCityTrees = 14 + Math.floor(treeRng() * 8); // 14 a 21
+  let cityTreesPlaced = 0, cityTreesAttempts = 0;
+
+  while (cityTreesPlaced < numCityTrees && cityTreesAttempts < 400) {
+    cityTreesAttempts++;
+    const tx = 2 + Math.floor(treeRng() * (GRID_SIZE - 4));
+    const ty = 2 + Math.floor(treeRng() * (GRID_SIZE - 4));
+
+    if (map[ty][tx] !== T.FLOOR) continue;
+    // Não plantar em cima da rua
+    if (ty >= mid2 - 2 && ty <= mid2 + 2) continue; // rua + folga
+    // Não plantar na praça
+    const dx = tx - mid2, dy = ty - mid2;
+    if (dx * dx + dy * dy <= (plazaRadius + 1) * (plazaRadius + 1)) continue;
+    // Não plantar colado em casas (pra não cobrir as portas)
+    let nearHouse = false;
+    for (const obj of cityObjects) {
+      if (tx >= obj.tx - 1 && tx <= obj.tx + obj.w &&
+          ty >= obj.ty - 1 && ty <= obj.ty + obj.h + 1) {
+        nearHouse = true;
+        break;
+      }
+    }
+    if (nearHouse) continue;
+    // Não plantar em cima dos spawn (reserved não foi feito ainda; usa raio)
+    if (Math.hypot(tx - 3, ty - mid2) < 3) continue;
+
+    map[ty][tx] = T.TREE;
+    cityTreesPlaced++;
+  }
+
+  const reserved = new Set();
+  // reserva área de spawn (entrada esquerda)
+  for (let dx = -1; dx <= 3; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      reserved.add(`${3 + dx},${mid + dy}`);
+    }
+  }
+  // reserva também o centro (por segurança)
+  for (let y = mid - 2; y <= mid + 2; y++) {
+    for (let x = mid - 2; x <= mid + 2; x++) {
+      reserved.add(`${x},${y}`);
+    }
+  }
+
+  return {
+    gx, gy,
+    map,
+    doors,
+    biomeId: 'fields', // usado só pra paleta das paredes; cidade tem paleta própria
+    name: 'Cidade de Aethel',
+    nameCoords: `${gx}, ${gy}`,
+    isCity: true,
+    cityObjects,
+    portal,
+    reserved,
+    enemies: [], // cidade NUNCA tem inimigos
+  };
+}
+
+export function createRoom(gx, gy) {
+  // Cidade? Retorna sala fixa.
+  if (isCity(gx, gy)) {
+    return createCity(gx, gy);
+  }
+  const rng = makeRng(seedFrom(gx + worldSeed, gy));
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.FLOOR);
+    map.push(row);
+  }
+
+  // Bordas
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  // Portas
+  const allSides = ['top', 'bottom', 'left', 'right'];
+  const numDoors = 2 + Math.floor(rng() * 3);
+  const shuffled = allSides.slice().sort(() => rng() - 0.5);
+  const doors = shuffled.slice(0, numDoors);
+
+  const mid = Math.floor(GRID_SIZE / 2);
+  const carve = (side) => {
+    if (side === 'top')    for (let x = mid - 1; x <= mid + 1; x++) map[0][x] = T.DOOR;
+    if (side === 'bottom') for (let x = mid - 1; x <= mid + 1; x++) map[GRID_SIZE - 1][x] = T.DOOR;
+    if (side === 'left')   for (let y = mid - 1; y <= mid + 1; y++) map[y][0] = T.DOOR;
+    if (side === 'right')  for (let y = mid - 1; y <= mid + 1; y++) map[y][GRID_SIZE - 1] = T.DOOR;
+  };
+  doors.forEach(carve);
+
+  // Reserva a área central de spawn (onde o jogador pode nascer ao entrar por portas)
+  const reserved = new Set();
+  const key = (x, y) => `${x},${y}`;
+
+  // 1. Reserva das portas (como já estava)
+  for (const s of doors) {
+    const sidesToReserve = [s, DIRS[s].opposite];
+    for (const sd of sidesToReserve) {
+      for (let m = 1; m <= SPAWN_MARGIN + 1; m++) {
+        if (sd === 'top' || sd === 'bottom') {
+          const yy = (sd === 'top') ? m : GRID_SIZE - 1 - m;
+          for (let x = mid - 2; x <= mid + 2; x++) reserved.add(key(x, yy));
+        } else {
+          const xx = (sd === 'left') ? m : GRID_SIZE - 1 - m;
+          for (let y = mid - 2; y <= mid + 2; y++) reserved.add(key(xx, y));
+        }
+      }
+    }
+  }
+
+  // 2. NOVO: Reserva o centro exato (onde o jogador nasce no começo do jogo)
+  // Um quadrado de 5x5 no centro
+  for (let y = mid - 2; y <= mid + 2; y++) {
+    for (let x = mid - 2; x <= mid + 2; x++) {
+      reserved.add(key(x, y));
+    }
+  }
+
+  // 3. Coloca "obstáculos" conforme o bioma
+  //    - fields: árvores (T.TREE)
+  //    - desert: cactos (também T.TREE — colidem e ocupam o tile; só o sprite muda)
+  const placedTrees = [];
+  const biomeId = pickBiome(gx, gy);
+  const biome = BIOMES[biomeId];
+
+  if (biome.trees || biomeId === 'desert') {
+    // Desert usa cactos, então também spawna "obstáculos", mas com outra densidade.
+    const numTrees = biomeId === 'desert'
+      ? 4 + Math.floor(rng() * 6)      // deserto: 4 a 9 cactos
+      : 8 + Math.floor(rng() * 12);    // campo: 8 a 19 árvores
+
+    const centerX = mid, centerY = mid;
+    let placed = 0, attempts = 0;
+    while (placed < numTrees && attempts < 300) {
+      attempts++;
+      const x = 2 + Math.floor(rng() * (GRID_SIZE - 4));
+      const y = 2 + Math.floor(rng() * (GRID_SIZE - 4));
+
+      const dist = Math.hypot(x - centerX, y - centerY);
+      if (dist < 5) continue;
+
+      let nearDoor = false;
+      if (doors.includes('top')    && y <= 3 && Math.abs(x - mid) <= 3) nearDoor = true;
+      if (doors.includes('bottom') && y >= GRID_SIZE - 4 && Math.abs(x - mid) <= 3) nearDoor = true;
+      if (doors.includes('left')   && x <= 3 && Math.abs(y - mid) <= 3) nearDoor = true;
+      if (doors.includes('right')  && x >= GRID_SIZE - 4 && Math.abs(y - mid) <= 3) nearDoor = true;
+      if (nearDoor) continue;
+
+      let tooClose = false;
+      for (const t of placedTrees) {
+        if (Math.hypot(x - t.x, y - t.y) < 2.5) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (tooClose) continue;
+
+      if (map[y][x] === T.FLOOR && !reserved.has(key(x, y))) {
+        map[y][x] = T.TREE; // reaproveita o tipo "obstáculo"
+        placedTrees.push({ x, y });
+        placed++;
+      }
+    }
+  }
+
+  const roomEnemies = [];
+  const enemiesPool = (biome.enemies && biome.enemies.length > 0)
+    ? biome.enemies
+    : (biomeId === 'fields' ? FALLBACK_FIELDS_ENEMIES : []);
+  // Se o bioma não tem inimigos definidos, ele fica vazio (ex: deserto por enquanto)
+
+  const numMapEnemies = enemiesPool.length > 0
+    ? 1 + Math.floor(rng() * 3)
+    : 0;
+
+  for (let i = 0; i < numMapEnemies; i++) {
+    let tx, ty, attempts = 0;
+    while (attempts < 40) {
+      attempts++;
+      tx = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+      ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+      if (map[ty][tx] !== T.FLOOR) continue;
+      if (reserved.has(`${tx},${ty}`)) continue;
+      if (Math.hypot(tx - mid, ty - mid) < 4) continue; // não muito perto do spawn
+      const tooClose = roomEnemies.some(e => Math.hypot(e.tx - tx, e.ty - ty) < 3);
+      if (tooClose) continue;
+      break;
+    }
+    if (attempts >= 40) continue;
+    roomEnemies.push({
+      id: enemiesPool[Math.floor(rng() * enemiesPool.length)],
+      tx, ty,
+      defeated: false,
+    });
+  }
+
+  return {
+    gx, gy, map, doors, biomeId,
+    name: biome.name,
+    nameCoords: `${gx}, ${gy}`,
+    reserved,
+    enemies: roomEnemies,
+  };
+}
+
+// Exporta o cache para poder ser limpo
+export const roomCache = new Map();
+
+// Exporta a função de limpar o cache
+export function clearRoomCache() {
+  roomCache.clear();
+}
+
+export function getRoom(gx, gy) {
+  const key = `${gx},${gy}`;
+  if (!roomCache.has(key)) roomCache.set(key, createRoom(gx, gy));
+  return roomCache.get(key);
+}
+
+export function getCitySpawn() {
+  const mid = Math.floor(GRID_SIZE / 2);
+  return { tx: 3, ty: mid };  // logo à direita da porta esquerda
+}

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dungeon Loop</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Coluna esquerda: mochila -->
+    <div id="left-panel">
+      <button id="btn-inventory" class="hidden">Mochila (I)</button>
+      <button id="btn-map" class="hidden">Mapa (M)</button>
+      <button id="btn-quests" class="hidden">Missões (Q)</button>
+    </div>
+
+    <!-- Canvas + overlays -->
+    <div id="game-container">
+      <canvas id="game" width="600" height="600"></canvas>
+
+      <!-- Menu Principal -->
+      <div id="menu-screen">
+        <h1>Dungeon Loop</h1>
+        <div class="menu-buttons">
+          <button id="btn-new-game">Novo Jogo</button>
+          <button id="btn-continue">
+            Continuar
+            <span id="continue-info" class="continue-info hidden">Nv 1 - Campos</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="hud" class="hidden">
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+          <span id="room-name">Campos</span>
+          <span id="room-coords">(0, 0)</span>
+        </div>
+        <div style="margin-top: 4px; font-size: 12px; color: #c9a24d;">
+          <span id="hud-class">—</span>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px;">
+          <div style="color: #ff6b6b;">HP: <span id="hud-hp">20/20</span></div>
+          <div style="color: #3aa0ff;">MP: <span id="hud-mp">5/5</span></div>
+          <div style="color: #feca57;">XP: <span id="hud-xp">0/50</span> (Nv <span id="hud-lvl">1</span>)</div>
+        </div>
+      </div>
+
+      <!-- Inventário -->
+      <div id="inventory-screen" class="hidden">
+        <div id="inventory-preview"></div>
+        <h2>Mochila</h2>
+        <div id="inventory-stats" style="margin-bottom: 15px; text-align: center;"></div>
+        <h3 style="color: #aaa; margin-bottom: 10px; font-size: 14px;">Equipamentos</h3>
+        <div id="inventory-slots"></div>
+        <h3 style="color: #aaa; margin: 20px 0 10px; font-size: 14px;">Consumíveis</h3>
+        <div id="inventory-consumables" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;"></div>
+        <p class="inv-hint" style="margin-top: 20px;">Pressione "I" para fechar</p>
+      </div>
+
+      <div id="levelup-screen" class="hidden">
+        <h2>Subiu de Nível!</h2>
+        <p id="levelup-points" style="color: #feca57; font-weight: bold; margin-bottom: 15px;"></p>
+        <div id="levelup-stats"></div>
+        <button id="btn-confirm-levelup">Confirmar</button>
+      </div>
+
+      <div id="gameover-screen" class="hidden">
+        <h2 style="color: #ff3b3b; font-size: 36px; text-shadow: 2px 2px 0 #000;">GAME OVER</h2>
+        <p style="margin: 20px 0; color: #ccc; font-size: 16px;">Sua jornada chegou ao fim...</p>
+        <div class="menu-buttons">
+          <button id="btn-gameover-new">Novo Jogo</button>
+          <button id="btn-gameover-menu">Voltar ao Menu</button>
+        </div>
+      </div>
+
+      <div id="class-screen" class="hidden">
+        <h2>Escolha sua Classe</h2>
+        <div id="class-cards"></div>
+        <button id="btn-cancel-class">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
