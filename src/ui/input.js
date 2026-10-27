@@ -4,7 +4,7 @@ import { playerAction } from '../battle/battle.js';
 import { renderInventory } from './inventory.js';
 import { CLASSES } from '../classes.js';
 import { getIcon } from '../sprites/icons.js';
-import { CONSUMABLES } from '../items.js';
+import { CONSUMABLES, addItemToInventory } from '../items.js';
 import { openDialogue, closeDialogue, isDialogueOpen } from './dialogue.js';
 import { portalText } from '../world/interactables.js';
 import { enterBuilding } from '../world/rooms.js';
@@ -181,6 +181,22 @@ export function installInput() {
           talkToHerbalist();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
+        } else if (it.kind === 'lost_backpack') {
+          const result = addItemToInventory(playerStats.inventory, 'letter_to_elder', 1);
+          if (result > 0) {
+            saveGame();
+            openDialogue({
+              title: 'Mochila Abandonada',
+              text:
+                'Não há sinal do aldeão. Apenas uma mochila rasgada, como se algo tivesse arrastado o dono.\n\n' +
+                'Dentro dela, um pergaminho selado com o brasão de Aethel. Parece importante. O Ancião vai querer ver isso.',
+            });
+          } else {
+            openDialogue({
+              title: 'Mochila Abandonada',
+              text: 'A mochila está vazia.',
+            });
+          }
         }
         for (let kk in keys) keys[kk] = false;
       }

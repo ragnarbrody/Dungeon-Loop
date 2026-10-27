@@ -132,6 +132,44 @@ export function renderExplore() {
 
   drawMapEnemies(currentRoom);
 
+  if (currentRoom.interactables) {
+    for (const it of currentRoom.interactables) {
+      if (it.kind === 'lost_backpack') {
+        // verifica se o jogador já pegou o pergaminho
+        const hasLetter = playerStats.inventory.some(i => i.id === 'letter_to_elder');
+        if (hasLetter) continue;
+        drawLostBackpack(it.tx * TILE_SIZE, it.ty * TILE_SIZE);
+      }
+    }
+  }
+
+  // ---------- PROMPT DE INTERAÇÃO ----------
+  if (playerStats._nearInteractable) {
+    const it = playerStats._nearInteractable;
+    const cx = it.tx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = it.ty * TILE_SIZE - 16;
+
+    let text;
+    if (it.kind === 'lost_backpack') {
+      text = 'Abrir mochila [E]';
+    } else {
+      text = 'Aperte [E]';
+    }
+
+    ctx.font = 'bold 10px "Courier New", monospace';
+    const w = ctx.measureText(text).width + 10;
+    const h = 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(cx - w / 2, cy - h, w, h);
+    ctx.strokeStyle = '#c9a24d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w / 2 + 0.5, cy - h + 0.5, w - 1, h - 1);
+    ctx.fillStyle = '#feca57';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, cy - h / 2 + 1);
+  }
+
   // ---------- JOGADOR ----------
   const composed = composeFrame(player.facing, player.step);
   const scale = (player.size + 4) / 32;
@@ -987,4 +1025,45 @@ function renderInterior(room) {
     offY + player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
+}
+
+function drawLostBackpack(px, py) {
+  // Sombra no chão
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Corpo da mochila (couro)
+  const bx = px + 4;
+  const by = py + 6;
+  const bw = TILE_SIZE - 8;
+  const bh = TILE_SIZE - 8;
+
+  // Corpo
+  ctx.fillStyle = '#6b4a2b';
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Tampa
+  ctx.fillStyle = '#4a3018';
+  ctx.fillRect(bx, by, bw, 4);
+
+  // Fivela (dourado)
+  ctx.fillStyle = '#c9a24d';
+  ctx.fillRect(bx + bw / 2 - 1, by + 4, 2, 3);
+
+  // Alça
+  ctx.strokeStyle = '#3a2410';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(bx + bw / 2, by - 1, 4, Math.PI, 0);
+  ctx.stroke();
+
+  // Um brilho sutil pra chamar atenção (pulsante)
+  const t = performance.now() / 500;
+  const pulse = 0.3 + Math.sin(t) * 0.15;
+  ctx.fillStyle = `rgba(254, 202, 87, ${pulse})`;
+  ctx.beginPath();
+  ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
+  ctx.fill();
 }

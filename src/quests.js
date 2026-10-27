@@ -25,8 +25,13 @@
 //   - 'collect': conta itens no inventário; filter = id do item
 //   - 'visit': conta salas visitadas; filter = { gx, gy } (opcional)
 
+import { removeMarker } from '../src/world/knowledge.js';
+import { checkLevelUp } from './core/state.js';
+
 let _getInventory = () => [];
+let _visitedRooms = () => new Set();
 export function setInventoryGetter(fn) { _getInventory = fn; }
+export function setVisitedRoomsGetter(fn) { _visitedRooms = fn; }
 
 export const QUEST_DB = {
   story_slimes: {
@@ -48,7 +53,7 @@ export const QUEST_DB = {
     rewards: { xp: 30, gold: 20 },
     next: null, // por enquanto, não tem próxima
   },
-    story_rat_tails: {
+  story_rat_tails: {
     id: 'story_rat_tails',
     type: 'story',
     title: 'Caudas para a Herbalista',
@@ -69,6 +74,34 @@ export const QUEST_DB = {
     rewards: { xp: 40, gold: 30, items: [{ id: 'potion_medium', qty: 1 }] },
     next: null,
   },
+  story_lost_traveler: {
+    id: 'story_lost_traveler',
+    type: 'story',
+    title: 'O Pergaminho Perdido',
+    giver: 'elder',
+    prereq: ['story_slimes'],       // paralela com rat_tails
+    description:
+      'Um aldeão saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu?',
+    objectives: [
+      {
+        id: 'visit_last_seen',
+        text: 'Vá até o último local onde o aldeão foi visto',
+        target: 1,
+        type: 'visit',
+        filter: { gx: -2, gy: -4 },
+      },
+      {
+        id: 'collect_letter',
+        text: 'Encontre o pergaminho',
+        target: 1,
+        type: 'collect',
+        filter: 'letter_to_elder',
+      },
+    ],
+    rewards: { xp: 50, gold: 25, items: [{ id: 'potion_mana', qty: 2 }] },
+    next: null,
+  },
+
 };
 
 // ---------- Estado ----------
@@ -166,6 +199,19 @@ export function getProgress(questId, objId) {
     return Math.min(obj.target, item ? item.qty : 0);
   }
 
+  // 'visit': checa se o jogador já visitou a(s) sala(s) alvo
+  if (obj.type === 'visit') {
+    // filter pode ser { gx, gy } ou um array de { gx, gy }
+    const targets = Array.isArray(obj.filter) ? obj.filter : [obj.filter];
+    const visited = _visitedRooms();  // ← chama a função pra obter o Set
+    let hits = 0;
+    for (const t of targets) {
+      if (!t) continue;
+      if (visited.has(`${t.gx},${t.gy}`)) hits++;
+    }
+    return Math.min(obj.target, hits);
+  }
+
   // outros tipos: progresso salvo em state.progress
   return state.progress[questId]?.[objId] ?? 0;
 }
@@ -211,6 +257,14 @@ export function notifyEnemyKilled(enemyId) {
   }
 }
 
+// Chamado pelo player.js quando o jogador entra numa sala.
+// Não precisa fazer nada ativo — o getProgress do 'visit' já lê direto
+// do Set de visitedRooms. Mas deixamos a função aqui pra futuros tipos
+// (ex.: 'visit' com efeito imediato, contador, etc.).
+export function notifyRoomVisited(gx, gy) {
+  // No-op por enquanto. O getProgress resolve.
+}
+
 // Finaliza a quest ativa (chamado quando o jogador entrega ao Ancião).
 // Aplica recompensas e marca como concluída.
 //
@@ -228,8 +282,6 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     if (obj.type !== 'collect') continue;
     if (!obj.filter) continue;
 
-    // Remove até obj.target unidades do item do inventário.
-    // (Se o jogador tiver mais que o target, o excedente fica.)
     let toRemove = obj.target;
     const inv = playerStats.inventory;
     for (let i = inv.length - 1; i >= 0 && toRemove > 0; i--) {
@@ -241,14 +293,23 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     }
   }
 
-  // ---- 2) Marca como concluída ----
+  // ---- 2) Remove markers específicos de quest ----
+  // (Fora do loop: roda UMA vez, não por objetivo.)
+  if (q.id === 'story_lost_traveler') {
+    removeMarker('marker_lost_traveler');
+  }
+
+  // ---- 3) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
   state.tracked = null;
 
-  // ---- 3) Aplica recompensas ----
+  // ---- 4) Aplica recompensas ----
   const rewards = q.rewards || {};
-  if (rewards.xp) playerStats.xp += rewards.xp;
+  if (rewards.xp) {
+    playerStats.xp += rewards.xp;
+    checkLevelUp();
+    }
   if (rewards.gold) playerStats.gold += rewards.gold;
   if (rewards.items && addItemToInventoryFn) {
     for (const it of rewards.items) {

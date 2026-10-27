@@ -601,6 +601,44 @@ export const ICONS = {
     // Sombra na base (dá peso à raiz)
     p(15, 17, 3, 1, skinDark);
   }),
+  letter_to_elder: makeIcon((g) => {
+    const p = px(g);
+    // Pergaminho enrolado, com selo dourado
+    const paper     = '#e8d8b0';
+    const paperDark = '#b8a074';
+    const paperHi   = '#f5ebd0';
+    const ink       = '#5a3a24';
+    const seal      = '#9b1c1c';   // cera vermelha
+    const sealHi    = '#c93030';
+    const sealSh    = '#6b1010';
+    const gold      = '#c9a24d';
+
+    // Corpo do pergaminho
+    p(4, 3, 12, 14, paperDark);     // borda
+    p(5, 4, 10, 12, paper);         // papel
+    p(5, 4, 10, 1, paperHi);        // brilho topo
+    p(5, 15, 10, 1, paperDark);     // sombra base
+
+    // Enrolado no topo (barra horizontal)
+    p(3, 2, 14, 2, paperDark);
+    p(4, 2, 12, 1, paperHi);
+    // Enrolado na base
+    p(3, 16, 14, 2, paperDark);
+    p(4, 16, 12, 1, paperHi);
+
+    // Linhas de "texto"
+    p(7, 7, 6, 1, ink);
+    p(7, 9, 4, 1, ink);
+    p(7, 11, 5, 1, ink);
+
+    // Selo de cera (círculo vermelho no centro-baixo)
+    p(9, 11, 3, 3, sealSh);         // sombra
+    p(9, 11, 3, 2, seal);           // corpo
+    p(9, 10, 3, 1, sealHi);         // brilho
+    // "Fita" dourada saindo do selo
+    p(8, 13, 1, 2, gold);
+    p(12, 13, 1, 2, gold);
+  }),
 
 };
 

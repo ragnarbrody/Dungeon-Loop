@@ -279,6 +279,8 @@ function createCity(gx, gy) {
 }
 
 export function createRoom(gx, gy) {
+  console.log('[createRoom] gx =', gx, '(', typeof gx, ') gy =', gy, '(', typeof gy, ')');
+
   // Cidade? Retorna sala fixa.
   if (isCity(gx, gy)) {
     return createCity(gx, gy);
@@ -425,6 +427,33 @@ export function createRoom(gx, gy) {
     });
   }
 
+  // ---- Sala especial: mochila do aldeão perdido ----
+  // (só existe em gx=-2, gy=-4)
+  let interactables = [];
+  if (gx === -2 && gy === -4) {
+    console.log('[createRoom] bloco da mochila executando!');
+    // Coloca a mochila em um tile fixo perto do centro, sem colidir com árvores.
+    const mid = Math.floor(GRID_SIZE / 2);
+    let packTx = mid;
+    let packTy = mid;
+    if (map[packTy]?.[packTx] === T.TREE) {
+      const candidates = [
+        [mid + 1, mid], [mid - 1, mid], [mid, mid + 1], [mid, mid - 1],
+      ];
+      for (const [cx, cy] of candidates) {
+        if (map[cy]?.[cx] === T.FLOOR) { packTx = cx; packTy = cy; break; }
+      }
+    }
+    reserved.add(`${packTx},${packTy}`);
+
+    interactables.push({
+      tx: packTx, ty: packTy,
+      kind: 'lost_backpack',
+      title: 'Mochila Abandonada',
+    });
+  }
+
+  console.log('[createRoom] retornando sala', gx, gy, 'interactables:', interactables);
   return {
     gx, gy, map, doors, biomeId,
     name: biome.name,
@@ -432,6 +461,7 @@ export function createRoom(gx, gy) {
     reserved,
     enemies: roomEnemies,
     hasTrees,
+    interactables,
   };
 }
 
@@ -445,7 +475,12 @@ export function clearRoomCache() {
 
 export function getRoom(gx, gy) {
   const key = `${gx},${gy}`;
-  if (!roomCache.has(key)) roomCache.set(key, createRoom(gx, gy));
+  if (!roomCache.has(key)) {
+    console.log('[getRoom] gerando nova sala:', key);
+    roomCache.set(key, createRoom(gx, gy));
+  } else {
+    console.log('[getRoom] usando cache para:', key);
+  }
   return roomCache.get(key);
 }
 

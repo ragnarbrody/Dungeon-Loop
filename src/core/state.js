@@ -5,7 +5,7 @@ import {
   SAVE_VERSION,
 } from './save.js';
 import { loadKnowledge, serializeKnowledge, revealRoom } from '../world/knowledge.js';
-import { serializeQuests, loadQuests, setInventoryGetter } from '../quests.js';
+import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter } from '../quests.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -214,8 +214,28 @@ if (savedData.quests) {
   loadQuests(savedData.quests);
 }
 
+// Registra os getters pro quests.js (evita import cycle)
+setInventoryGetter(() => playerStats.inventory);
+setVisitedRoomsGetter(() => visitedRooms);
+
 // Revela a sala inicial
 revealRoom(startGX, startGY);
+
+// Verifica se o jogador subiu de nível. Retorna true se subiu.
+// Pode chamar quantas vezes quiser — se não passou do limite, retorna false.
+export function checkLevelUp() {
+  if (playerStats.xp < playerStats.xpToNextLevel) return false;
+
+  // Sobe de nível (pode ser mais de um de uma vez, se o XP for enorme)
+  while (playerStats.xp >= playerStats.xpToNextLevel) {
+    playerStats.xp -= playerStats.xpToNextLevel;
+    playerStats.level++;
+    playerStats.points += 3;
+    playerStats.hp = playerStats.maxHp;
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
+  }
+  return true;
+}
 
 export let transitionCooldown = 0;
 export function setTransitionCooldown(v) { transitionCooldown = v; }

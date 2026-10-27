@@ -9,6 +9,7 @@ import {
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
+import { addMarker, revealMarker } from '../world/knowledge.js';
 
 // Texto de lore da introdução. A saudação inicial é dinâmica (via greeting()),
 // então essa constante NÃO começa com "Bem-vindo" — ela é concatenada depois.
@@ -85,6 +86,7 @@ export function offerQuests() {
             completeActiveQuest(playerStats, addItemToInventory);
             saveGame();
             closeDialogue();
+            checkLevelUp();
             offerQuests();
           },
         },
@@ -129,6 +131,21 @@ export function offerQuests() {
         label: 'Aceitar',
         action: () => {
           activateQuest(q.id);
+
+          // ---- se a quest tem local marcado, adiciona marker no mapa ----
+          if (q.id === 'story_lost_traveler') {
+              addMarker({
+              id: 'marker_lost_traveler',
+              type: 'quest',
+              gx: -2,
+              gy: -4,
+              title: 'Último local do aldeão',
+              revealed: true,
+              });
+              // addMarker não revela automaticamente, então chamamos
+              revealMarker('marker_lost_traveler');
+          }
+
           saveGame();
           closeDialogue();
         },

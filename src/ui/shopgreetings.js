@@ -9,7 +9,7 @@
 // Pra adicionar uma loja nova, basta adicionar uma entrada aqui
 // com o mesmo buildingId do SHOPS em shop.js.
 // ============================================================
-import { greeting, vocative } from './classvocative.js';
+import { greeting, vocative, agree } from './classvocative.js';
 
 export const SHOP_GREETINGS = {
   herbalist: [

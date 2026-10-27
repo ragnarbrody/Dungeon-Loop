@@ -2,6 +2,7 @@ import { ctx, CANVAS_W } from '../core/canvas.js';
 import { currentRoom, visitedRooms } from '../core/state.js';
 import { pickBiome } from '../world/biomes.js';
 import { isCity } from '../world/rooms.js';
+import { getMarkers } from '../world/knowledge.js';
 
 const BIOME_MINIMAP_COLORS = {
   fields: { visited: '#4f9a4a', unvisited: '#2a3a2a' },
@@ -16,6 +17,13 @@ const CITY_COLORS = {
 };
 
 const DEFAULT_COLORS = { visited: '#4f9a4a', unvisited: '#2a2a3e' };
+
+// Cores dos markers (mesma paleta do mapa-múndi)
+const MARKER_COLORS = {
+  boss:  '#c93030',
+  quest: '#4f9a4a',
+  poi:   '#8ad8ff',
+};
 
 function drawHouseIcon(cx, cy, size, color) {
   const s = size * 0.65;
@@ -53,6 +61,15 @@ export function renderMinimap() {
   ctx.strokeStyle = '#c9a24d';
   ctx.lineWidth = 1;
   ctx.strokeRect(startX - 5, startY - 5, width * (tileSize + gap) + 10, height * (tileSize + gap) + 10);
+
+  // Pré-computa os markers revelados, pra desenhar por cima dos tiles
+  const markers = getMarkers({ onlyRevealed: true });
+  // Filtra os que NÃO são cidade (a cidade já tem o ícone de casa)
+  const markerByTile = new Map();
+  for (const m of markers) {
+    if (m.type === 'city') continue;
+    markerByTile.set(`${m.gx},${m.gy}`, m);
+  }
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -99,6 +116,38 @@ export function renderMinimap() {
         ctx.fillStyle = colors.unvisited;
         ctx.fillRect(px, py, tileSize, tileSize);
       }
+
+      // ---- Marker (quest, boss, poi) por cima ----
+      const mk = markerByTile.get(`${gx},${gy}`);
+      if (mk) {
+        drawMinimapMarker(px + tileSize / 2, py + tileSize / 2, tileSize, mk.type);
+      }
     }
   }
+}
+
+/**
+ * Desenha um marker pequeno no minimapa.
+ * Círculo colorido com uma borda escura, sem label (é pequeno demais).
+ */
+function drawMinimapMarker(cx, cy, tileSize, type) {
+  const color = MARKER_COLORS[type] || '#c9a24d';
+  const r = tileSize * 0.35;
+
+  // Sombra/borda
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Corpo
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Contorno claro pra destacar em qualquer fundo
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }

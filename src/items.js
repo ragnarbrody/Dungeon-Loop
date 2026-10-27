@@ -378,6 +378,18 @@ export const ITEMS_DB = {
     stackCap: 20,
     icon: 'rat_tail',
   },
+
+  letter_to_elder: {
+    id: 'letter_to_elder',
+    kind: 'quest',              // fica impossível de vender/usar
+    name: 'Pergaminho Selado',
+    description: 'Um pergaminho selado com o brasão de Aethel. O Ancião vai querer ver isso.',
+    price: 0,
+    sellPrice: 0,               // não vendável
+    rarity: 'rare',             // destaca no inventário
+    stackable: false,           // não empilha
+    icon: 'letter_to_elder',
+  },
 };
 
 // Compat: exporta o mesmo shape que os consumidores antigos esperam.

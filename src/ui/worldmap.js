@@ -142,6 +142,21 @@ export function renderWorldMap() {
       }
     }
   }
+  
+  // ---- Nomes das cidades (por cima dos tiles) ----
+  // Feito FORA do loop dos tiles, senão o próximo tile verde cobre o texto.
+  if (cam.zoom >= 18) {
+    for (let iy = 0; iy < tilesY; iy++) {
+      for (let ix = 0; ix < tilesX; ix++) {
+        const gx = startTx + ix;
+        const gy = startTy + iy;
+        if (!isRevealed(gx, gy)) continue;
+        if (!isCity(gx, gy)) continue;
+        const { x, y } = tileToScreen(gx, gy);
+        drawCityLabel(x + cam.zoom / 2, y + cam.zoom / 2, cam.zoom);
+      }
+    }
+  }
 
   // 2) Markers (boss, quest, poi) — só os revelados
   const markers = getMarkers({ onlyRevealed: true });
@@ -203,7 +218,7 @@ function drawMarker(m, x, y, zoom) {
   let color = '#c9a24d';
   let label = '';
   if (m.type === 'boss')   { color = '#c93030'; label = '☠'; }
-  if (m.type === 'quest')  { color = '#4f9a4a'; label = '★'; }
+  if (m.type === 'quest')  { color = '#eaecea'; label = '★'; }
   if (m.type === 'poi')    { color = '#8ad8ff'; label = '?'; }
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -306,6 +321,38 @@ function drawHUD() {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(hint, 20, CANVAS_H - 26);
+}
+
+// Desenha o nome da cidade abaixo da casinha.
+// Só aparece com zoom alto (chamado com cam.zoom >= 18).
+function drawCityLabel(cx, cy, zoom) {
+  const name = 'Aethel'; // no futuro: derivar de getCityName(gx, gy)
+  const fontSize = Math.max(10, Math.round(zoom * 0.55));
+
+  ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const padX = 6;
+  const padY = 3;
+  const textW = ctx.measureText(name).width;
+  const boxW = textW + padX * 2;
+  const boxH = fontSize + padY * 2;
+  const boxX = cx - boxW / 2;
+  const boxY = cy + zoom * 0.5;   // logo abaixo da casinha
+
+  // Fundo (preto semi-transparente)
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+
+  // Borda dourada (mesmo estilo do HUD)
+  ctx.strokeStyle = '#c9a24d';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1);
+
+  // Texto
+  ctx.fillStyle = '#feca57';
+  ctx.fillText(name, cx, boxY + padY);
 }
 
 export function resetCamera() {

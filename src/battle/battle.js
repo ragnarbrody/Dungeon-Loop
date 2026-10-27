@@ -1,4 +1,4 @@
-import { battle, encounter, setGameState, STATE, playerStats, saveGame, effStat, player, currentRoom } from '../core/state.js';
+import { battle, encounter, setGameState, STATE, playerStats, saveGame, effStat, player, currentRoom, checkLevelUp } from '../core/state.js';
 import { rand } from '../core/rng.js';
 import { hud } from '../ui/hud.js';
 import { updateHud } from '../ui/hud.js';
@@ -896,13 +896,7 @@ export function updateBattle(dt) {
 
       const totalXp = battle.xpEarned;
       playerStats.xp += totalXp;
-      if (playerStats.xp >= playerStats.xpToNextLevel) {
-        playerStats.xp -= playerStats.xpToNextLevel;
-        playerStats.level++;
-        playerStats.points += 3;
-        playerStats.hp = playerStats.maxHp;
-        playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
-      }
+      checkLevelUp();
       if (battle.goldEarned) {
         playerStats.gold += battle.goldEarned;
         battle.message = `Você venceu! +${battle.goldEarned} de ouro.`;

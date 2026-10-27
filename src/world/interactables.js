@@ -52,8 +52,20 @@ export function getInteractables(room) {
     return list;
   }
 
+  // ---- Interactables especiais da sala (mochila, etc) ----
+  if (room.interactables && room.interactables.length > 0) {
+    for (const it of room.interactables) {
+      // A mochila some se o jogador já tem o pergaminho
+      if (it.kind === 'lost_backpack') {
+        const hasLetter = playerStats.inventory.some(i => i.id === 'letter_to_elder');
+        if (hasLetter) continue;
+      }
+      list.push({ ...it });
+    }
+  }
+
   // ---- Fora de cidade: nada ----
-  if (!room.isCity) return [];
+  if (!room.isCity) return list;
 
   // ---- CIDADE: placas + portal + entradas ----
   for (const obj of room.cityObjects) {
@@ -135,6 +147,7 @@ export function findNearbyInteractable(room) {
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
+    lost_backpack:     1,
     portal:            1,
     sign:              2,
   };
