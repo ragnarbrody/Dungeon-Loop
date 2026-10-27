@@ -11,7 +11,7 @@
 // A herbalista usa `greeting()` pra se apresentar.
 // ============================================================
 import { openDialogue, closeDialogue } from './dialogue.js';
-import { playerStats, saveGame } from '../core/state.js';
+import { playerStats, saveGame, checkLevelUp } from '../core/state.js';
 import {
   getActiveQuest, isQuestReadyToComplete, getTurnInNpc,
   completeActiveQuest, getProgress,

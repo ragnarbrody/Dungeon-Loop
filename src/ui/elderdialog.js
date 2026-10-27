@@ -1,6 +1,6 @@
 // src/ui/elderdialog.js
 import { openDialogue, closeDialogue } from './dialogue.js';
-import { playerStats, saveGame } from '../core/state.js';
+import { playerStats, saveGame, checkLevelUp } from '../core/state.js';
 import {
   hasSeenElderIntro, markElderIntroSeen,
   getAvailableQuests, getActiveQuest, isQuestReadyToComplete,
