@@ -36,7 +36,14 @@ function unlock() {
   try {
     createGraph();
     initialized = true;
-    // Avisa os interessados (mixer, music) que o ctx existe agora
+
+    // Alguns navegadores criam o contexto em estado "suspended" mesmo
+    // após um gesto. Forçar o resume aqui garante que o áudio toca
+    // no PRIMEIRO clique, não no segundo.
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     for (const fn of listeners) {
       try { fn(); } catch (e) { console.warn('[audio] listener error', e); }
     }

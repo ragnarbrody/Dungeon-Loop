@@ -90,16 +90,23 @@ let currentChannel = null;
 
 // ---- API ----
 export function setMusicMode(modeName) {
-  if (modeName === currentMode) return;
   if (!MODES[modeName]) { console.warn('[music] modo desconhecido:', modeName); return; }
-
-  currentMode = modeName;
 
   const ctx = getCtx();
   if (!ctx) {
+    // Ainda não destravou — registra o pedido e tenta de novo no unlock.
+    // Importante: NÃO retornar cedo por currentMode === modeName aqui,
+    // porque currentMode pode ter sido setado antes do ctx existir.
     onAudioReady(() => setMusicMode(modeName));
+    currentMode = modeName;
     return;
   }
+
+  // Agora sim: se já é o modo atual E já temos canal, não faz nada.
+  if (modeName === currentMode && currentChannel) return;
+
+  currentMode = modeName;
+
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
   if (currentChannel) {
@@ -124,7 +131,9 @@ function createChannel(ctx, mode) {
   gain.connect(bus);
 
   const now = ctx.currentTime;
-  gain.gain.linearRampToValueAtTime(1, now + 0.9);
+  // Fade-in curto: a música aparece quase imediatamente após o
+  // primeiro clique, sem parecer que "demorou pra começar".
+  gain.gain.linearRampToValueAtTime(1, now + 0.15);
 
   // Quantas "unidades" formam 1 compasso (4 batidas em 4/4).
   // Com subdivisão por colcheia (2 por batida), são 8 unidades.
