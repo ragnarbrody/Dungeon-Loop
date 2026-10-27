@@ -2,7 +2,7 @@
 import { playerEquip, ITEM_INFO } from '../sprites/equipment.js';
 import { playerStats, saveGame } from '../core/state.js';
 import {
-  CONSUMABLES, ITEMS_DB, RARITY_COLORS, RARITY_ORDER,
+  CONSUMABLES, ITEMS_DB, RARITY_COLORS, RARITY_ORDER, addItemToInventory
 } from '../items.js';
 import { getIcon, appendIcon } from '../sprites/icons.js';
 import { CLASSES } from '../classes.js';
@@ -267,11 +267,6 @@ function createItemTile(item, qty) {
   const isConsumable = kind === 'consumable' && !info.combatOnly;
   const isEquippable = !isQuest && info.slot && kind !== 'consumable';
 
-  if (isEquippable) {
-    tile.style.cursor = 'pointer';
-    tile.onclick = () => equipItem(info.id);
-  }
-
   const tile = document.createElement(isConsumable ? 'button' : 'div');
   tile.className = 'inv-item-tile' + (isQuest ? ' quest-item' : '');
   tile.title = info.description || info.name;
@@ -280,8 +275,6 @@ function createItemTile(item, qty) {
     tile.style.cursor = 'pointer';
     tile.onclick = () => {
       const result = info.use(playerStats);
-
-      // Decrementa no array ORIGINAL (não na cópia passada pro tile)
       const original = playerStats.inventory.find(i => i.id === info.id);
       if (original) {
         original.qty--;
@@ -289,11 +282,13 @@ function createItemTile(item, qty) {
           playerStats.inventory = playerStats.inventory.filter(i => i.id !== info.id);
         }
       }
-
       saveGame();
       renderInventory();
       if (result.toast) showToast(result.toast);
     };
+  } else if (isEquippable) {
+    tile.style.cursor = 'pointer';
+    tile.onclick = () => equipItem(info.id);
   }
 
   const color = RARITY_COLORS[info.rarity] || '#bbb';
@@ -467,9 +462,11 @@ function equipItem(itemId) {
   const info = ITEMS_DB[itemId];
   if (!info || !info.slot) return;
 
-  const { playerEquip } = mod;
   const slot = info.slot;
   const currentId = playerEquip[slot];
+
+  // Não faz nada se já é o equipado (não deveria nem aparecer, mas defensivo)
+  if (currentId === itemId) return;
 
   // Remove 1 unidade do item clicado do inventário
   const invItem = playerStats.inventory.find(i => i.id === itemId);
@@ -486,4 +483,5 @@ function equipItem(itemId) {
 
   playerEquip[slot] = itemId;
   saveGame();
+  renderInventory();
 }

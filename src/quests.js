@@ -81,11 +81,11 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_slimes'],       // paralela com rat_tails
     description:
-      'Um aldeão saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu?',
+      'Um aldeão saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu? Vou marcar a localização no seu mapa',
     objectives: [
       {
         id: 'visit_last_seen',
-        text: 'Vá até o último local onde o aldeão foi visto',
+        text: 'O último local onde o aldeão foi visto está marcado no seu mapa (M). Vá até lá',
         target: 1,
         type: 'visit',
         filter: { gx: -2, gy: -4 },
