@@ -334,7 +334,7 @@ export const ITEMS_DB = {
     kind: 'shield',
     slot: 'leftHand',
     name: 'Escudo',
-    description: 'Um escudo de madeira reforçado com metal.',
+    description: 'Um escudo de madeira reforçado com metal. +2 DEF',
     price: 40,
     sellPrice: 16,      // preço de venda
     rarity: 'common',
@@ -358,6 +358,7 @@ export const ITEMS_DB = {
     sellPrice: 2,      // preço de venda
     rarity: 'common',
     stackable: false,
+    stackCap: 1,
     icon: 'torch',
     stats: {}, // tocha não dá stats, é decorativa
     draw: null,
@@ -377,6 +378,58 @@ export const ITEMS_DB = {
     stackable: true,
     stackCap: 20,
     icon: 'rat_tail',
+  },
+
+  goblin_tooth: {
+    id: 'goblin_tooth',
+    kind: 'material',
+    name: 'Dente de Goblin',
+    description: 'Um dente afiado e amarelado. Serve pra alguma coisa — só o Ferreiro sabe o quê.',
+    price: 12,
+    sellPrice: 5,
+    rarity: 'common',
+    stackable: true,
+    stackCap: 20,
+    icon: 'goblin_tooth',
+  },
+
+  slime_gel: {
+    id: 'slime_gel',
+    kind: 'material',
+    name: 'Geleia de Slime',
+    description: 'Uma gosma verde que gruda nos dedos. Nojenta, mas útil.',
+    price: 6,
+    sellPrice: 1.5,
+    rarity: 'common',
+    stackable: true,
+    stackCap: 20,
+    icon: 'slime_gel',
+  },
+
+  scorpion_pincer: {
+    id: 'scorpion_pincer',
+    kind: 'material',
+    name: 'Pinça de Escorpião',
+    description: 'Uma pinça dura e pontuda. Dizem que esquenta bem no fogo.',
+    price: 15,
+    sellPrice: 6,
+    rarity: 'common',
+    stackable: true,
+    stackCap: 20,
+    icon: 'scorpion_pincer',
+  },
+
+  vulture_egg: {
+    id: 'vulture_egg',
+    kind: 'material',
+    name: 'Ovo de Abutre',
+    description: 'Um ovo manchado, maior que a mão. incomum de achar — os abutres defendem bem o ninho.',
+    price: 25,
+    sellPrice: 9,
+    rarity: 'uncommon',
+    stackable: true,
+    stackCap: 10,
+    icon: 'vulture_egg',
   },
 
   letter_to_elder: {
@@ -423,11 +476,13 @@ export function getItemsByType(type) {
 export function addItemToInventory(inventory, itemId, qty = 1) {
   const info = ITEMS_DB[itemId];
   if (!info) return 0;
-  const cap = info.stackCap ?? Infinity;
+
+  // stackable: false → nunca empilha, sempre cria slot novo
+  const cap = info.stackable === false ? 1 : (info.stackCap ?? Infinity);
 
   let added = 0;
   const existing = inventory.find(i => i.id === itemId);
-  if (existing) {
+  if (existing && info.stackable !== false) {
     const space = cap - existing.qty;
     const toAdd = Math.min(space, qty);
     existing.qty += toAdd;
@@ -435,13 +490,19 @@ export function addItemToInventory(inventory, itemId, qty = 1) {
     qty -= toAdd;
   }
 
-  // Se ainda sobra e o cap permite um slot novo, cria.
-  // (Neste jogo, 1 slot por tipo é o padrão; se quiser múltiplos slots
-  // por tipo, remova o `qty -= toAdd` acima e permita push de outro slot.)
-  if (qty > 0 && !existing && cap > 0) {
-    const toAdd = Math.min(cap, qty);
-    inventory.push({ id: itemId, qty: toAdd });
-    added += toAdd;
+  if (qty > 0 && cap > 0) {
+    // Se não é stackable, cria 1 slot por unidade
+    if (info.stackable === false) {
+      // Cria um slot por unidade (raro, mas correto)
+      for (let i = 0; i < qty; i++) {
+        inventory.push({ id: itemId, qty: 1 });
+        added++;
+      }
+    } else {
+      const toAdd = Math.min(cap, qty);
+      inventory.push({ id: itemId, qty: toAdd });
+      added += toAdd;
+    }
   }
 
   return added;

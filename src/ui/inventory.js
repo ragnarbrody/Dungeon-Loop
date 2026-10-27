@@ -10,12 +10,11 @@ import { composeFrame } from '../sprites/compose.js';
 import { player } from '../core/state.js';
 import { showToast } from './toast.js';
 
-let currentTab = 'inventory'; // 'inventory' | 'equipment' | 'skills'
-let inventoryPage = 0;        // página atual da aba Inventário
+let currentTab = 'inventory';
+let inventoryPage = 0;
 
-const ITEMS_PER_PAGE = 16;    // 4x4
+const ITEMS_PER_PAGE = 16;
 
-// Slots de equipamento (ordem visual)
 const EQUIP_SLOTS = [
   { id: 'helmet',     label: 'Capacete',    icon: 'helmet' },
   { id: 'amulet',     label: 'Amuleto',     icon: 'amulet' },
@@ -27,6 +26,64 @@ const EQUIP_SLOTS = [
   { id: 'ring2',      label: 'Anel 2',      icon: 'ring' },
 ];
 
+// ============================================================
+// EQUIPAR / DESEQUIPAR
+// ============================================================
+function equipItem(itemId) {
+  const info = ITEMS_DB[itemId];
+  if (!info || !info.slot) return;
+
+  const slot = info.slot;
+  const currentId = playerEquip[slot];
+  if (currentId === itemId) return;
+
+  // 1) Confirma que o item está no inventário com qty > 0
+  const invItem = playerStats.inventory.find(i => i.id === itemId && i.qty > 0);
+  if (!invItem) return;
+
+  // 2) Remove 1 unidade (splice em vez de filter)
+  invItem.qty--;
+  if (invItem.qty <= 0) {
+    const idx = playerStats.inventory.indexOf(invItem);
+    if (idx >= 0) playerStats.inventory.splice(idx, 1);
+  }
+
+  // 3) Devolve o equipamento anterior pro inventário (push direto, sem cap)
+  if (currentId) {
+    const existing = playerStats.inventory.find(i => i.id === currentId);
+    if (existing) {
+      existing.qty++;
+    } else {
+      playerStats.inventory.push({ id: currentId, qty: 1 });
+    }
+  }
+
+  // 4) Equipa
+  playerEquip[slot] = itemId;
+  saveGame();
+  renderInventory();
+}
+
+function unequipSlot(slotId) {
+  const currentId = playerEquip[slotId];
+  if (!currentId) return;
+
+  // Devolve o item pro inventário
+  const existing = playerStats.inventory.find(i => i.id === currentId);
+  if (existing) {
+    existing.qty++;
+  } else {
+    playerStats.inventory.push({ id: currentId, qty: 1 });
+  }
+
+  playerEquip[slotId] = null;
+  saveGame();
+  renderInventory();
+}
+
+// ============================================================
+// RENDER
+// ============================================================
 export function renderInventory() {
   renderPreview();
   renderTitle();
@@ -47,7 +104,6 @@ export function renderInventory() {
   }
 }
 
-// ---------- HEADER (preview + título) ----------
 function renderPreview() {
   const previewEl = document.getElementById('inventory-preview');
   if (!previewEl) return;
@@ -73,7 +129,6 @@ function renderTitle() {
   }
 }
 
-// ---------- ABAS ----------
 function renderTabs(parent) {
   const tabs = document.createElement('div');
   tabs.className = 'inv-tabs';
@@ -90,7 +145,7 @@ function renderTabs(parent) {
     btn.textContent = t.label;
     btn.onclick = () => {
       currentTab = t.id;
-      inventoryPage = 0;   // reseta página ao trocar de aba
+      inventoryPage = 0;
       renderInventory();
     };
     tabs.appendChild(btn);
@@ -100,6 +155,7 @@ function renderTabs(parent) {
 }
 
 function renderStatsHeader() {
+  // (idêntico ao seu)
   const statsHeader = document.getElementById('inventory-stats');
   if (!statsHeader) return;
   statsHeader.innerHTML = '';
@@ -154,27 +210,24 @@ function renderStatsHeader() {
   statsHeader.appendChild(hr);
 }
 
-// ---------- ABA: INVENTÁRIO (grade paginada 4x4) ----------
 function renderInventoryTab(parent) {
-  // Junta TODOS os itens do inventário numa lista única
   const allItems = [];
   for (const entry of playerStats.inventory) {
+    if (!entry.qty || entry.qty <= 0) continue;   // ← NOVO: ignora qty 0
     const info = ITEMS_DB[entry.id];
     if (!info) continue;
     allItems.push({ id: entry.id, qty: entry.qty, info });
   }
 
-  // Ordena: raridade (decrescente) → tipo (loot/quest por último? não — deixa natural) → nome
   const kindOrder = {
     weapon: 0, shield: 1, torch: 2, armor: 3, helmet: 4, boots: 5,
-    ring: 6, amulet: 7, consumable: 8, loot: 9, quest: 10,
+    ring: 6, amulet: 7, consumable: 8, material: 9, loot: 10, quest: 11,
   };
   allItems.sort((a, b) => {
     const ka = a.info.kind || a.info.type;
     const kb = b.info.kind || b.info.type;
     const ra = RARITY_ORDER[a.info.rarity] ?? 0;
     const rb = RARITY_ORDER[b.info.rarity] ?? 0;
-    // Itens de quest primeiro (destaque), depois raridade, depois tipo, depois nome
     const qa = ka === 'quest' ? 0 : 1;
     const qb = kb === 'quest' ? 0 : 1;
     if (qa !== qb) return qa - qb;
@@ -193,7 +246,6 @@ function renderInventoryTab(parent) {
     return;
   }
 
-  // Paginação
   const totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE);
   if (inventoryPage >= totalPages) inventoryPage = totalPages - 1;
   if (inventoryPage < 0) inventoryPage = 0;
@@ -201,7 +253,6 @@ function renderInventoryTab(parent) {
   const start = inventoryPage * ITEMS_PER_PAGE;
   const pageItems = allItems.slice(start, start + ITEMS_PER_PAGE);
 
-  // Indicador de página (só se tem mais de 1)
   if (totalPages > 1) {
     const pageInfo = document.createElement('div');
     pageInfo.style.cssText = 'width: 100%; text-align: center; font-size: 11px; color: #aaa; margin-bottom: 8px;';
@@ -209,28 +260,21 @@ function renderInventoryTab(parent) {
     parent.appendChild(pageInfo);
   }
 
-  // Wrapper com setas laterais
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'display: flex; align-items: stretch; gap: 6px; width: 100%;';
 
-  // Seta esquerda
   if (totalPages > 1 && inventoryPage > 0) {
     const leftBtn = document.createElement('button');
     leftBtn.className = 'inv-page-arrow';
     leftBtn.textContent = '◄';
-    leftBtn.onclick = () => {
-      inventoryPage--;
-      renderInventory();
-    };
+    leftBtn.onclick = () => { inventoryPage--; renderInventory(); };
     wrapper.appendChild(leftBtn);
   } else if (totalPages > 1) {
-    // placeholder pra manter o grid alinhado
     const ph = document.createElement('div');
     ph.style.cssText = 'width: 24px; flex-shrink: 0;';
     wrapper.appendChild(ph);
   }
 
-  // Grade 4x4
   const grid = document.createElement('div');
   grid.className = 'inv-grid';
   grid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1;';
@@ -240,15 +284,11 @@ function renderInventoryTab(parent) {
   }
   wrapper.appendChild(grid);
 
-  // Seta direita
   if (totalPages > 1 && inventoryPage < totalPages - 1) {
     const rightBtn = document.createElement('button');
     rightBtn.className = 'inv-page-arrow';
     rightBtn.textContent = '►';
-    rightBtn.onclick = () => {
-      inventoryPage++;
-      renderInventory();
-    };
+    rightBtn.onclick = () => { inventoryPage++; renderInventory(); };
     wrapper.appendChild(rightBtn);
   } else if (totalPages > 1) {
     const ph = document.createElement('div');
@@ -259,15 +299,17 @@ function renderInventoryTab(parent) {
   parent.appendChild(wrapper);
 }
 
-// Cria uma "tile" de item. Consumíveis são clicáveis; itens de quest têm destaque.
 function createItemTile(item, qty) {
   const info = item.info;
   const kind = info.kind || info.type;
   const isQuest = kind === 'quest';
   const isConsumable = kind === 'consumable' && !info.combatOnly;
-  const isEquippable = !isQuest && info.slot && kind !== 'consumable';
+  const isEquippable = !isQuest && !!info.slot && kind !== 'consumable';
 
-  const tile = document.createElement(isConsumable ? 'button' : 'div');
+  // ← NOVO: <button> pra clicáveis (consumable ou equippable)
+  const tile = document.createElement(
+    (isConsumable || isEquippable) ? 'button' : 'div'
+  );
   tile.className = 'inv-item-tile' + (isQuest ? ' quest-item' : '');
   tile.title = info.description || info.name;
 
@@ -307,12 +349,11 @@ function createItemTile(item, qty) {
     color: inherit;
   `;
 
-  // Cabeçalho de categoria (sutil, no topo do tile)
   const kindLabels = {
     weapon: 'Arma', shield: 'Escudo', torch: 'Tocha',
     armor: 'Peitoral', helmet: 'Capacete', boots: 'Botas',
     ring: 'Anel', amulet: 'Amuleto',
-    consumable: 'Consumível', loot: 'Material', quest: 'Missão',
+    consumable: 'Consumível', loot: 'Material', quest: 'Missão', material: 'Material'
   };
   const kindLabel = kindLabels[kind];
   if (kindLabel) {
@@ -344,11 +385,10 @@ function createItemTile(item, qty) {
   return tile;
 }
 
-// ---------- ABA: EQUIPAMENTOS (só os slots) ----------
 function renderEquipmentTab(parent) {
   const hint = document.createElement('p');
   hint.style.cssText = 'color: #666; font-size: 11px; margin: 0 0 12px 0; text-align: center;';
-  hint.textContent = 'Slots de capacete, peitoral, botas, anéis e amuletos em breve.';
+  hint.textContent = 'Clique num slot preenchido para desequipar.';
   parent.appendChild(hint);
 
   const grid = document.createElement('div');
@@ -358,7 +398,7 @@ function renderEquipmentTab(parent) {
     const itemId = playerEquip[slot.id];
     const item = itemId ? ITEMS_DB[itemId] : null;
 
-    const slotEl = document.createElement('div');
+    const slotEl = document.createElement(item ? 'button' : 'div');
     slotEl.className = 'inv-equip-slot' + (item ? ' filled' : ' empty');
     slotEl.style.cssText = `
       background: ${item ? '#3a2a1e' : '#1a1a24'};
@@ -367,7 +407,15 @@ function renderEquipmentTab(parent) {
       padding: 8px;
       display: flex; align-items: center; gap: 8px;
       min-height: 50px;
+      font-family: inherit;
+      color: inherit;
+      text-align: left;
+      ${item ? 'cursor: pointer;' : ''}
     `;
+
+    if (item) {
+      slotEl.onclick = () => unequipSlot(slot.id);
+    }
 
     if (item) {
       const icon = getIcon(item.icon || item.id);
@@ -399,8 +447,8 @@ function renderEquipmentTab(parent) {
   parent.appendChild(grid);
 }
 
-// ---------- ABA: HABILIDADES (só as skills) ----------
 function renderSkillsTab(parent) {
+  // (idêntico ao seu)
   const cls = playerStats.classId ? CLASSES[playerStats.classId] : null;
   if (!cls) {
     const p = document.createElement('p');
@@ -456,32 +504,4 @@ function renderSkillsTab(parent) {
   }
 
   parent.appendChild(grid);
-}
-
-function equipItem(itemId) {
-  const info = ITEMS_DB[itemId];
-  if (!info || !info.slot) return;
-
-  const slot = info.slot;
-  const currentId = playerEquip[slot];
-
-  // Não faz nada se já é o equipado (não deveria nem aparecer, mas defensivo)
-  if (currentId === itemId) return;
-
-  // Remove 1 unidade do item clicado do inventário
-  const invItem = playerStats.inventory.find(i => i.id === itemId);
-  if (!invItem || invItem.qty <= 0) return;
-  invItem.qty--;
-  if (invItem.qty <= 0) {
-    playerStats.inventory = playerStats.inventory.filter(i => i.id !== itemId);
-  }
-
-  // Se havia algo equipado, devolve pro inventário
-  if (currentId) {
-    addItemToInventory(playerStats.inventory, currentId, 1);
-  }
-
-  playerEquip[slot] = itemId;
-  saveGame();
-  renderInventory();
 }

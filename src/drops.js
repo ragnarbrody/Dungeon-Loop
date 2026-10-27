@@ -19,6 +19,7 @@ import { addItemToInventory } from './items.js';
 export const ENEMY_DROPS = {
   // Slime: comum, dropa poção fraca raramente
   slime: [
+    { itemId: 'slime_gel',   chance: 0.70, qtyMin: 1, qtyMax: 2 },
     { itemId: 'potion_weak', chance: 0.15, qtyMin: 1, qtyMax: 1 },
   ],
 
@@ -31,18 +32,21 @@ export const ENEMY_DROPS = {
 
   // Goblin: dropa ouro (já no battle) + poção média às vezes
   goblin: [
-    { itemId: 'potion_weak', chance: 0.30, qtyMin: 1, qtyMax: 2 },
-    { itemId: 'potion_medium', chance: 0.15, qtyMin: 1, qtyMax: 1 },
+    { itemId: 'goblin_tooth',  chance: 0.65, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_weak', chance: 0.20, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_medium', chance: 0.12, qtyMin: 1, qtyMax: 1 },
     { itemId: 'potion_agi',    chance: 0.05, qtyMin: 1, qtyMax: 1 },
   ],
 
   // Escorpião: dropa poção de mana
   scorpion: [
+    { itemId: 'scorpion_pincer', chance: 0.65, qtyMin: 1, qtyMax: 1 },
     { itemId: 'potion_mana', chance: 0.20, qtyMin: 1, qtyMax: 1 },
   ],
 
   // Abutre: dropa poção de agilidade
   vulture: [
+    { itemId: 'vulture_egg', chance: 0.40, qtyMin: 1, qtyMax: 1 },
     { itemId: 'potion_agi', chance: 0.15, qtyMin: 1, qtyMax: 1 },
   ],
 

@@ -10,7 +10,8 @@ import { getActiveLeaves } from '../entities/leaves.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { drawMapEnemies } from '../entities/enemies.js';
 import { NPC_SPRITES } from '../sprites/npcs.js';
-import { getTrackedQuest, getProgress, isQuestReadyToComplete } from '../quests.js';
+import { getTrackedQuest, getProgress, isQuestReadyToComplete,
+         isQuestActive, isQuestCompleted } from '../quests.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -135,7 +136,8 @@ export function renderExplore() {
   if (currentRoom.interactables) {
     for (const it of currentRoom.interactables) {
       if (it.kind === 'lost_backpack') {
-        // verifica se o jogador já pegou o pergaminho
+        if (isQuestCompleted('story_lost_traveler')) continue;
+        if (!isQuestActive('story_lost_traveler')) continue;
         const hasLetter = playerStats.inventory.some(i => i.id === 'letter_to_elder');
         if (hasLetter) continue;
         drawLostBackpack(it.tx * TILE_SIZE, it.ty * TILE_SIZE);
@@ -188,59 +190,99 @@ export function renderExplore() {
 // HUD DE QUEST — desenha a quest rastreada no canto inferior esquerdo.
 // Chamado por renderExplore e renderCity.
 // ============================================================
+// ============================================================
+// HUD DE QUEST — desenha a quest rastreada no canto inferior esquerdo.
+// Quebra o texto em múltiplas linhas para não atravessar a tela.
+// ============================================================
 function drawQuestTracker() {
   const tracked = getTrackedQuest();
   if (!tracked) return;
 
-  // Monta a linha: "★ Limpeza nos Arredores | Derrote slimes: 1/3"
-  // e (se pronta) adiciona "✔ Volte ao Ancião".
-  const parts = [];
+  const MAX_W = CANVAS_W - 40;      // largura máxima da caixa (deixa margem)
+  const LINE_H = 14;                // altura de cada linha de detalhe
+  const PAD_X = 10;
+  const PAD_Y = 8;
+  const TITLE_H = 16;
+
+  // Monta os pedaços de texto (título + cada objetivo)
+  const title = `★ ${tracked.title}`;
+
+  // ---- 1) Mede e quebra o título ----
+  ctx.font = 'bold 11px "Courier New", monospace';
+  const titleLines = wrapLines(title, MAX_W - PAD_X * 2);
+
+  // ---- 2) Mede e quebra cada objetivo ----
+  ctx.font = '10px "Courier New", monospace';
+  const detailLines = [];
   for (const obj of tracked.objectives) {
     const cur = getProgress(tracked.id, obj.id);
-    parts.push(`${obj.text}: ${cur}/${obj.target}`);
+    const line = `${obj.text}: ${cur}/${obj.target}`;
+    const wrapped = wrapLines(line, MAX_W - PAD_X * 2);
+    for (const w of wrapped) detailLines.push(w);
   }
+
   const ready = isQuestReadyToComplete(tracked.id);
+  if (ready) {
+    const wrapped = wrapLines('✔ Volte ao Ancião', MAX_W - PAD_X * 2);
+    for (const w of wrapped) detailLines.push(w);
+  }
 
-  const title = `★ ${tracked.title}`;
-  const detail = parts.join('  |  ');
+  // ---- 3) Calcula altura total ----
+  const totalLines = titleLines.length + detailLines.length;
+  // altura: título (TITLE_H) + linhas de detalhe + padding
+  const boxH = PAD_Y * 2 + TITLE_H + (detailLines.length * LINE_H);
 
-  ctx.font = 'bold 11px "Courier New", monospace';
-  const titleW = ctx.measureText(title).width;
-  ctx.font = '10px "Courier New", monospace';
-  const detailW = ctx.measureText(detail).width;
-  const readyW = ready ? ctx.measureText('  ✔ Volte ao Ancião').width : 0;
-
-  const boxW = Math.max(titleW, detailW + readyW) + 20;
-  const boxH = 36;
+  // ---- 4) Posiciona a caixa ----
   const bx = 10;
   const by = CANVAS_H - boxH - 10;
 
-  // Fundo
+  // ---- 5) Desenha fundo ----
   ctx.fillStyle = 'rgba(0,0,0,0.72)';
-  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.fillRect(bx, by, MAX_W, boxH);
   ctx.strokeStyle = '#c9a24d';
   ctx.lineWidth = 1;
-  ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
+  ctx.strokeRect(bx + 0.5, by + 0.5, MAX_W - 1, boxH - 1);
 
-  // Linha 1: título em dourado
+  // ---- 6) Desenha título (dourado) ----
   ctx.fillStyle = '#feca57';
   ctx.font = 'bold 11px "Courier New", monospace';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(title, bx + 10, by + 12);
-
-  // Linha 2: detalhe (e "volte ao ancião" se pronta)
-  let x = bx + 10;
-  const y = by + 26;
-  ctx.font = '10px "Courier New", monospace';
-  ctx.fillStyle = '#ddd';
-  ctx.fillText(detail, x, y);
-  x += detailW;
-
-  if (ready) {
-    ctx.fillStyle = '#6fbd63';
-    ctx.fillText('  ✔ Volte ao Ancião', x, y);
+  let ty = by + PAD_Y + TITLE_H / 2;
+  for (const line of titleLines) {
+    ctx.fillText(line, bx + PAD_X, ty);
+    ty += TITLE_H;
   }
+
+  // ---- 7) Desenha detalhes (branco/cinza + verde se pronto) ----
+  ctx.font = '10px "Courier New", monospace';
+  ty = by + PAD_Y + TITLE_H + LINE_H / 2;
+  for (let i = 0; i < detailLines.length; i++) {
+    const isReadyLine = ready && i === detailLines.length - 1;
+    ctx.fillStyle = isReadyLine ? '#6fbd63' : '#ddd';
+    ctx.fillText(detailLines[i], bx + PAD_X, ty);
+    ty += LINE_H;
+  }
+}
+
+// Quebra um texto em linhas que caibam em maxW, respeitando palavras.
+// Retorna array de strings (sempre >= 1 linha).
+function wrapLines(text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
 }
 
 // ---------- CHÃO DE AREIA PROCEDURAL ----------
@@ -989,7 +1031,7 @@ function renderInterior(room) {
 
   // Prompt de interação (tanto herbalista quanto ancião)
   const it = playerStats._nearInteractable;
-  if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'elder')) {
+  if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'blacksmith_quest'  || it.kind === 'elder')) {
     const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
     const cy = offY + it.ty * TILE_SIZE - 16;
 
@@ -998,6 +1040,8 @@ function renderInterior(room) {
       text = 'Conversar: Ancião [E]';
     } else if (it.kind === 'herbalist_quest') {
       text = 'Conversar: Herbalista [E]';
+    } else if (it.kind === 'blacksmith_quest') {
+      text = 'Conversar: Ferreiro [E]';
     } else {
       text = 'Abrir loja [E]';
     }

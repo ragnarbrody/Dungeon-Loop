@@ -50,6 +50,7 @@ export function talkToHerbalist() {
             completeActiveQuest(playerStats, addItemToInventory);
             saveGame();
             closeDialogue();
+            checkLevelUp();
           },
         },
       ],

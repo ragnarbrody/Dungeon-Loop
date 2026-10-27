@@ -1,7 +1,7 @@
 import { playerStats, player, addGold } from '../core/state.js';
 import { ITEMS_DB } from '../items.js';
 import { TILE_SIZE } from '../core/canvas.js';
-import { getActiveQuest } from '../quests.js';
+import { getActiveQuest, isQuestActive, isQuestCompleted } from '../quests.js';
 
 // ============================================================
 // INTERACTABLES
@@ -21,7 +21,8 @@ export function getInteractables(room) {
   if (room.isInterior) {
     if (room.npc) {
       const npc = room.npc;
-      // Herbalista: abre loja
+
+      // Herbalista OU Ferreiro: abre loja (shop_keep)
       if (npc.buildingId === 'herbalist' || npc.buildingId === 'blacksmith') {
         list.push({
           tx: npc.tx, ty: npc.ty,
@@ -30,16 +31,34 @@ export function getInteractables(room) {
           title: NPC_LABEL[npc.buildingId] || 'Lojista',
           text: '...',
         });
-        // herbalist_quest só pra herbalista
-        if (npc.buildingId === 'herbalist') {
-          const q = getActiveQuest();
-          if (q && q.turnInNpc === 'herbalist') {
-            list.push({ tx: npc.tx, ty: npc.ty, kind: 'herbalist_quest', title: 'Herbalista' });
-          }
+      }
+
+      // Herbalista: se tem quest ativa que é entregue a ela, oferece o diálogo
+      if (npc.buildingId === 'herbalist') {
+        const q = getActiveQuest();
+        if (q && q.turnInNpc === 'herbalist') {
+          list.push({
+            tx: npc.tx, ty: npc.ty,
+            kind: 'herbalist_quest',
+            title: 'Herbalista',
+          });
         }
       }
+
+      // Ferreiro: se tem quest ativa que é entregue a ele, oferece o diálogo
+      if (npc.buildingId === 'blacksmith') {
+        const q = getActiveQuest();
+        if (q && q.turnInNpc === 'blacksmith') {
+          list.push({
+            tx: npc.tx, ty: npc.ty,
+            kind: 'blacksmith_quest',
+            title: 'Ferreiro',
+          });
+        }
+      }
+
       // Ancião: abre diálogo de quests
-      else if (npc.buildingId === 'quest_giver') {
+      if (npc.buildingId === 'quest_giver') {
         list.push({
           tx: npc.tx, ty: npc.ty,
           kind: 'elder',
@@ -53,8 +72,17 @@ export function getInteractables(room) {
   // ---- Interactables especiais da sala (mochila, etc) ----
   if (room.interactables && room.interactables.length > 0) {
     for (const it of room.interactables) {
-      // A mochila some se o jogador já tem o pergaminho
+      // A mochila só existe enquanto a quest 3 estiver ATIVA e NÃO concluída.
+      // - Antes de ativar: some (não faz sentido achar a mochila sem a quest).
+      // - Depois de entregar: some (o pergaminho já foi entregue).
+      // - Enquanto ativa: aparece, mesmo que o jogador já tenha pego o
+      //   pergaminho (aí ele já não vê a mochila porque o `hasLetter`
+      //   original cuidava disso — mas agora quem cuida é a quest).
       if (it.kind === 'lost_backpack') {
+        if (isQuestCompleted('story_lost_traveler')) continue;
+        if (!isQuestActive('story_lost_traveler')) continue;
+        // Se o jogador já pegou o pergaminho, a mochila some também
+        // (evita pegar o pergaminho duas vezes, já que ele não é stackable).
         const hasLetter = playerStats.inventory.some(i => i.id === 'letter_to_elder');
         if (hasLetter) continue;
       }
@@ -62,7 +90,7 @@ export function getInteractables(room) {
     }
   }
 
-  // ---- Fora de cidade: nada ----
+  // ---- Fora de cidade: retorna só os interactables especiais ----
   if (!room.isCity) return list;
 
   // ---- CIDADE: placas + portal + entradas ----
@@ -142,6 +170,7 @@ export function findNearbyInteractable(room) {
   // Prioridade: menor número = mais prioritário
   const priority = {
     herbalist_quest:  -1,
+    blacksmith_quest: -1,   // ← NOVO
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
@@ -155,7 +184,9 @@ export function findNearbyInteractable(room) {
   let bestDist = Infinity;
 
   // NPCs atrás de balcão precisam de alcance 2 (o balcão ocupa 1 tile).
-  const BEHIND_COUNTER = new Set(['shop_keep', 'elder', 'herbalist_quest']);
+  const BEHIND_COUNTER = new Set([
+    'shop_keep', 'elder', 'herbalist_quest', 'blacksmith_quest',
+  ]);
 
   for (const it of list) {
     const dx = Math.abs(it.tx - ptx);

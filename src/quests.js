@@ -101,6 +101,51 @@ export const QUEST_DB = {
     rewards: { xp: 50, gold: 25, items: [{ id: 'potion_mana', qty: 2 }] },
     next: null,
   },
+  story_forge_materials: {
+    id: 'story_forge_materials',
+    type: 'story',
+    title: 'Materiais para o Caldeirão',
+    giver: 'elder',              // o Ancião OFERECE
+    turnInNpc: 'blacksmith',     // o FERREIRO recebe
+    prereq: ['story_lost_traveler'],
+    warning:
+      'O Deserto fica a oeste de Aethel. É mais perigoso que os Campos. ' +
+      'Leve poções e não subestime os escorpiões.',
+    description:
+      'O Ferreiro precisa de materiais pra forjar um caldeirão especial pra Herbalista. Alguns só existem no Deserto. Vá até lá, colete o que ele pediu e leve de volta pra ele.',
+    objectives: [
+      {
+        id: 'collect_goblin_tooth',
+        text: 'Dente de Goblin',
+        target: 1,
+        type: 'collect',
+        filter: 'goblin_tooth',
+      },
+      {
+        id: 'collect_slime_gel',
+        text: 'Geleia de Slime',
+        target: 3,
+        type: 'collect',
+        filter: 'slime_gel',
+      },
+      {
+        id: 'collect_scorpion_pincer',
+        text: 'Pinça de Escorpião',
+        target: 2,
+        type: 'collect',
+        filter: 'scorpion_pincer',
+      },
+      {
+        id: 'collect_vulture_egg',
+        text: 'Ovo de Abutre',
+        target: 1,
+        type: 'collect',
+        filter: 'vulture_egg',
+      },
+    ],
+    rewards: { xp: 80, gold: 60, items: [{ id: 'potion_medium', qty: 2 }] },
+    next: null,
+  },
 
 };
 

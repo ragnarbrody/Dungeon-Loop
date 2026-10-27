@@ -601,6 +601,155 @@ export const ICONS = {
     // Sombra na base (dá peso à raiz)
     p(15, 17, 3, 1, skinDark);
   }),
+
+  goblin_tooth: makeIcon((g) => {
+    const p = px(g);
+    // Dente afiado, amarelado, com raiz
+    const base   = '#e8e0c0';
+    const baseHi = '#f5f0d8';
+    const baseSh = '#b8a878';
+    const root   = '#8a7a5a';
+    const rootSh = '#5a4a30';
+
+    // Coroa (parte de cima, arredondada)
+    p(7, 3, 6, 6, base);
+    p(7, 3, 6, 1, baseHi);
+    p(7, 8, 6, 1, baseSh);
+    // Pontinha
+    p(8, 2, 4, 1, baseHi);
+    p(9, 1, 2, 1, '#ffffff');
+
+    // Raiz (parte de baixo, pontuda dupla)
+    p(7, 9, 2, 5, root);
+    p(11, 9, 2, 5, root);
+    p(7, 9, 2, 1, rootSh);
+    p(11, 9, 2, 1, rootSh);
+    p(7, 13, 2, 1, rootSh);
+    p(11, 13, 2, 1, rootSh);
+    // Canais da raiz (escuros)
+    p(8, 10, 1, 3, rootSh);
+    p(12, 10, 1, 3, rootSh);
+
+    // Brilho lateral (dá volume)
+    p(7, 4, 1, 5, baseHi);
+    p(12, 4, 1, 5, baseSh);
+  }),
+
+  slime_gel: makeIcon((g) => {
+    const p = px(g);
+    // Gosma verde, brilhante, com bolhas
+    const gel    = '#6fd16f';
+    const gelHi  = '#a8e8a8';
+    const gelSh  = '#4fa34f';
+    const gelDk  = '#2f7a2f';
+
+    // Corpo (oval/achatado)
+    p(3, 8, 14, 8, gel);
+    p(4, 7, 12, 1, gelHi);
+    p(3, 15, 14, 1, gelSh);
+    // Topo mais claro
+    p(6, 6, 8, 1, gelHi);
+    p(8, 5, 4, 1, '#c8f8c8');
+
+    // Sombra inferior direita
+    p(12, 14, 5, 1, gelDk);
+    p(15, 12, 2, 2, gelDk);
+
+    // Bolhas (pequenas, brilhantes)
+    p(6, 9, 2, 2, gelHi);
+    p(12, 10, 2, 2, gelHi);
+    p(9, 12, 1, 1, '#e8ffe8');
+    p(14, 8, 1, 1, '#e8ffe8');
+
+    // Reflexo (linha diagonal)
+    p(5, 7, 1, 1, '#ffffff');
+    p(7, 8, 1, 1, '#d8f8d8');
+  }),
+
+  scorpion_pincer: makeIcon((g) => {
+    const p = px(g);
+    // Pinça de escorpião (vista lateral): 2 dedos curvos + base
+    const shell  = '#8a4a20';
+    const shellHi = '#b86a30';
+    const shellSh = '#5a2a10';
+    const shellDk = '#3a1808';
+    const tip    = '#c93030';
+
+    // Base da pinça (parte grossa, esquerda)
+    p(3, 9, 5, 5, shell);
+    p(3, 9, 5, 1, shellHi);
+    p(3, 13, 5, 1, shellSh);
+
+    // Dedo superior (curva pra cima e pra direita)
+    p(7, 8, 3, 2, shell);
+    p(9, 6, 3, 2, shell);
+    p(11, 5, 3, 2, shell);
+    p(13, 5, 2, 1, tip);
+    p(7, 8, 3, 1, shellHi);
+    p(9, 6, 3, 1, shellHi);
+    p(11, 5, 3, 1, shellHi);
+
+    // Dedo inferior (curva pra baixo e pra direita)
+    p(7, 13, 3, 2, shell);
+    p(9, 14, 3, 2, shell);
+    p(11, 14, 3, 2, shell);
+    p(13, 15, 2, 1, tip);
+    p(7, 14, 3, 1, shellSh);
+    p(9, 15, 3, 1, shellSh);
+
+    // Junta central (onde os dedos se encontram)
+    p(5, 10, 4, 4, shellSh);
+    p(5, 10, 4, 1, shell);
+    p(5, 13, 4, 1, shellDk);
+    p(6, 11, 2, 2, shellHi);
+
+    // Textura (pontinhos escuros)
+    p(4, 11, 1, 1, shellDk);
+    p(12, 7, 1, 1, shellDk);
+    p(12, 13, 1, 1, shellDk);
+  }),
+
+  vulture_egg: makeIcon((g) => {
+    const p = px(g);
+    // Ovo manchado, bege com manchas marrons
+    const shell   = '#e8dcc0';
+    const shellHi = '#f5eed8';
+    const shellSh = '#b8a880';
+    const shellDk = '#8a7a5a';
+    const spot    = '#8a5a3a';
+    const spotSh  = '#5a3a20';
+
+    // Corpo (oval vertical)
+    p(6, 4, 8, 13, shell);
+    p(7, 3, 6, 1, shellHi);
+    p(6, 4, 8, 1, shellHi);
+    p(6, 16, 8, 1, shellSh);
+    p(6, 4, 1, 13, shellHi);
+    p(13, 4, 1, 13, shellSh);
+
+    // Manchas (espalhadas, irregulares)
+    p(8, 6, 2, 2, spot);
+    p(11, 8, 1, 1, spot);
+    p(9, 10, 1, 2, spot);
+    p(12, 12, 2, 1, spot);
+    p(7, 13, 1, 1, spot);
+    p(10, 14, 1, 1, spot);
+    p(11, 15, 1, 1, spot);
+
+    // Sombra das manchas (profundidade)
+    p(8, 7, 2, 1, spotSh);
+    p(9, 11, 1, 1, spotSh);
+    p(12, 13, 2, 1, spotSh);
+
+    // Brilho no topo
+    p(8, 4, 2, 1, '#ffffff');
+    p(7, 5, 1, 1, '#ffffff');
+
+    // Base do ovo (leve sombra)
+    p(7, 17, 6, 1, shellDk);
+  }),
+
+  // ----- ITENS DE MISSÕES ------
   letter_to_elder: makeIcon((g) => {
     const p = px(g);
     // Pergaminho enrolado, com selo dourado

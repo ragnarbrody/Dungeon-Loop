@@ -17,6 +17,7 @@ import {
   centerOnPlayer,
 } from './worldmap.js';
 import { talkToHerbalist } from './herbalistdialog.js';
+import { talkToBlacksmith } from './blacksmithdialog.js';
 
 export const keys = {};
 
@@ -179,6 +180,8 @@ export function installInput() {
           talkToElder();
         } else if (it.kind === 'herbalist_quest') {
           talkToHerbalist();
+        } else if (it.kind === 'blacksmith_quest') {
+          talkToBlacksmith();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
         } else if (it.kind === 'lost_backpack') {

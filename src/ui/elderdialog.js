@@ -52,20 +52,30 @@ export function offerQuests() {
 
   // ---- Se a quest ativa NÃO é entregue ao Ancião, ele só orienta ----
   if (active && getTurnInNpc(active) !== 'elder') {
+    const turnIn = getTurnInNpc(active);
+    const npcName = turnIn === 'herbalist' ? 'Herbalista'
+                  : turnIn === 'blacksmith' ? 'Ferreiro'
+                  : turnIn;
+    const npcLore = turnIn === 'herbalist'
+      ? 'O remédio não pode esperar.'
+      : turnIn === 'blacksmith'
+        ? 'Ele está na forja, no canto da cidade. Vai precisar de cada material.'
+        : 'Fale com ele.';
+
     if (isQuestReadyToComplete(active.id)) {
       openDialogue({
         title: 'Ancião de Aethel',
         text:
-          `Você já tem o que a Herbalista precisa, ${vocative()}.\n\n` +
-          `Vá até ela para entregar. O remédio não pode esperar.`,
+          `Você já tem o que ${npcName === 'Herbalista' ? 'a Herbalista' : 'o Ferreiro'} precisa, ${vocative()}.\n\n` +
+          `Vá até ${npcName === 'Herbalista' ? 'ela' : 'ele'} para entregar. ${npcLore}`,
       });
     } else {
       openDialogue({
         title: 'Ancião de Aethel',
         text:
-          `A Herbalista ainda precisa da sua ajuda, ${vocative()}.\n\n` +
+          `${npcName === 'Herbalista' ? 'A Herbalista' : 'O Ferreiro'} ainda precisa da sua ajuda, ${vocative()}.\n\n` +
           `${active.description}\n\n` +
-          `Fale com ela quando tiver os itens.`,
+          `Fale com ${npcName === 'Herbalista' ? 'ela' : 'ele'} quando tiver o que precisa.`,
       });
     }
     return;
@@ -124,6 +134,7 @@ export function offerQuests() {
   openDialogue({
     title: 'Ancião de Aethel',
     text:
+      (q.warning ? `${q.warning}\n\n` : '') +
       `${q.description}\n\n` +
       `Aceita a tarefa, ${vocative()}?`,
     actions: [

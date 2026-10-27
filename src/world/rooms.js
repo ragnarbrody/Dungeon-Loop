@@ -5,7 +5,31 @@ import { BIOMES, pickBiome } from './biomes.js';
 import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player } from '../core/state.js';
 import { createInterior } from './interiors.js';
 
+
+// ============================================================
+// REGRA DE PORTAS
+//
+// - Recíproca por construção: depende só da chave canônica da borda.
+// - Determinística: hash puro, sem Math.random.
+// - Anti-frustração: a cada 4 bordas na mesma linha, a posição
+//   múltipla de 4 SEMPRE tem porta. Isso garante que nunca há
+//   mais de 3 bordas seguidas sem porta em nenhuma direção.
+//   (As outras 3 posições do bloco continuam com 70% de chance.)
+// ============================================================
+
 const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
+const DOOR_BLOCK = 4;          // a cada 4 bordas, pelo menos 1 porta
+const DOOR_RAW_CHANCE = 0.7;   // chance base (fora a forçada)
+
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967296;
+}
+
 
 function hashRoom(gx, gy, salt = 0) {
   let h = 2166136261 ^ gx;
@@ -16,38 +40,42 @@ function hashRoom(gx, gy, salt = 0) {
 
 // Chave da "borda" entre (gx,gy) e (gx+dx, gy+dy): sempre a mesma pros dois lados
 function edgeKey(gx, gy, side) {
-  // Normaliza: cada borda tem um par canônico
-  //   'left'  de (gx,gy)  ==  'right' de (gx-1,gy)
-  //   'top'   de (gx,gy)  ==  'bottom' de (gx,gy-1)
   if (side === 'right')  return edgeKey(gx + 1, gy, 'left');
   if (side === 'bottom') return edgeKey(gx, gy + 1, 'top');
-
-  // lado canônico: left ou top
-  // borda vertical entre (gx-1,gy) e (gx,gy) usa (gx,gy,'V')
-  // borda horizontal entre (gx,gy-1) e (gx,gy) usa (gx,gy,'H')
   if (side === 'left') return `V:${gx},${gy}`;
   if (side === 'top')  return `H:${gx},${gy}`;
   return `?:${gx},${gy}:${side}`;
 }
 
-// Decide deterministicamente se uma borda tem porta
+// Decisão base (sem a regra de bloco)
+function edgeHasDoorRaw(key) {
+  return hashString(key) < DOOR_RAW_CHANCE;
+}
+
+// Decisão final (com a regra de bloco)
 function edgeHasDoor(key) {
-  // hash do texto (puro, sem Math.random)
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  h = (h >>> 0) / 4294967296;
-  // probabilidade de porta: ~70%
-  return h < 0.7;
+  // Parse da chave canônica
+  const isV = key[0] === 'V';
+  const [gxStr, gyStr] = key.slice(2).split(',');
+  const gx = parseInt(gxStr, 10);
+  const gy = parseInt(gyStr, 10);
+
+  // Índice ao longo da linha (varia perpendicularmente à borda).
+  // Para V (borda vertical), a linha é vertical: índice = gy.
+  // Para H (borda horizontal), a linha é horizontal: índice = gx.
+  const idx = isV ? gy : gx;
+
+  // Posição 0 de cada bloco de 4 SEMPRE tem porta.
+  // As outras posições usam o raw.
+  const posInBlock = ((idx % DOOR_BLOCK) + DOOR_BLOCK) % DOOR_BLOCK;
+  if (posInBlock === 0) return true;
+
+  return edgeHasDoorRaw(key);
 }
 
 export function hasDoor(gx, gy, side) {
-  // Cidade: as 4 portas sempre existem
   if (isCity(gx, gy)) return true;
 
-  // Cidade vizinha: a borda que encosta na cidade sempre abre
   const DIRS_LOCAL = {
     top:    { dx: 0,  dy: -1 },
     bottom: { dx: 0,  dy:  1 },
@@ -279,7 +307,6 @@ function createCity(gx, gy) {
 }
 
 export function createRoom(gx, gy) {
-  console.log('[createRoom] gx =', gx, '(', typeof gx, ') gy =', gy, '(', typeof gy, ')');
 
   // Cidade? Retorna sala fixa.
   if (isCity(gx, gy)) {
@@ -431,7 +458,6 @@ export function createRoom(gx, gy) {
   // (só existe em gx=-2, gy=-4)
   let interactables = [];
   if (gx === -2 && gy === -4) {
-    console.log('[createRoom] bloco da mochila executando!');
     // Coloca a mochila em um tile fixo perto do centro, sem colidir com árvores.
     const mid = Math.floor(GRID_SIZE / 2);
     let packTx = mid;
@@ -453,7 +479,6 @@ export function createRoom(gx, gy) {
     });
   }
 
-  console.log('[createRoom] retornando sala', gx, gy, 'interactables:', interactables);
   return {
     gx, gy, map, doors, biomeId,
     name: biome.name,
@@ -476,10 +501,7 @@ export function clearRoomCache() {
 export function getRoom(gx, gy) {
   const key = `${gx},${gy}`;
   if (!roomCache.has(key)) {
-    console.log('[getRoom] gerando nova sala:', key);
     roomCache.set(key, createRoom(gx, gy));
-  } else {
-    console.log('[getRoom] usando cache para:', key);
   }
   return roomCache.get(key);
 }

@@ -21,7 +21,7 @@ export const SHOPS = {
   blacksmith: {
     name: 'Ferreiro',
     items: ['torch'],
-    sellFilter: ['material', 'weapon', 'loot'],
+    sellFilter: ['material', 'weapon', 'loot', 'torch'],
   },
 };
 
@@ -163,18 +163,8 @@ function renderBuyTab(itemsEl, shop) {
       if (added === 0) return;
 
       playerStats.gold -= item.price;
-
-      if (itemId === 'torch') {
-        import('../sprites/equipment.js').then(mod => {
-          mod.playerEquip.leftHand = 'torch';
-          saveGame();
-          renderBody(container);
-        });
-      } else {
-        saveGame();
-        renderBody(container);
-      }
-
+      saveGame();
+      renderBody(container);
       showToast({ itemId, title: item.name, subtitle: `-${item.price} ouro`, color: '#f0c060' });
     };
     row.appendChild(buyBtn);
