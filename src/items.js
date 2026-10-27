@@ -353,7 +353,7 @@ export const ITEMS_DB = {
     kind: 'torch',
     slot: 'leftHand',
     name: 'Tocha',
-    description: 'Ilumina a escuridão. Dá um pequeno bônus de ATK.',
+    description: 'Ilumina a escuridão.',
     price: 5,
     sellPrice: 2,      // preço de venda
     rarity: 'common',

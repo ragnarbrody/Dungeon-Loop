@@ -36,6 +36,30 @@ export const SHOP_GREETINGS = {
     () => `${greeting()} Se precisar de algo mais forte, é só pedir.`,
     () => `${greeting()} O ouro é seu, as poções são minhas. Vamos negociar?`,
   ],
+  blacksmith: [
+    // ---- Trabalho / ofício ----
+    () => `${greeting()} Procurando algo afiado?`,
+    () => `${greeting()} O aço tá bom hoje. Aproveita.`,
+    () => `${greeting()} Se cortar o dedo, não é culpa minha.`,
+    () => `${greeting()} Fogo, martelo e paciência. É tudo que preciso.`,
+
+    // ---- Aviso / mundo lá fora ----
+    () => `${greeting()} Vai pra alguma caverna? Você vai precisar de luz. Tenho tochas.`,
+    () => `${greeting()} A Fratura torceu o metal todo. Difícil achar uma lâmina que não rache.`,
+    () => `${greeting()} Cuidado com o que brilha demais por aí. Nem tudo que reluz é ouro.`,
+    () => `${greeting()} Se voltar com a armadura amassada, eu conserto. Se voltar sem ela, aí é com você.`,
+
+    // ---- Reconhecimento do Andarilho ----
+    () => `${greeting()} Voltou vivo? Bom. Tô cobrando por conserto, não por ressurreição.`,
+    () => `${greeting()} Não é todo dia que vejo ${agree('um', 'uma')} ${agree('Andarilho', 'Andarilhas')}. E olha que eu fico aqui o dia todo.`,
+    () => `${greeting()} Você atravessou os anéis e ainda tem os dois braços? Sorte.`,
+    () => `${greeting()} Os outros viajantes viram sucata. Você ainda tá de pé.`,
+
+    // ---- Loja / mercadoria ----
+    () => `${greeting()} Vende o que não usa? Tô comprando.`,
+    () => `${greeting()} Ouro na mão, aço na outra. É assim que funciona.`,
+    () => `${greeting()} Se não for pra comprar nem vender, fecha a porta. Tô trabalhando.`,
+  ],
 };
 
 // Fallback se a loja não tiver pool definido.

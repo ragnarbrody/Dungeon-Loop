@@ -89,7 +89,7 @@ const MIGRATIONS = {
     }
 
     // equip: sempre objeto
-    if (!isObject(data.equip)) data.equip = { rightHand: 'sword', leftHand: 'torch' };
+    if (!isObject(data.equip)) data.equip = { rightHand: 'sword', leftHand: null };
 
     // baseMp: se veio como `baseMp` (nome antigo) migra pra `_baseMp`
     if (data._baseMp === undefined) {
@@ -156,7 +156,7 @@ export function getDefaultSave() {
     _baseMp: 5,
     // inventário e equipamento
     inventory: [],
-    equip: { rightHand: 'sword', leftHand: 'torch' },
+    equip: { rightHand: 'sword', leftHand: null },
     // mundo
     gx: 0,
     gy: 0,

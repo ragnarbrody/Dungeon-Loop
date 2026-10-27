@@ -31,7 +31,8 @@ export const ENEMY_DROPS = {
 
   // Goblin: dropa ouro (já no battle) + poção média às vezes
   goblin: [
-    { itemId: 'potion_medium', chance: 0.20, qtyMin: 1, qtyMax: 1 },
+    { itemId: 'potion_weak', chance: 0.30, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_medium', chance: 0.15, qtyMin: 1, qtyMax: 1 },
     { itemId: 'potion_agi',    chance: 0.05, qtyMin: 1, qtyMax: 1 },
   ],
 
@@ -47,7 +48,7 @@ export const ENEMY_DROPS = {
 
   // Múmia: dropa poção forte (raro)
   mummy: [
-    { itemId: 'potion_strong', chance: 0.15, qtyMin: 1, qtyMax: 1 },
+    { itemId: 'potion_medium', chance: 0.25, qtyMin: 1, qtyMax: 1 },
   ],
 
   // Escaravelho: dropa poção de força

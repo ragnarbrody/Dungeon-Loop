@@ -10,6 +10,8 @@ import { getActiveQuest } from '../quests.js';
 // O jogador interage se estiver no MESMO tile ou adjacente (4 dirs).
 // ============================================================
 
+const NPC_LABEL = { herbalist: 'Herbalista', blacksmith: 'Ferreiro', quest_giver: 'Ancião' };
+
 export function getInteractables(room) {
   if (!room) return [];
 
@@ -20,24 +22,20 @@ export function getInteractables(room) {
     if (room.npc) {
       const npc = room.npc;
       // Herbalista: abre loja
-      if (npc.buildingId === 'herbalist') {
-        // Sempre oferece a loja
+      if (npc.buildingId === 'herbalist' || npc.buildingId === 'blacksmith') {
         list.push({
           tx: npc.tx, ty: npc.ty,
           kind: 'shop_keep',
           buildingId: npc.buildingId,
-          title: 'Herbalista',
-          text: 'Bem-vindo! Quer comprar alguma poção?',
+          title: NPC_LABEL[npc.buildingId] || 'Lojista',
+          text: '...',
         });
-        // Se tem quest ativa que é entregue a ela, oferece o diálogo
-        // (prioridade maior, ver priority abaixo)
-        const q = getActiveQuest();
-        if (q && q.turnInNpc === 'herbalist') {
-          list.push({
-            tx: npc.tx, ty: npc.ty,
-            kind: 'herbalist_quest',
-            title: 'Herbalista',
-          });
+        // herbalist_quest só pra herbalista
+        if (npc.buildingId === 'herbalist') {
+          const q = getActiveQuest();
+          if (q && q.turnInNpc === 'herbalist') {
+            list.push({ tx: npc.tx, ty: npc.ty, kind: 'herbalist_quest', title: 'Herbalista' });
+          }
         }
       }
       // Ancião: abre diálogo de quests
@@ -105,7 +103,7 @@ export function getInteractables(room) {
 function signTextFor(id) {
   const texts = {
     blacksmith:
-      'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos. [EM BREVE]',
+      'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos.',
     armorer:
       'Armeiro. Compra e vende armaduras e escudos. Peças do mesmo conjunto dão bônus extras. [EM BREVE]',
     herbalist:

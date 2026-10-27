@@ -324,7 +324,7 @@ for (const [id, it] of Object.entries(ITEMS_DB)) {
 // ============================================================
 export const playerEquip = {
   rightHand: 'sword',
-  leftHand:  'torch',
+  leftHand:  null,
 };
 
 export function drawEquipment(g, dir, bob, equip) {

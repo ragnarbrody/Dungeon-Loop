@@ -592,6 +592,56 @@ canvas {
   align-self: flex-end;
 }
 
+/* Abas da loja */
+.shop-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+
+.shop-tab {
+  flex: 1;
+  background: transparent;
+  color: #888;
+  border: 1px solid transparent;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: bold;
+  transition: 0.2s;
+}
+.shop-tab:hover { color: #eee; background: #2a2a3e; }
+.shop-tab.active {
+  color: #1a1a2e;
+  background: #c9a24d;
+  border-color: #c9a24d;
+}
+
+/* Botão de vender */
+.shop-sell {
+  background: #2a2a3e;
+  color: #c9a24d;
+  border: 1px solid #c9a24d;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 11px;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.shop-sell:hover { background: #c9a24d; color: #1a1a2e; }
+.shop-sell-all {
+  background: #6fbd63;
+  color: #1a1a2e;
+  border-color: #6fbd63;
+}
+.shop-sell-all:hover { background: #4f9a4a; }
+
 /* ============================================================
    QUEST LOG — mesmo padrão visual do inventário
    ============================================================ */

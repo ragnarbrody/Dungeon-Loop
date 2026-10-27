@@ -308,7 +308,6 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   const rewards = q.rewards || {};
   if (rewards.xp) {
     playerStats.xp += rewards.xp;
-    checkLevelUp();
     }
   if (rewards.gold) playerStats.gold += rewards.gold;
   if (rewards.items && addItemToInventoryFn) {

@@ -265,6 +265,12 @@ function createItemTile(item, qty) {
   const kind = info.kind || info.type;
   const isQuest = kind === 'quest';
   const isConsumable = kind === 'consumable' && !info.combatOnly;
+  const isEquippable = !isQuest && info.slot && kind !== 'consumable';
+
+  if (isEquippable) {
+    tile.style.cursor = 'pointer';
+    tile.onclick = () => equipItem(info.id);
+  }
 
   const tile = document.createElement(isConsumable ? 'button' : 'div');
   tile.className = 'inv-item-tile' + (isQuest ? ' quest-item' : '');
@@ -455,4 +461,29 @@ function renderSkillsTab(parent) {
   }
 
   parent.appendChild(grid);
+}
+
+function equipItem(itemId) {
+  const info = ITEMS_DB[itemId];
+  if (!info || !info.slot) return;
+
+  const { playerEquip } = mod;
+  const slot = info.slot;
+  const currentId = playerEquip[slot];
+
+  // Remove 1 unidade do item clicado do inventário
+  const invItem = playerStats.inventory.find(i => i.id === itemId);
+  if (!invItem || invItem.qty <= 0) return;
+  invItem.qty--;
+  if (invItem.qty <= 0) {
+    playerStats.inventory = playerStats.inventory.filter(i => i.id !== itemId);
+  }
+
+  // Se havia algo equipado, devolve pro inventário
+  if (currentId) {
+    addItemToInventory(playerStats.inventory, currentId, 1);
+  }
+
+  playerEquip[slot] = itemId;
+  saveGame();
 }

@@ -8,6 +8,7 @@ const INTERIOR_ROWS = 9;
 const NPC_FOR_BUILDING = {
   herbalist: 'herbalist',
   quest_giver: 'elder',
+  blacksmith: 'blacksmith',
 };
 
 export function createInterior(buildingId, gx, gy) {
@@ -54,7 +55,10 @@ export function createInterior(buildingId, gx, gy) {
     map,
     doors: ['bottom'],
     biomeId: 'interior',
-    name: buildingId === 'quest_giver' ? 'Salão do Ancião' : 'Interior',
+    name: buildingId === 'quest_giver' ? 'Salão do Ancião'
+    : buildingId === 'blacksmith'  ? 'Ferreiro'
+    : buildingId === 'herbalist'  ? 'Herbalista'
+    : 'Interior',
     nameCoords: `${gx}, ${gy}`,
     isInterior: true,
     buildingId,
