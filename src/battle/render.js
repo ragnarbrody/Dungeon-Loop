@@ -781,20 +781,31 @@ function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFo
 /**
  * Desenha o ícone ⓘ no canto do botão de skill.
  * Se `battle.tooltipSkill === skill`, o ícone fica destacado.
- * Clicar no ⓘ alterna o tooltip (a lógica de clique está em input.js / handleCanvasClick).
+ * Clicar no ⓘ alterna o tooltip (a lógica de clique está em input.js).
+ *
+ * A hitbox (área clicável) é MAIOR que o ícone visual (12px), para
+ * facilitar o clique em telas pequenas / alta densidade. A hitbox é
+ * limitada ao espaço do botão da skill, então não vaza para o vizinho.
  */
 function drawInfoIcon(x, y, skill, canUse) {
   const isActive = battle.tooltipSkill === skill;
-  const size = 12;
+  const size = 12;                          // tamanho VISUAL
+  const hitSize = Math.min(22, size + 8);   // área clicável (maior, pra facilitar)
 
-  // Registra a área clicável
+  // Registra a área clicável CENTRADA no ícone visual.
+  // Como x = botãoX + bW - 18, a hitbox de 20px começa em
+  // botãoX + bW - 22 e termina em botãoX + bW - 2 — dentro do botão.
   battle.buttons.push({
-    x, y, w: size, h: size,
+    x: x + size / 2 - hitSize / 2,
+    y: y + size / 2 - hitSize / 2,
+    w: hitSize,
+    h: hitSize,
     action: '__toggle_tooltip__',
     _skill: skill,
+    _isInfoIcon: true,
   });
 
-  // Círculo
+  // Círculo (12x12)
   ctx.fillStyle = isActive ? '#c9a24d' : (canUse ? '#2a2a3e' : '#1a1a24');
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);

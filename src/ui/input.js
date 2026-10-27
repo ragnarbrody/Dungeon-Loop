@@ -49,6 +49,32 @@ function toggleQuestLog() {
   }
 }
 
+// ============================================================
+// Converte coordenadas do mouse (CSS) para coordenadas do canvas,
+// descontando borda/padding corretamente.
+//
+// O canvas tem `border: 4px solid #0f0f1a` no CSS. `getBoundingClientRect()`
+// retorna a caixa COM a borda, mas a área de desenho do canvas é SÓ o
+// conteúdo. Sem descontar a borda, o clique fica deslocado em ~4px CSS
+// (que viram vários pixels no espaço do canvas após o scale), e em telas
+// pequenas isso é o suficiente para errar o ⓘ (que tem só 12px de diâmetro).
+// ============================================================
+function clientToCanvas(e) {
+  const rect = canvas.getBoundingClientRect();
+  const style = getComputedStyle(canvas);
+  const borderL = parseFloat(style.borderLeftWidth)   || 0;
+  const borderT = parseFloat(style.borderTopWidth)    || 0;
+  const borderR = parseFloat(style.borderRightWidth)  || 0;
+  const borderB = parseFloat(style.borderBottomWidth) || 0;
+
+  const cssW = Math.max(1, rect.width  - borderL - borderR);
+  const cssH = Math.max(1, rect.height - borderT - borderB);
+
+  const mx = (e.clientX - rect.left - borderL) * (canvas.width  / cssW);
+  const my = (e.clientY - rect.top  - borderT) * (canvas.height / cssH);
+  return { mx, my };
+}
+
 export function installInput() {
   // ---- Ícone da mochila no botão ----
   const btnInv = document.getElementById('btn-inventory');
@@ -91,21 +117,13 @@ export function installInput() {
   // ---------- World Map: drag & zoom ----------
   canvas.addEventListener('mousedown', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
+    const { mx, my } = clientToCanvas(e);
     handleMapClick(mx, my, e);
   });
 
   window.addEventListener('mousemove', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
+    const { mx, my } = clientToCanvas(e);
     handleMapMove(mx, my);
   });
 
@@ -363,16 +381,36 @@ export function installInput() {
     }
   });
 
+  // ---------- Hover: cursor `pointer` sobre o ⓘ ----------
+  // Só cosmético, mas ajuda o jogador a perceber que o ⓘ é clicável.
+  // Roda em BATTLE e checa se o mouse está sobre uma hitbox de ⓘ.
+  canvas.addEventListener('mousemove', e => {
+    if (gameState !== STATE.BATTLE) {
+      if (canvas.style.cursor) canvas.style.cursor = '';
+      return;
+    }
+    const { mx, my } = clientToCanvas(e);
+    let overInfo = false;
+    for (const b of battle.buttons) {
+      if (b.action !== '__toggle_tooltip__') continue;
+      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+        overInfo = true;
+        break;
+      }
+    }
+    canvas.style.cursor = overInfo ? 'pointer' : '';
+  });
+
   // Clique nos botões de combate
   canvas.addEventListener('click', e => {
     if (gameState !== STATE.BATTLE) return;
     if (battle.turn !== 'player') return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
+    const { mx, my } = clientToCanvas(e);
+
+    // Ignora cliques fora da área útil (defensivo: bordas/padding geram
+    // coordenadas negativas ou > canvas.width/height)
+    if (mx < 0 || my < 0 || mx > canvas.width || my > canvas.height) return;
 
     // Procura um botão clicado (ordem inversa: o ⓘ é registrado DEPOIS dos
     // botões da skill, então ele fica "por cima" na checagem)

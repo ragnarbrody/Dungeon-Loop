@@ -147,6 +147,15 @@ canvas {
 .inv-item-name { font-size: 12px; color: #ddd; }
 .inv-hint { font-size: 12px; color: #888; }
 
+/* Itens "só em combate" não são clicáveis no inventário:
+   não devem ter o efeito de "levantar" no hover. */
+.inv-item-tile.combat-only {
+  cursor: default;
+}
+.inv-item-tile.combat-only:hover {
+  transform: none;
+}
+
 /* Abas do inventário */
 .inv-tabs {
   display: flex;

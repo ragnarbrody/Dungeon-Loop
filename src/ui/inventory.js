@@ -304,14 +304,19 @@ function createItemTile(item, qty) {
   const kind = info.kind || info.type;
   const isQuest = kind === 'quest';
   const isConsumable = kind === 'consumable' && !info.combatOnly;
+  const isCombatOnly = kind === 'consumable' && !!info.combatOnly;
   const isEquippable = !isQuest && !!info.slot && kind !== 'consumable';
 
-  // ← NOVO: <button> pra clicáveis (consumable ou equippable)
+  // <button> pra clicáveis (consumable ou equippable)
   const tile = document.createElement(
     (isConsumable || isEquippable) ? 'button' : 'div'
   );
-  tile.className = 'inv-item-tile' + (isQuest ? ' quest-item' : '');
-  tile.title = info.description || info.name;
+  tile.className = 'inv-item-tile'
+    + (isQuest ? ' quest-item' : '')
+    + (isCombatOnly ? ' combat-only' : '');
+  tile.title = isCombatOnly
+    ? `${info.description || info.name} — utilizável apenas em combates.`
+    : (info.description || info.name);
 
   if (isConsumable) {
     tile.style.cursor = 'pointer';
@@ -342,11 +347,13 @@ function createItemTile(item, qty) {
     border-radius: 4px;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 4px; gap: 2px;
+    padding: 4px; gap: 3px;
     position: relative;
     box-shadow: ${isQuest ? '0 0 6px rgba(254, 202, 87, 0.5)' : 'none'};
     font-family: inherit;
     color: inherit;
+    overflow: hidden;
+    ${isCombatOnly ? 'opacity: 0.75;' : ''}
   `;
 
   const kindLabels = {
@@ -355,29 +362,47 @@ function createItemTile(item, qty) {
     ring: 'Anel', amulet: 'Amuleto',
     consumable: 'Consumível', loot: 'Material', quest: 'Missão', material: 'Material'
   };
+
   const kindLabel = kindLabels[kind];
   if (kindLabel) {
     const kindEl = document.createElement('span');
-    kindEl.style.cssText = 'position: absolute; top: 2px; left: 4px; font-size: 7px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;';
+    kindEl.style.cssText = 'position: absolute; top: 3px; left: 5px; font-size: 8px; color: #777; text-transform: uppercase; letter-spacing: 0.5px;';
     kindEl.textContent = kindLabel;
     tile.appendChild(kindEl);
   }
 
+  // Ícone
+  const iconSize = isCombatOnly ? '24px' : '28px';
   const icon = getIcon(info.icon || info.id);
-  icon.style.width = '28px';
-  icon.style.height = '28px';
+  icon.style.width = iconSize;
+  icon.style.height = iconSize;
   icon.style.imageRendering = 'pixelated';
   tile.appendChild(icon);
 
   const name = document.createElement('span');
   name.className = 'inv-item-name';
-  name.style.cssText = 'font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden;';
+  name.style.cssText = 'font-size: 11px; text-align: center; line-height: 1.15; overflow: hidden; max-height: 2.4em;';
   name.textContent = info.name;
   tile.appendChild(name);
 
+  // aviso de "só em combate"
+  if (isCombatOnly) {
+    const warn = document.createElement('span');
+    warn.style.cssText = `
+      font-size: 8px;
+      color: #ffb703;
+      text-align: center;
+      line-height: 1.1;
+      font-style: italic;
+      letter-spacing: 0.2px;
+    `;
+    warn.textContent = 'só em combates';
+    tile.appendChild(warn);
+  }
+
   if (qty > 1) {
     const qtyEl = document.createElement('span');
-    qtyEl.style.cssText = 'position: absolute; top: 2px; right: 4px; font-size: 10px; color: #eee; font-weight: bold; text-shadow: 1px 1px 0 #000;';
+    qtyEl.style.cssText = 'position: absolute; top: 3px; right: 5px; font-size: 11px; color: #eee; font-weight: bold; text-shadow: 1px 1px 0 #000;';
     qtyEl.textContent = `x${qty}`;
     tile.appendChild(qtyEl);
   }
