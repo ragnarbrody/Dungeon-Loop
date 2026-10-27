@@ -6,6 +6,7 @@ import {
 } from './save.js';
 import { loadKnowledge, serializeKnowledge, revealRoom } from '../world/knowledge.js';
 import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter } from '../quests.js';
+import { setMusicMode, sfx } from '../audio/audio.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -235,6 +236,7 @@ export function checkLevelUp() {
     playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
   }
   return true;
+  sfx('levelup');
 }
 
 export let transitionCooldown = 0;

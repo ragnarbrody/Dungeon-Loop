@@ -18,6 +18,8 @@ import {
 } from './worldmap.js';
 import { talkToHerbalist } from './herbalistdialog.js';
 import { talkToBlacksmith } from './blacksmithdialog.js';
+import { sfx } from '../audio/audio.js';
+import { openAudioMenu, closeAudioMenu, isAudioMenuOpen } from './audiomenu.js';
 
 export const keys = {};
 
@@ -166,6 +168,18 @@ export function installInput() {
       return;
     }
 
+    // ---- Painel de áudio: ESC abre/fecha (fora de combate e de loja) ----
+    if (k === 'escape' && gameState !== STATE.BATTLE
+        && !isShopOpen() && !isDialogueOpen() && !isWorldMapOpen()
+        && !isQuestLogOpen() && !isAudioMenuOpen()
+        && gameState !== STATE.INVENTORY) {
+      openAudioMenu();
+      return;
+    }
+    if (isAudioMenuOpen()) {
+      if (k === 'escape') closeAudioMenu();
+      return;
+    }
     // ---- Interagir (E) no mapa ----
     if (k === 'e' && gameState === STATE.EXPLORE) {
       const it = playerStats._nearInteractable;
@@ -379,6 +393,12 @@ export function installInput() {
       closeQuestLog();
       setGameState(STATE.EXPLORE);
     }
+  });
+
+  // Clique no botão de áudio
+  document.getElementById('btn-audio').addEventListener('click', () => {
+    sfx('click');
+    openAudioMenu();
   });
 
   // ---------- Hover: cursor `pointer` sobre o ⓘ ----------

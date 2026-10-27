@@ -10,6 +10,7 @@ import { showToast } from '../ui/toast.js';
 import { getBiomeEnemies } from '../world/biomes.js';
 import { notifyEnemyKilled } from '../quests.js';
 import { rollDrops, formatDrop } from '../drops.js';
+import { sfx, setMusicMode } from '../audio/audio.js';
 
 const ENEMIES = {
   slime: {
@@ -336,6 +337,7 @@ export function startBattle(opts = {}) {
     : `${battle.enemies.length} ${battle.enemies[0].name}s selvagens apareceram!`;
   encounter.walkedSinceLast = 0;
   hud.style.display = 'none';
+  setMusicMode('battle');
 }
 
 export function endBattle(escaped) {
@@ -377,6 +379,11 @@ export function endBattle(escaped) {
   playerStats.poisoned = null;
   saveGame();
   updateHud();
+
+  // Volta pra música do bioma (ou Aethel, se for cidade)
+  if (currentRoom) {
+    setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
+  }
 }
 
 // ==== SKILLS ====
@@ -398,6 +405,7 @@ const SKILL_IMPL = {
     const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
     const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
     t.hp = Math.max(0, t.hp - finalDmg);
+    sfx('hit');
     battle.message = `Você atacou rápido! ${finalDmg} de dano em ${t.name}. ${isCrit ? '(CRÍTICO!)' : ''}`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.2;
@@ -420,6 +428,7 @@ const SKILL_IMPL = {
     const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
     const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
     t.hp = Math.max(0, t.hp - finalDmg);
+    sfx('hit');
     battle.message = `Você atacou forte! ${finalDmg} de dano em ${t.name}. ${isCrit ? '(CRÍTICO!)' : ''}`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.35;
@@ -451,6 +460,11 @@ const SKILL_IMPL = {
       return;
     }
 
+    if ( hits > 0)
+    {
+      sfx('hit');
+    }
+
     battle.message = hits === 1
       ? `Golpe Giratório! ${total} de dano em ${living[0].name}.`
       : `Golpe Giratório! ${total} de dano em ${hits} inimigos.`;
@@ -467,6 +481,7 @@ const SKILL_IMPL = {
     }
     const dmg = Math.max(1, 3 + effStat('int') * 2 + rand(-1, 1));
     t.hp = Math.max(0, t.hp - dmg);
+    sfx('hit');
     battle.message = `Force Bolt! ${dmg} de dano em ${t.name}.`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.1;
@@ -480,6 +495,7 @@ const SKILL_IMPL = {
     }
     const dmg = Math.max(1, 5 + effStat('int') * 2 + rand(-1, 2));
     t.hp = Math.max(0, t.hp - dmg);
+    sfx('hit');
     battle.message = `Bola de Fogo! ${dmg} de dano em ${t.name} (ignora defesa).`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.25;
@@ -510,6 +526,11 @@ const SKILL_IMPL = {
       return;
     }
 
+    if ( hits > 0)
+    {
+      sfx('hit');
+    }
+
     battle.message = hits === 1
       ? `Impacto Arcano! ${total} de dano em ${living[0].name}.`
       : `Impacto Arcano atinge ${hits} inimigos! ${total} de dano total.`;
@@ -527,6 +548,7 @@ const SKILL_IMPL = {
     }
     const dmg = Math.max(1, 2 + effStat('str') * 2 + rand(-1, 1));
     t.hp = Math.max(0, t.hp - dmg);
+    sfx('hit');
     battle.message = `Estocada certeira! ${dmg} de dano em ${t.name}.`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.12;
@@ -545,6 +567,7 @@ const SKILL_IMPL = {
     }
     const dmg = Math.max(1, Math.round((2 + effStat('str') * 2) * 1.6) + rand(-1, 2));
     t.hp = Math.max(0, t.hp - dmg);
+    sfx('hit');
     battle.message = `Ataque furtivo! ${dmg} de dano em ${t.name}.`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.3;
@@ -579,6 +602,7 @@ const SKILL_IMPL = {
     battle.message += `${finalDmg} de dano. ${isCrit ? '(CRÍTICO!)' : ''}`;
 
     t.hp = Math.max(0, t.hp - finalDmg);
+    sfx('hit');
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.15;
     spawnFloatingText(t, finalDmg, isCrit ? '#feca57' : '#e8d890');
@@ -610,6 +634,11 @@ const SKILL_IMPL = {
       spawnFloatingText(e, dmg, '#8a9a4a');
     });
 
+    if ( hits > 0)
+    {
+      sfx('hit');
+    }
+    
     battle.message = hits === 0
       ? 'Flecha Perfurante não acertou ninguém!'
       : `Flecha Perfurante! ${total} de dano em ${hits} inimigo(s).`;
@@ -893,6 +922,7 @@ export function updateBattle(dt) {
     if (battle.turn !== 'resolve-end') {
       battle.turn = 'resolve-end';
       battle.turnTimer = 1.0;
+      sfx('victory');
 
       const totalXp = battle.xpEarned;
       playerStats.xp += totalXp;
@@ -922,6 +952,7 @@ export function updateBattle(dt) {
     if (battle.turn !== 'resolve-end') {
       battle.turn = 'resolve-end';
       battle.turnTimer = 1.2;
+      sfx('defeat'); 
     }
     battle.turnTimer -= dt;
     return;
@@ -1157,6 +1188,7 @@ export function enemyTurn() {
       const dmg = Math.max(1, Math.round(baseAtk * atkMul) - battle.player.def * 0.5 + rand(-1, 1));
       const finalDmg = Math.floor(dmg);
       playerStats.hp = Math.max(0, playerStats.hp - finalDmg);
+      sfx('hurt');
       // Se o inimigo tem veneno (escorpião) e acertou, chance de envenenar
       if (e.poisonChance && Math.random() < e.poisonChance) {
         const novo = { turns: 2, dmg: Math.max(1, Math.floor(e.atk * 0.3)) };

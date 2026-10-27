@@ -9,6 +9,7 @@ import { keys } from '../ui/input.js';
 import { clearLeaves } from './leaves.js';
 import { findNearbyInteractable } from '../world/interactables.js';
 import { revealRoom } from '../world/knowledge.js';
+import { sfx, setMusicMode } from '../audio/audio.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -79,6 +80,9 @@ function checkDoorTransition() {
     updateHud();
     revealRoom(back.gx, back.gy);
 
+    // Restaura a música do bioma de fora
+    setMusicMode(back.isCity ? 'aethel' : back.biomeId);
+
     if (door) {
       // Coloca o player em cima da porta (ou 1 tile abaixo, para não disparar
       // o DOOR transition logo em seguida — não há risco porque o mundo
@@ -114,6 +118,9 @@ function checkDoorTransition() {
   revealRoom(newRoom.gx, newRoom.gy);   // ← NOVO
   clearLeaves();
   updateHud();
+
+  // Música do novo bioma (ou 'aethel' se for cidade)
+  setMusicMode(newRoom.isCity ? 'aethel' : newRoom.biomeId);
     
   // Spawna o jogador passando o mapa da nova sala
   spawnAt(d.opposite, newRoom);

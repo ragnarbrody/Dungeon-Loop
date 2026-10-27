@@ -9,6 +9,7 @@ import { CLASSES } from '../classes.js';
 import { composeFrame } from '../sprites/compose.js';
 import { player } from '../core/state.js';
 import { showToast } from './toast.js';
+import { sfx } from '../audio/audio.js';
 
 let currentTab = 'inventory';
 let inventoryPage = 0;
@@ -61,6 +62,7 @@ function equipItem(itemId) {
   // 4) Equipa
   playerEquip[slot] = itemId;
   saveGame();
+  sfx('equip');
   renderInventory();
 }
 
@@ -78,6 +80,7 @@ function unequipSlot(slotId) {
 
   playerEquip[slotId] = null;
   saveGame();
+  sfx('unequip');
   renderInventory();
 }
 
@@ -332,6 +335,7 @@ function createItemTile(item, qty) {
       saveGame();
       renderInventory();
       if (result.toast) showToast(result.toast);
+      sfx('consume');
     };
   } else if (isEquippable) {
     tile.style.cursor = 'pointer';

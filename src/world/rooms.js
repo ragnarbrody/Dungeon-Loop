@@ -4,7 +4,7 @@ import { T, DIRS } from './tiles.js';
 import { BIOMES, pickBiome } from './biomes.js';
 import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player } from '../core/state.js';
 import { createInterior } from './interiors.js';
-
+import { setMusicMode } from '../audio/audio.js';
 
 // ============================================================
 // REGRA DE PORTAS
@@ -538,6 +538,7 @@ export function enterBuilding(buildingId) {
   interior._returnDoor = { tx: doorTx, ty: doorTy };  // ← NOVO
 
   setCurrentRoom(interior);
+  setMusicMode('aethel');  // interior de Aethel — mesma trilha calma
 
   // Spawn perto da porta inferior do interior
   const mid = Math.floor(interior.cols / 2);

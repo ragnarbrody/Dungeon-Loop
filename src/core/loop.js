@@ -18,6 +18,7 @@ import { resetCamera } from '../ui/worldmap.js';
 import { addItemToInventory } from '../items.js';
 import { getDefaultSave, writeSave } from '../core/save.js';
 import { resetQuests } from '../quests.js';
+import { setMusicMode, sfx } from '../audio/audio.js';
 
 let lastTime = performance.now();
 
@@ -66,6 +67,7 @@ function goToMenu() {
 
   menuScreen.classList.remove('hidden');
   setupMenu();
+  setMusicMode('menu');
   lastTime = performance.now();
 }
 
@@ -240,6 +242,7 @@ document.getElementById('btn-continue').addEventListener('click', () => startGam
 document.getElementById('btn-new-game').addEventListener('click', requestNewGame);
 document.getElementById('btn-gameover-new').addEventListener('click', requestNewGame);
 document.getElementById('btn-gameover-menu').addEventListener('click', goToMenu);
+setMusicMode('menu');
 
 // --- Loop Principal ---
 export function loop(now) {
@@ -260,6 +263,7 @@ export function loop(now) {
   } else if (gameState === STATE.EXPLORE) {
     if (playerStats.points > 0) {
       setGameState(STATE.LEVEL_UP);
+      sfx('levelup');
       renderLevelUp();
     } else if (!isDialogueOpen()) {
       updatePlayer(dt);
