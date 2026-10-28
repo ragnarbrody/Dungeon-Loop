@@ -196,22 +196,7 @@ export function offerQuests() {
       {
         label: 'Aceitar',
         action: () => {
-          activateQuest(q.id);
-
-          // ---- se a quest tem local marcado, adiciona marker no mapa ----
-          if (q.id === 'story_lost_traveler') {
-              addMarker({
-              id: 'marker_lost_traveler',
-              type: 'quest',
-              gx: -2,
-              gy: -4,
-              title: 'Último local do aldeão',
-              revealed: true,
-              });
-              // addMarker não revela automaticamente, então chamamos
-              revealMarker('marker_lost_traveler');
-          }
-
+          activateQuest(q.id); // A mágica acontece toda aqui agora
           saveGame();
           closeDialogue();
         },

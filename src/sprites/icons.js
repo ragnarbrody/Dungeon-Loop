@@ -749,6 +749,48 @@ export const ICONS = {
     p(7, 17, 6, 1, shellDk);
   }),
 
+  bat_wing: makeIcon((g) => {
+    const p = px(g);
+    const membrane = '#4a3a5a';
+    const membraneSh = '#2a1a3a';
+    const bone = '#8a7a9a';
+    // Asa (membrana)
+    p(5, 6, 3, 2, membrane);
+    p(4, 8, 5, 2, membrane);
+    p(6, 10, 4, 2, membrane);
+    p(8, 12, 3, 2, membrane);
+    p(10, 14, 2, 1, membrane);
+    // Ossos
+    p(5, 7, 1, 1, bone);
+    p(7, 9, 1, 1, bone);
+    p(9, 11, 1, 1, bone);
+    p(11, 13, 1, 1, bone);
+    // Sombra
+    p(6, 7, 1, 1, membraneSh);
+    p(8, 9, 1, 1, membraneSh);
+    p(10, 11, 1, 1, membraneSh);
+  }),
+
+  nucleo_bruto: makeIcon((g) => {
+    const p = px(g);
+    const crystal = '#8ad8ff';
+    const crystalHi = '#e8f6ff';
+    const crystalSh = '#3a80a0';
+    const rock = '#4a4a52';
+    // Cristal central
+    p(8, 4, 4, 8, crystal);
+    p(9, 3, 2, 2, crystalHi);
+    p(9, 5, 1, 3, crystalHi);
+    p(10, 10, 1, 2, crystalSh);
+    // Base rochosa
+    p(6, 12, 8, 4, rock);
+    p(7, 13, 6, 2, '#5a5a62');
+    p(8, 14, 4, 1, '#3a3a42');
+    // Brilho ao redor (pulsante)
+    p(7, 6, 1, 1, 'rgba(138, 216, 255, 0.5)');
+    p(12, 8, 1, 1, 'rgba(138, 216, 255, 0.5)');
+  }),
+
   // ----- ITENS DE MISSÕES ------
   letter_to_elder: makeIcon((g) => {
     const p = px(g);

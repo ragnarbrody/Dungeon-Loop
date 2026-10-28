@@ -86,6 +86,10 @@ export function getInteractables(room) {
         const hasLetter = playerStats.inventory.some(i => i.id === 'letter_to_elder');
         if (hasLetter) continue;
       }
+      // A entrada da caverna só existe enquanto a quest estiver ativa
+      if (it.kind === 'cave_entrance') {
+        if (!isQuestActive('story_cave')) continue;
+      }
       list.push({ ...it });
     }
   }
@@ -174,6 +178,7 @@ export function findNearbyInteractable(room) {
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
+    cave_entrance:     1,
     lost_backpack:     1,
     portal:            1,
     sign:              2,

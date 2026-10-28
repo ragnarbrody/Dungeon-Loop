@@ -2,9 +2,10 @@ import { GRID_SIZE, SPAWN_MARGIN, TILE_SIZE } from '../core/canvas.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { T, DIRS } from './tiles.js';
 import { BIOMES, pickBiome } from './biomes.js';
-import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player } from '../core/state.js';
+import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
 import { createInterior } from './interiors.js';
 import { setMusicMode } from '../audio/audio.js';
+import { isQuestActive } from '../quests.js';
 
 // ============================================================
 // REGRA DE PORTAS
@@ -20,6 +21,7 @@ import { setMusicMode } from '../audio/audio.js';
 const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
 const DOOR_BLOCK = 4;          // a cada 4 bordas, pelo menos 1 porta
 const DOOR_RAW_CHANCE = 0.7;   // chance base (fora a forçada)
+const CAVE_DEPTH = 3;
 
 function hashString(s) {
   let h = 2166136261;
@@ -87,6 +89,127 @@ export function hasDoor(gx, gy, side) {
   if (isCity(gx + d.dx, gy + d.dy)) return true;
 
   return edgeHasDoor(edgeKey(gx, gy, side));
+}
+
+// Gera uma sala de dungeon procedural
+function createDungeonRoom(instanceId, depth, seed, maxDepth) {
+  const rng = makeRng(seed + depth);
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.CAVE_FLOOR);
+    map.push(row);
+  }
+
+  // Bordas (paredes)
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  // Porta de entrada (sempre no topo, pois o jogador desce)
+  const mid = Math.floor(GRID_SIZE / 2);
+  map[0][mid] = T.DOOR;
+
+  // Porta de saída (para a próxima sala), exceto na última
+  if (depth < CAVE_DEPTH - 1) {
+    map[GRID_SIZE - 1][mid] = T.DOOR;
+  }
+
+  // Geração de inimigos (procedural)
+  const enemies = [];
+  if (depth < CAVE_DEPTH - 1) {
+    const enemyCount = 2 + depth; // Aumenta com a profundidade
+    const enemyPool = ['bat', 'slime', 'goblin'];
+    for (let i = 0; i < enemyCount; i++) {
+      let tx, ty, attempts = 0;
+      do {
+        tx = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        attempts++;
+      } while (attempts < 50 && (map[ty][tx] !== T.CAVE_FLOOR || Math.hypot(tx - mid, ty - mid) < 4));
+      // Se não achou um lugar, ignora este inimigo
+      if (attempts >= 50) continue;
+
+      enemies.push({
+        id: enemyPool[Math.floor(rng() * enemyPool.length)],
+        tx, ty,
+        defeated: false,
+      });
+    }
+  }
+  // Miniboss na última sala
+  if (depth === CAVE_DEPTH - 1) {
+    enemies.push({
+      id: 'goblin_sergeant',
+      tx: mid,
+      ty: 10,
+      defeated: false,
+    });
+  }
+
+  // Decoração (algumas pedras)
+  const occupied = new Set(enemies.map(e => `${e.tx},${e.ty}`));
+  const numRocks = 5 + Math.floor(rng() * 5);
+  for (let i = 0; i < numRocks; i++) {
+    const tx = 2 + Math.floor(rng() * (GRID_SIZE - 4));
+    const ty = 2 + Math.floor(rng() * (GRID_SIZE - 4));
+    if (map[ty][tx] !== T.CAVE_FLOOR) continue;
+    if (Math.hypot(tx - mid, ty - mid) <= 3) continue;
+    if (occupied.has(`${tx},${ty}`)) continue;
+    if (Math.abs(tx - mid) <= 1) continue;   // mantém um corredor livre até as portas
+    map[ty][tx] = T.TREE;
+  }
+
+  // O nome da sala pode incluir o ID da instância
+  const name = `Caverna (${instanceId}) - Profundidade ${depth + 1}`;
+
+  return {
+    map,
+    doors: ['top', ...(depth < CAVE_DEPTH - 1 ? ['bottom'] : [])],
+    biomeId: 'cave',
+    nameCoords: '',
+    isDungeon: true,
+    dungeonId: instanceId,
+    dungeonDepth: depth,
+    name,
+    enemies,
+    hasTrees: false,
+    reserved: new Set(),
+    interactables: [],
+  };
+}
+
+export const dungeonCache = new Map();
+
+export function enterDungeon(instanceId) {
+  let dungeon = dungeonCache.get(instanceId);
+  if (!dungeon) {
+    const seed = seedFrom(instanceId.length, instanceId.charCodeAt(0) + worldSeed);
+    dungeon = createDungeonInstance(instanceId, seed);
+  }
+
+  if (!dungeon || !dungeon.rooms || !dungeon.rooms.get(0)) {
+    console.error('Falha ao criar dungeon:', instanceId);
+    return;
+  }
+
+  const entryRoom = dungeon.rooms.get(0);
+  
+  // Usa setDungeonRoom para não mexer em startGX/startGY
+  setDungeonRoom(entryRoom);
+
+  // troca pra música de caverna já na entrada
+  setMusicMode('cave');
+
+  const mid = Math.floor(GRID_SIZE / 2);
+  player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+  player.y = 3 * TILE_SIZE + TILE_SIZE / 2
+
+  setTransitionCooldown(30);
+  saveGame();
 }
 
 // ============================================================
@@ -367,7 +490,7 @@ export function createRoom(gx, gy) {
     }
   }
 
-  // 2. NOVO: Reserva o centro exato (onde o jogador nasce no começo do jogo)
+  // 2. Reserva o centro exato (onde o jogador nasce no começo do jogo)
   // Um quadrado de 5x5 no centro
   for (let y = mid - 2; y <= mid + 2; y++) {
     for (let x = mid - 2; x <= mid + 2; x++) {
@@ -479,6 +602,47 @@ export function createRoom(gx, gy) {
     });
   }
 
+  // ---- Sala especial: entrada da caverna (quest 5.2) ----
+  // Só existe se a quest 'story_cave' estiver ativa no momento da geração.
+  // Quando a quest for concluída, a caverna "desaparece" (o tile e o
+  // interactable são removidos da sala em memória — ver clearCave).
+  if (gx === -2 && gy === 8 && isQuestActive('story_cave')) {
+    const mid = Math.floor(GRID_SIZE / 2);
+    let caveTx = mid, caveTy = mid;
+    
+    // Verifica se o centro está livre (usando a convenção correta map[Y][X])
+    if (map[caveTy]?.[caveTx] !== T.FLOOR) {
+      const candidates = [
+        [mid+1, mid], [mid-1, mid], [mid, mid+1], [mid, mid-1],
+        [mid+2, mid], [mid-2, mid], [mid, mid+2], [mid, mid-2],
+      ];
+      for (const [cx, cy] of candidates) {
+        if (map[cy]?.[cx] === T.FLOOR) { caveTx = cx; caveTy = cy; break; }
+      }
+    }
+    
+    // CORREÇÃO: O mapa é acessado por map[Y][X], então deve ser caveTy primeiro!
+    map[caveTy][caveTx] = T.CAVE_ENTRANCE; 
+    reserved.add(`${caveTx},${caveTy}`);
+
+    // Garante que a entrada seja acessível: limpa os tiles vizinhos
+    // (se forem árvores) para o jogador poder chegar perto.
+    const neighbors = [
+      [caveTx-1, caveTy], [caveTx+1, caveTy],
+      [caveTx, caveTy-1], [caveTx, caveTy+1],
+    ];
+    for (const [nx, ny] of neighbors) {
+      if (map[ny]?.[nx] === T.TREE) map[ny][nx] = T.FLOOR;
+    }
+
+    interactables.push({
+      tx: caveTx, ty: caveTy,
+      kind: 'cave_entrance',
+      title: 'Caverna Sombria',
+      text: 'Uma fenda escura na rocha. Um vento frio sai de dentro.',
+    });
+  }
+
   return {
     gx, gy, map, doors, biomeId,
     name: biome.name,
@@ -523,6 +687,7 @@ export function getInterior(gx, gy, buildingId) {
 
 export function enterBuilding(buildingId) {
   if (!currentRoom) return;
+  if (currentRoom.isDungeon || currentRoom.isInterior) return;
 
   const gx = currentRoom.gx, gy = currentRoom.gy;
 
@@ -545,4 +710,116 @@ export function enterBuilding(buildingId) {
   player.x = mid * TILE_SIZE + TILE_SIZE / 2;
   player.y = (interior.rows - 2) * TILE_SIZE + TILE_SIZE / 2;
   saveGame();
+}
+
+// ============================================================
+// Remove a caverna da sala (se ela estiver no cache).
+// Chamado quando a quest 'story_cave' é concluída, pra que a
+// entrada desapareça do mapa. Se o jogador voltar à sala, ela
+// é regenerada sem a caverna.
+// ============================================================
+export function clearCave() {
+  const key = '-2,8';
+  const room = roomCache.get(key);
+  if (!room) return;
+
+  // Remove o tile CAVE_ENTRANCE do mapa (volta a ser FLOOR)
+  for (let y = 0; y < room.map.length; y++) {
+    for (let x = 0; x < room.map[y].length; x++) {
+      if (room.map[y][x] === T.CAVE_ENTRANCE) {
+        room.map[y][x] = T.FLOOR;
+      }
+    }
+  }
+
+  // Remove o interactable
+  if (room.interactables) {
+    room.interactables = room.interactables.filter(it => it.kind !== 'cave_entrance');
+  }
+}
+
+// Função para gerar uma sala de caverna
+function createCaveRoom(gx, gy, depth) {
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.CAVE_FLOOR); // Chão de caverna
+    map.push(row);
+  }
+
+  // Bordas (paredes)
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  // Porta de entrada (de onde o jogador veio)
+  const mid = Math.floor(GRID_SIZE / 2);
+  // A porta de entrada é sempre no topo (jogador desce)
+  map[0][mid] = T.DOOR;
+
+  // Porta de saída (para a próxima sala), exceto na última
+  if (depth < CAVE_DEPTH) {
+    map[GRID_SIZE - 1][mid] = T.DOOR;
+  }
+
+  // Inimigos fixos
+  const enemies = [];
+  const enemyCount = 2 + depth; // Aumenta com a profundidade
+  const enemyPool = ['bat', 'slime', 'goblin']; // Mistura de inimigos
+  for (let i = 0; i < enemyCount; i++) {
+    // Posições fixas ou aleatórias dentro da sala
+    const tx = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
+    const ty = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
+    enemies.push({
+      id: enemyPool[Math.floor(Math.random() * enemyPool.length)],
+      tx, ty,
+      defeated: false,
+    });
+  }
+
+  // Miniboss na última sala
+  if (depth === CAVE_DEPTH) {
+    enemies.push({
+      id: 'goblin_sergeant',
+      tx: mid,
+      ty: 10, // Posição fixa para o chefe
+      defeated: false,
+    });
+  }
+
+  return {
+    gx, gy, map,
+    doors: ['top', ...(depth < CAVE_DEPTH ? ['bottom'] : [])],
+    biomeId: 'cave',
+    name: `Caverna - Profundidade ${depth + 1}`,
+    nameCoords: `${gx}, ${gy}`,
+    isDungeon: true, // <-- NOVO: Identificador de dungeon
+    dungeonDepth: depth,
+    enemies,
+    hasTrees: false,
+    reserved: new Set(),
+    interactables: [],
+  };
+}
+
+// Gera uma dungeon procedural e a armazena no cache.
+// Retorna a sala de entrada da dungeon.
+export function createDungeonInstance(instanceId, seed) {
+  const dungeon = {
+    id: instanceId,
+    seed: seed,
+    rooms: new Map(),
+    depth: 3,
+  };
+
+  for (let depth = 0; depth < dungeon.depth; depth++) {
+    const room = createDungeonRoom(instanceId, depth, seed, dungeon.depth);
+    dungeon.rooms.set(depth, room);
+  }
+
+  dungeonCache.set(instanceId, dungeon);
+  return dungeon;
 }

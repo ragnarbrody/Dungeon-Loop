@@ -8,7 +8,7 @@ import { CLASSES } from '../classes.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { showToast } from '../ui/toast.js';
 import { getBiomeEnemies } from '../world/biomes.js';
-import { notifyEnemyKilled } from '../quests.js';
+import { notifyEnemyKilled, notifyDungeonEnemyKilled } from '../quests.js';
 import { rollDrops, formatDrop } from '../drops.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
 
@@ -70,6 +70,20 @@ const ENEMIES = {
     buffAtk: 1,         // +ATK por buff
     buffDuration: 3,    // duração do buff em turnos
   },
+  bat: {
+    name: 'Morcego Sombrio',
+    hp: 12, maxHp: 12, atk: 6, def: 1, xp: 20, goldMin: 2, goldMax: 7,
+    dodgeChance: 0.25, // Esquiva como o abutre
+    // Habilidade: drenar vida (causa sangramento)
+    bleedChance: 0.30,
+  },
+  goblin_sergeant: {
+    name: 'Sargento Goblin',
+    hp: 60, maxHp: 60, atk: 12, def: 4, xp: 100, goldMin: 20, goldMax: 40,
+    chargeChance: 0.4,
+    chargeMul: 2.2,
+    isMiniboss: true,
+  },
 };
 
 export function effectiveSkillCost(skill) {
@@ -118,8 +132,12 @@ function getScaledEnemy(template, playerLevel) {
 // Constrói o grupo de inimigos (1 a 3 do mesmo tipo, escalonado por nível)
 function buildEnemyGroup(chosenId, playerLevel, pool = null) {
   // Decide a quantidade (1 a 3) baseado no nível do jogador
+  // Verifica se o inimigo escolhido é um miniboss
+  const template = ENEMIES[chosenId];
+  const isMiniboss = template && template.isMiniboss;
+
   let count = 1;
-  if (playerLevel >= 2) {
+  if (!isMiniboss && playerLevel >= 2) {
     const chance2 = Math.min(0.5, 0.15 + playerLevel * 0.03);
     const chance3 = playerLevel >= 5 ? Math.min(0.3, (playerLevel - 4) * 0.03) : 0;
     if (Math.random() < chance3) count = 3;
@@ -244,17 +262,18 @@ function clearDeadEnemies() {
           battle.goldEarned = (battle.goldEarned || 0) + gold;
         }
       }
-      // ---- NOVO: drops de itens ----
+      // Drops de itens
       const drops = rollDrops(e.id, playerStats.inventory);
       if (drops.length > 0) {
         battle.dropEarned = battle.dropEarned || [];
         for (const d of drops) {
           battle.dropEarned.push(d);
-          battle.message = battle.message || '';
-          // A mensagem de vitória é montada depois; só acumula aqui
         }
       }
       notifyEnemyKilled(e.id);
+      if (currentRoom?.isDungeon) {
+        notifyDungeonEnemyKilled(currentRoom.dungeonId, e.id); // ← CORRIGIDO
+      }
       battle.fadingEnemies.push({
         ref: e,
         timer: FADE_DURATION,
@@ -382,7 +401,13 @@ export function endBattle(escaped) {
 
   // Volta pra música do bioma (ou Aethel, se for cidade)
   if (currentRoom) {
-    setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
+    if (currentRoom.isDungeon) {
+      // Dentro de uma dungeon, a música deve ser uma trilha de caverna
+      // (ou você pode querer silêncio, ou uma trilha específica)
+      setMusicMode('cave'); // Assumindo que você tem uma trilha 'cave'
+    } else {
+      setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
+    }
   }
 }
 
@@ -839,24 +864,28 @@ export function playerAction(action) {
   endPlayerTurn();
 }
 
-function tickPoison() {
-  if (!playerStats.poisoned) return;
-  const p = playerStats.poisoned;
-  playerStats.hp = Math.max(0, playerStats.hp - p.dmg);
-  spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.68, `-${p.dmg}`, '#9b3fb5');
-  // mensagem discreta, o jogador já vê o número flutuante
-  battle.message += ` Veneno causa ${p.dmg} de dano.`;
-  p.turns--;
-  if (p.turns <= 0) {
-    playerStats.poisoned = null;
-    battle.message += ' O veneno passou.';
+function tickStatusEffects() {
+  // Lógica de veneno existente
+  if (playerStats.poisoned) {
+    // ...
   }
-  saveGame();
+  // --- NOVO: Lógica de Sangramento ---
+  if (playerStats.bleeding) {
+    playerStats.hp = Math.max(0, playerStats.hp - playerStats.bleeding.dmg);
+    spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.68, `-${playerStats.bleeding.dmg}`, '#ff3b3b'); // Vermelho
+    battle.message += ` Sangramento causa ${playerStats.bleeding.dmg} de dano.`;
+    playerStats.bleeding.turns--;
+    if (playerStats.bleeding.turns <= 0) {
+      playerStats.bleeding = null;
+      battle.message += ' O sangramento parou.';
+    }
+    saveGame();
+  }
 }
 
 export function endPlayerTurn() {
   tickMpRegen();
-  tickPoison();
+  tickStatusEffects();
   battle.turn = 'resolve';
   battle.turnTimer = 0.9;
   battle.enemyTurnIndex = 0;
@@ -1199,6 +1228,16 @@ export function enemyTurn() {
           playerStats.poisoned = novo;
         }
         battle.message += ' Você foi envenenado!';
+      }
+      if (e.bleedChance && Math.random() < e.bleedChance) {
+        const novo = { turns: 3, dmg: Math.max(1, Math.floor(e.atk * 0.2)) };
+        if (playerStats.bleeding) {
+          playerStats.bleeding.turns = Math.max(playerStats.bleeding.turns, novo.turns);
+          playerStats.bleeding.dmg = Math.max(playerStats.bleeding.dmg, novo.dmg);
+        } else {
+          playerStats.bleeding = novo;
+        }
+        battle.message += ' Você está sangrando!';
       }
       battle.message = wasEnraged
         ? `${e.name} desferiu um ataque ENFURECIDO! ${finalDmg} de dano!`

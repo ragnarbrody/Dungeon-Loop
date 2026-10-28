@@ -12,6 +12,7 @@ import { drawMapEnemies } from '../entities/enemies.js';
 import { NPC_SPRITES } from '../sprites/npcs.js';
 import { getTrackedQuest, getProgress, isQuestReadyToComplete,
          isQuestActive, isQuestCompleted } from '../quests.js';
+         import { playerEquip } from '../sprites/equipment.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -32,6 +33,14 @@ export function renderExplore() {
   const biome = BIOMES[biomeId];
 
   const roomRng = makeRng(seedFrom(currentRoom.gx, currentRoom.gy));
+
+  // Hash determinístico 2D (embaralha bem, sem padrões diagonais).
+  // Baseado em "integer hash" — rápido e estável por tile.
+  function tileHash(x, y) {
+    let h = (x * 374761393 + y * 668265263) | 0;
+    h = (h ^ (h >>> 13)) * 1274126177 | 0;
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
 
   // Layout da grama (usado só no campo)
   const grassLayout = [];
@@ -55,7 +64,99 @@ export function renderExplore() {
   // Deserto: areia + dunas procedurais (seedado pela sala)
   if (biome.floorStyle === 'sand') {
     drawSandFloor(currentRoom, roomRng);
-  } else {
+  } else if (biome.floorStyle === 'cave') {
+    // --- Chão de Caverna ---
+    // Base uniforme
+    ctx.fillStyle = '#26262e';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Paleta de tons de pedra (variação sutil, não "checker")
+    const caveTones = ['#2a2a33', '#2d2d36', '#282830', '#2f2f38', '#25252d'];
+
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
+        const px = x * TILE_SIZE;
+        const py = y * TILE_SIZE;
+
+        // Tom base do tile (ruído, sem direção preferida)
+        const r1 = tileHash(x, y);
+        ctx.fillStyle = caveTones[Math.floor(r1 * caveTones.length)];
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+        // Grão fino: 3-4 pontinhos por tile, posição e tom determinísticos
+        const r2 = tileHash(x + 91, y - 17);
+        const r3 = tileHash(x - 33, y + 61);
+        const r4 = tileHash(x + 7, y + 7);
+        if (r2 < 0.55) {
+          ctx.fillStyle = r2 < 0.25 ? '#1c1c22' : '#35353e';
+          ctx.fillRect(px + Math.floor(r3 * 17) + 1, py + Math.floor(r4 * 17) + 1, 2, 1);
+        }
+        if (r3 < 0.4) {
+          ctx.fillStyle = '#1e1e25';
+          ctx.fillRect(px + Math.floor(r4 * 15) + 2, py + Math.floor(r2 * 15) + 2, 1, 2);
+        }
+      }
+    }
+
+    // Rachaduras: desenham em ~8% dos tiles, em direções variadas.
+    // Desenhadas por cima pra parecer "pedra rachada".
+    ctx.strokeStyle = '#181820';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
+        const r = tileHash(x + 300, y - 200);
+        if (r > 0.92) {
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          // Rachadura em "V" ou "L", sempre dentro do tile
+          const cx0 = px + 4 + Math.floor(tileHash(x + 1, y + 1) * 8);
+          const cy0 = py + 4 + Math.floor(tileHash(x + 2, y + 2) * 8);
+          ctx.beginPath();
+          ctx.moveTo(cx0, cy0);
+          ctx.lineTo(cx0 + (r > 0.96 ? 6 : -5), cy0 + 7);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Manchas escuras grandes (poças de umidade/umidade) — 4% dos tiles
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
+        const r = tileHash(x - 500, y + 400);
+        if (r > 0.96) {
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          ctx.fillStyle = 'rgba(20, 24, 28, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(
+            px + TILE_SIZE / 2, py + TILE_SIZE / 2,
+            TILE_SIZE * 0.55, TILE_SIZE * 0.4,
+            0, 0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+    }
+
+    // Pequenos musgos verdes (raros, pra dar cor) — 2% dos tiles
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
+        const r = tileHash(x + 800, y + 900);
+        if (r > 0.98) {
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          ctx.fillStyle = 'rgba(40, 70, 45, 0.35)';
+          ctx.fillRect(px + 5, py + 11, 4, 3);
+          ctx.fillStyle = 'rgba(50, 85, 55, 0.25)';
+          ctx.fillRect(px + 10, py + 6, 3, 2);
+        }
+      }
+    }
+  } else  {
     // Chão de grama padrão
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -76,19 +177,32 @@ export function renderExplore() {
       const py = y * TILE_SIZE;
 
       if (t === T.WALL) {
-        // Se for deserto, parede de pedra clara; senão, marrom padrão
-        const wallColor = biomeId === 'desert' ? '#a08050' : '#5a4a3a';
-        const wallEdge  = biomeId === 'desert' ? '#6b5030' : '#3a2f24';
+        let wallColor, wallEdge;
+        if (biomeId === 'desert')      { wallColor = '#a08050'; wallEdge = '#6b5030'; }
+        else if (biomeId === 'cave')   { wallColor = '#3a3a44'; wallEdge = '#1e1e26'; }
+        else                           { wallColor = '#5a4a3a'; wallEdge = '#3a2f24'; }
+
         ctx.fillStyle = wallColor;
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.strokeStyle = wallEdge;
         ctx.lineWidth = 1;
         ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+
+        // pedra rachada nas paredes da caverna (uma linha horizontal)
+        if (biomeId === 'cave') {
+          ctx.strokeStyle = '#25252d';
+          ctx.beginPath();
+          ctx.moveTo(px, py + TILE_SIZE * 0.5);
+          ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE * 0.5);
+          ctx.stroke();
+        }
       } else if (t === T.DOOR) {
         ctx.fillStyle = '#c9a24d';
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.fillStyle = '#a07e2f';
         ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+      } else if (t === T.CAVE_ENTRANCE) {
+        drawCaveEntrance(px, py);
       }
     }
   }
@@ -103,6 +217,80 @@ export function renderExplore() {
         const dx = x * TILE_SIZE + TILE_SIZE / 2 - cactusFrames[0].width / 2;
         const dy = y * TILE_SIZE + TILE_SIZE - cactusFrames[0].height;
         ctx.drawImage(frame, dx, dy);
+      }
+    }
+  } else if (biomeId === 'cave') {
+    // --- Pedras grandes (obstáculos) ---
+    // Desenhadas em 2 tiles de altura, com forma irregular, sombra e highlight.
+    // A colisão continua sendo 1x1 (o tile T.TREE), mas o visual "sobe"
+    // pra cima do tile — igual às árvores. Assim o jogador vê claramente
+    // no que está esbarrando.
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (currentRoom.map[y][x] !== T.TREE) continue;
+
+        const cx = x * TILE_SIZE + TILE_SIZE / 2;
+        const baseY = y * TILE_SIZE + TILE_SIZE;  // base do tile (chão)
+        const topY  = baseY - 34;                 // sobe ~1.7 tiles
+        const px = x * TILE_SIZE;
+
+        // Sombra elíptica (base da pedra no chão)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(cx, baseY - 2, TILE_SIZE * 0.75, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Corpo da pedra — forma "poligonal" com cantos suavizados
+        // Base mais escura, topo mais claro (luz vinda de cima)
+        const bodyGrad = ctx.createLinearGradient(0, topY, 0, baseY);
+        bodyGrad.addColorStop(0, '#6e6e7a');
+        bodyGrad.addColorStop(0.45, '#55555f');
+        bodyGrad.addColorStop(1, '#3a3a44');
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        // Ponto a ponto: pedra irregular (pseudo-aleatória por tile)
+        const seed = tileHash(x, y); // já existe no bloco do chão
+        ctx.moveTo(px + 2,             baseY - 3);
+        ctx.lineTo(px + 1,             baseY - 14);
+        ctx.lineTo(px + 4,             topY + 8);
+        ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
+        ctx.lineTo(px + TILE_SIZE*0.65, topY + 1 + (seed * 4));
+        ctx.lineTo(px + TILE_SIZE - 4, topY + 9);
+        ctx.lineTo(px + TILE_SIZE - 1, baseY - 14);
+        ctx.lineTo(px + TILE_SIZE - 2, baseY - 3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Borda escura (contorno da pedra) — dá definição
+        ctx.strokeStyle = '#181820';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Highlight (luz batendo no topo-esquerdo)
+        ctx.fillStyle = 'rgba(200, 200, 220, 0.18)';
+        ctx.beginPath();
+        ctx.moveTo(px + 4,           topY + 8);
+        ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
+        ctx.lineTo(px + TILE_SIZE*0.5,  topY + 4);
+        ctx.lineTo(px + TILE_SIZE*0.3,  topY + 11);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rachaduras na pedra (linhas escuras)
+        ctx.strokeStyle = 'rgba(15, 15, 22, 0.7)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px + TILE_SIZE*0.4, topY + 12);
+        ctx.lineTo(px + TILE_SIZE*0.5, baseY - 8);
+        ctx.lineTo(px + TILE_SIZE*0.45, baseY - 4);
+        ctx.stroke();
+
+        // Musgo ou fungo no canto (detalhe sutil)
+        if (seed > 0.7) {
+          ctx.fillStyle = 'rgba(55, 85, 55, 0.6)';
+          ctx.fillRect(px + TILE_SIZE - 6, baseY - 6, 3, 2);
+        }
       }
     }
   } else if (biome.trees) {
@@ -181,6 +369,45 @@ export function renderExplore() {
     player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
+
+  // --- EFEITO DE ESCURIDÃO NA CAVERNA ---
+  if (biomeId === 'cave') {
+    // Verifica se o player tem a tocha equipada na mão esquerda
+    const hasTorch = playerEquip.leftHand === 'torch';
+
+    // Se não tem tocha, a tela fica completamente escura (ou quase)
+    if (!hasTorch) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    } else {
+      // Com tocha: cria um "domo" de luz ao redor do player
+      const lightRadius = 120; // Raio da luz em pixels
+      const lightX = player.x;
+      const lightY = player.y;
+
+      // Cria um gradiente radial: centro transparente, borda preta
+      const grd = ctx.createRadialGradient(
+        lightX, lightY, lightRadius * 0.3, // Centro (raio interno)
+        lightX, lightY, lightRadius        // Borda (raio externo)
+      );
+      grd.addColorStop(0, 'rgba(0, 0, 0, 0)');      // Centro: transparente
+      grd.addColorStop(0.7, 'rgba(0, 0, 0, 0.6)');  // Meio: semi-escuro
+      grd.addColorStop(1, 'rgba(0, 0, 0, 0.95)');   // Borda: quase preto
+
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Efeito extra: pequeno "brilho" amarelado no centro (chama da tocha)
+      const glowGrd = ctx.createRadialGradient(
+        lightX, lightY, 0,
+        lightX, lightY, lightRadius * 0.4
+      );
+      glowGrd.addColorStop(0, 'rgba(255, 200, 100, 0.15)');
+      glowGrd.addColorStop(1, 'rgba(255, 200, 100, 0)');
+      ctx.fillStyle = glowGrd;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    }
+  }
 
   // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
   drawQuestTracker();
@@ -431,7 +658,7 @@ function renderCity(room) {
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.fillStyle = '#a07e2f';
         ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-      }
+      } 
     }
   }
 
@@ -1110,4 +1337,89 @@ function drawLostBackpack(px, py) {
   ctx.beginPath();
   ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// ============================================================
+// ENTRADA DA CAVERNA
+// Desenhada num tile de 20x20, mas com um "morcego" e um brilho
+// pra chamar atenção. A entrada em si é um buraco escuro.
+// ============================================================
+
+function drawCaveEntrance(px, py) {
+  const cx = px + TILE_SIZE / 2;
+  const cy = py + TILE_SIZE / 2;
+
+  // 1. Salva o estado do contexto para não afetar os próximos tiles
+  ctx.save();
+
+  // 2. Desenha a grama de fundo neste tile específico para "limpar" o local
+  // (Isso garante que não haja nada desenhado por baixo que possa ser misturado)
+  const grassFrame = grassTiles[0]; // Usa a grama padrão
+  if (grassFrame) {
+    ctx.drawImage(grassFrame, px, py, TILE_SIZE, TILE_SIZE);
+  }
+
+  // 3. A partir daqui, desenhamos a caverna por cima
+  // Base de pedra (pedras irregulares em volta da entrada)
+  ctx.fillStyle = '#4a4a52';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 4, 14, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pedras menores em volta (detalhe)
+  ctx.fillStyle = '#5a5a62';
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const rx = cx + Math.cos(angle) * 11;
+    const ry = cy + 4 + Math.sin(angle) * 6;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Buraco escuro (a entrada em si)
+  ctx.fillStyle = '#0a0a12';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Borda interna mais clara (profundidade)
+  ctx.strokeStyle = '#2a2a32';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Brilho pulsante saindo do buraco (chama atenção)
+  const t = performance.now() / 600;
+  const pulse = 0.3 + Math.sin(t) * 0.15;
+  
+  // O SEGREDO: Em vez de um gradiente radial que vaza, usamos um gradiente
+  // que é mascarado pela área do tile, ou simplesmente desenhamos o brilho
+  // de forma mais controlada.
+  const grd = ctx.createRadialGradient(cx, cy + 2, 2, cx, cy + 2, 12);
+  grd.addColorStop(0, `rgba(120, 60, 160, ${pulse})`);
+  grd.addColorStop(1, 'rgba(120, 60, 160, 0)');
+  
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  // Usamos um clip (recorte) para garantir que o brilho não saia do tile
+  ctx.rect(px, py, TILE_SIZE, TILE_SIZE);
+  ctx.clip();
+  
+  ctx.beginPath();
+  ctx.arc(cx, cy + 2, 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // "Morcegos" (dois pontinhos pretos voando em círculo)
+  for (let i = 0; i < 2; i++) {
+    const angle = t * 2 + i * Math.PI;
+    const bx = cx + Math.cos(angle) * 10;
+    const by = cy - 8 + Math.sin(angle * 2) * 4;
+    ctx.fillStyle = '#1a1a22';
+    ctx.fillRect(bx - 1, by, 2, 2);
+  }
+
+  // 4. Restaura o contexto
+  ctx.restore();
 }

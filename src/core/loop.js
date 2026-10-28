@@ -1,7 +1,7 @@
 import { STATE, gameState, setGameState, setCurrentRoom, currentRoom,
          startGX, startGY, markRoomVisited, saveGame, clearSave, playerStats,
-         visitedRooms, battle, player, setWorldSeed } from './state.js';
-import { getRoom, clearRoomCache, getCitySpawn } from '../world/rooms.js';
+         visitedRooms, battle, player, setWorldSeed, paused } from './state.js';
+import { getRoom, clearRoomCache, getCitySpawn, dungeonCache } from '../world/rooms.js';
 import { updatePlayer } from '../entities/player.js';
 import { updateLeaves } from '../entities/leaves.js';
 import { updateBattle } from '../battle/battle.js';
@@ -122,6 +122,7 @@ function requestNewGame() {
       // ---- 1) Limpa caches e "mundo" ----
       clearSave();                 // apaga o save antigo
       clearRoomCache();
+      dungeonCache.clear();
       visitedRooms.clear();
       visitedRooms.add('0,0');
       resetKnowledge();
@@ -258,6 +259,13 @@ export function loop(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
 
+  // Se está pausado, não atualiza nada (só renderiza)
+  if (paused) {
+    render(dt);
+    requestAnimationFrame(loop);
+    return;
+  }
+
   if (gameState === STATE.BATTLE) {
     updateBattle(dt);
 
@@ -268,6 +276,11 @@ export function loop(now) {
       document.getElementById('gameover-screen').classList.remove('hidden');
       clearSave();
       resetKnowledge();
+
+      // ---- NOVO: Limpa o cache de dungeons e salas ----
+      dungeonCache.clear();
+      clearRoomCache();
+
       //para a música de batalha (volta pra 'menu')
       setMusicMode('menu');
     }

@@ -25,11 +25,25 @@
 //   - 'collect': conta itens no inventário; filter = id do item
 //   - 'visit': conta salas visitadas; filter = { gx, gy } (opcional)
 
-import { removeMarker } from '../src/world/knowledge.js';
-import { checkLevelUp } from './core/state.js';
+//import { removeMarker } from '../src/world/knowledge.js';
+//import { checkLevelUp } from './core/state.js';
+
+let _removeMarker = () => {};
+let _addMarker = () => {};
+let _revealMarker = () => {};
+
+export function setKnowledgeFunctions(removeFn, addFn, revealFn) {
+  _removeMarker = removeFn;
+  _addMarker = addFn;
+  _revealMarker = revealFn;
+}
 
 let _getInventory = () => [];
 let _visitedRooms = () => new Set();
+let _getDungeonCache = () => new Map();
+let _getCurrentRoom = () => null;
+export function setCurrentRoomGetter(fn) { _getCurrentRoom = fn; }
+export function setDungeonCacheGetter(fn) { _getDungeonCache = fn; }
 export function setInventoryGetter(fn) { _getInventory = fn; }
 export function setVisitedRoomsGetter(fn) { _visitedRooms = fn; }
 
@@ -175,15 +189,13 @@ export const QUEST_DB = {
     prereq: ['story_torch'],
     description:
       'Com a tocha em mãos, você pode descer até a caverna ao sul de Aethel. O aldeão está lá dentro — e o que o arrastou também.',
-    // Por enquanto, 1 objetivo simples de "visitar a caverna".
-    // Quando a dungeon existir, isso vira "derrote o que está lá dentro".
     objectives: [
       {
-        id: 'enter_cave',
-        text: 'Entre na caverna ao sul de Aethel',
+        id: 'clear_cave',
+        text: 'Derrote o Sargento Goblin na caverna',
         target: 1,
-        type: 'visit',
-        filter: { gx: -2, gy: 8 },   // ← coordenada provisória; ajuste quando a dungeon existir
+        type: 'dungeon_clear',
+        filter: 'cave_quest_5_2',
       },
     ],
     rewards: { xp: 100, gold: 50 },
@@ -256,7 +268,37 @@ export function activateQuest(id) {
     state.progress[id] = {};
     for (const obj of q.objectives) state.progress[id][obj.id] = 0;
   }
-  state.tracked = id; // ativa o tracking por padrão
+  state.tracked = id;
+
+  // ---- LÓGICA CENTRALIZADA DE MARCADORES ----
+  // Usa as funções injetadas, sem import dinâmico.
+  if (id === 'story_lost_traveler') {
+    _addMarker({
+      id: 'marker_lost_traveler',
+      type: 'quest',
+      gx: -2,
+      gy: -4,
+      title: 'Último local do aldeão',
+      revealed: true,
+    });
+    _revealMarker('marker_lost_traveler');
+  } else if (id === 'story_cave') {
+    _addMarker({
+      id: 'marker_cave_entrance',
+      type: 'quest',
+      gx: -2,
+      gy: 8,
+      title: 'Caverna Sombria',
+      revealed: true,
+    });
+    _revealMarker('marker_cave_entrance');
+
+    // Limpa o cache da sala para ela ser regenerada com a caverna
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('-2,8');
+    }).catch(console.error);
+  }
+
   return true;
 }
 
@@ -291,7 +333,7 @@ export function getProgress(questId, objId) {
   if (obj.type === 'visit') {
     // filter pode ser { gx, gy } ou um array de { gx, gy }
     const targets = Array.isArray(obj.filter) ? obj.filter : [obj.filter];
-    const visited = _visitedRooms();  // ← chama a função pra obter o Set
+    const visited = _visitedRooms();
     let hits = 0;
     for (const t of targets) {
       if (!t) continue;
@@ -345,6 +387,17 @@ export function notifyEnemyKilled(enemyId) {
   }
 }
 
+export function notifyDungeonEnemyKilled(dungeonId, enemyId) {
+  if (!state.active) return;
+  const q = QUEST_DB[state.active];
+  if (!q) return;
+  for (const obj of q.objectives) {
+    if (obj.type !== 'dungeon_clear' || obj.filter !== dungeonId) continue;
+    if (enemyId !== 'goblin_sergeant') continue;
+    advanceObjective(q.id, obj.id, 1);
+  }
+}
+
 // Chamado pelo player.js quando o jogador entra numa sala.
 // Não precisa fazer nada ativo — o getProgress do 'visit' já lê direto
 // do Set de visitedRooms. Mas deixamos a função aqui pra futuros tipos
@@ -385,7 +438,14 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   // ---- 2) Remove markers específicos de quest ----
   // (Fora do loop: roda UMA vez, não por objetivo.)
   if (q.id === 'story_lost_traveler') {
-    removeMarker('marker_lost_traveler');
+    _removeMarker('marker_lost_traveler'); 
+  }
+
+  // ---- 2.5) Remove o marker e a caverna da quest 5.2 ----
+  if (q.id === 'story_cave') {
+    _removeMarker('marker_cave_entrance');
+    // Import dinâmico pra evitar dependência circular (quests <-> rooms)
+    import('./world/rooms.js').then(mod => mod.clearCave()).catch(console.error);
   }
 
   // ---- 3) Marca como concluída ----

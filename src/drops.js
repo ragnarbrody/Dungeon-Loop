@@ -59,6 +59,16 @@ export const ENEMY_DROPS = {
   scarab: [
     { itemId: 'potion_str', chance: 0.15, qtyMin: 1, qtyMax: 1 },
   ],
+
+  bat: [
+    { itemId: 'bat_wing', chance: 0.7, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_weak', chance: 0.1, qtyMin: 1, qtyMax: 1 },
+  ],
+  
+  goblin_sergeant: [
+    { itemId: 'nucleo_bruto', chance: 1.0, qtyMin: 1, qtyMax: 1 }, // Drop garantido
+    { itemId: 'potion_medium', chance: 0.5, qtyMin: 1, qtyMax: 2 },
+  ],
 };
 
 /**

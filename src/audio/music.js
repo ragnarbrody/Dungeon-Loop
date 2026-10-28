@@ -53,7 +53,7 @@ const MODES = {
     ],
   },
 
-    desert: {
+  desert: {
     root: 329.63,
     scale: [0, 1, 4, 5, 7, 8, 10],
     bpm: 100,
@@ -148,6 +148,81 @@ const MODES = {
         windChimePattern: [0, null, 3, null, 4, null, 3, null, 0, null, 3, null, 4, null, 3, null],
         arabicBass: true, arabicBassGain: 0.045,
         cymbal: true, cymbalGain: 0.025
+      },
+    ],
+  },
+
+  // ============================================================
+  // MÚSICA DE CAVERNA — "Ecos na Escuridão"
+  // Sombria, com goteiras, eco e drone grave.
+  // ============================================================
+  cave: {
+    root: 146.83,                 // D3 — grave e soturno
+    scale: [0, 1, 3, 5, 7, 8, 10], // frígia (sombria)
+    bpm: 52,                       // lento
+    arpGain: 0.035,
+    chordGain: 0.04,
+    arpOct: 1,
+    chordOct: -1,
+    arpSubdiv: 2,
+    bassGain: 0.09,
+    bassOct: -2,
+    // Drone grave contínuo (o "peso" da caverna)
+    drone: true,
+    droneGain: 0.05,
+    droneOct: -2,
+    // Goteiras: som característico de caverna
+    drip: true,
+    dripGain: 0.05,
+    dripPattern: [
+      // [offset no bar (0..15), força]
+      [0, 0.8], [5, 0.5], [9, 0.9], [13, 0.4],
+    ],
+    // Eco longo no sino (sensação de caverna)
+    bell: true,
+    bellGain: 0.04,
+    bellDur: 3.5,               // cauda longa
+    bellEcho: true,             // adiciona delay
+    // Sopro de vento esparso (ruído filtrado)
+    wind: true,
+    windGain: 0.02,
+    windEveryBars: 3,
+    barsPerPhase: 4,
+    phases: [
+      // 0: introdução — só drone + goteira
+      {
+        bass: false, arp: false, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 0, chord: false,
+        drone: true, drip: true, wind: false, bell: false,
+      },
+      // 1: entra arpejo esparso
+      {
+        bass: false, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 0, chord: false,
+        drone: true, drip: true, wind: false, bell: false,
+        arpHarmonyGain: 0.015, arpHarmonySemitones: 7,
+      },
+      // 2: baixo + sino distante
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: true,
+        drone: true, drip: true, wind: false, bell: true,
+        arpHarmonyGain: 0.015, arpHarmonySemitones: 7,
+      },
+      // 3: vento + sino + chord
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: true,
+        drone: true, drip: true, wind: true, bell: true,
+        arpHarmonyGain: 0.02, arpHarmonySemitones: 7,
+      },
+      // 4: clímax contido — tudo, mas ainda esparso
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 2, chord: true,
+        drone: true, drip: true, wind: true, bell: true,
+        arpHarmonyGain: 0.02, arpHarmonySemitones: 7,
+        pad: true, padGain: 0.018,
       },
     ],
   },
@@ -464,7 +539,7 @@ function scheduleLoop(channel) {
     }
 
     // ---- SINO ----
-    if (phase.bell) {
+    if (phase.bell && !mode.bellEcho) {
       const bellPattern = phase.bellPattern || [0, null, null, null, 4, null, null, null, null, null, 2, null, 4, null, null, null];
       const deg = bellPattern[beatIdxInBar];
       if (deg !== null && deg !== undefined) {
@@ -704,6 +779,75 @@ function scheduleLoop(channel) {
         if (beatIdxInBar === s.offset) {
           playSnare(ctx, channel.gain, mode, channel.nextTime, s.mult);
           break;
+        }
+      }
+    }
+
+    // ---- DRONE (contínuo por fase) ----
+    if (phase.drone && mode.drone) {
+      // Só dispara no downbeat, mas dura o compasso inteiro
+      if (isDownbeat) {
+        const semi = mode.scale[0] + (mode.droneOct ?? -2) * 12;
+        const freq = mode.root * 2 ** (semi / 12);
+        playDrone(ctx, channel.gain, freq, {
+          gain: mode.droneGain ?? 0.05,
+          dur: 60 / currentBpm * 4,   // 1 compasso
+          when: channel.nextTime,
+        });
+      }
+    }
+
+    // ---- GOTEIRA (pings esparsos com eco) ----
+    if (phase.drip && mode.drip && mode.dripPattern) {
+      for (const [offset, force] of mode.dripPattern) {
+        if (beatIdxInBar === offset) {
+          // Nota da escala, variando por compasso (não repete igual)
+          const deg = mode.scale[(channel.barIndex + offset) % mode.scale.length];
+          const semi = deg + 24; // 2 oitavas acima — som de gota
+          const freq = mode.root * 2 ** (semi / 12);
+          const gain = (mode.dripGain ?? 0.05) * force;
+          playDrip(ctx, channel.gain, freq, {
+            gain, dur: 0.18, when: channel.nextTime,
+          });
+          // Eco (gota numa caverna grande)
+          playDrip(ctx, channel.gain, freq, {
+            gain: gain * 0.4, dur: 0.14, when: channel.nextTime + 0.22,
+          });
+        }
+      }
+    }
+
+    // ---- VENTO (sopro esparso) ----
+    if (phase.wind && mode.wind) {
+      const every = mode.windEveryBars ?? 3;
+      if (isDownbeat && channel.barIndex % every === 0) {
+        playWind(ctx, channel.gain, {
+          gain: mode.windGain ?? 0.02,
+          dur: 60 / currentBpm * 4,
+          when: channel.nextTime,
+        });
+      }
+    }
+
+    // ---- SINO COM ECO ----
+    if (phase.bell && mode.bell) {
+      const bellPattern = [0, null, null, null, 4, null, null, null, null, null, 2, null, 4, null, null, null];
+      const deg = bellPattern[beatIdxInBar];
+      if (deg !== null && deg !== undefined && channel.barIndex % 2 === 0) {
+        const semi = mode.scale[deg % mode.scale.length] + 12;
+        const freq = mode.root * 2 ** (semi / 12);
+        if (mode.bellEcho) {
+          playBellEcho(ctx, channel.gain, freq, {
+            gain: mode.bellGain ?? 0.04,
+            dur: mode.bellDur ?? 3.5,
+            when: channel.nextTime,
+          });
+        } else {
+          playBell(ctx, channel.gain, freq, {
+            gain: mode.bellGain ?? 0.04,
+            dur: mode.bellDur ?? 1.5,
+            when: channel.nextTime,
+          });
         }
       }
     }
@@ -1202,4 +1346,102 @@ function playCymbal(ctx, dest, mode, when, gain) {
   g.connect(dest);
   src.start(when);
   src.stop(when + 0.32);
+}
+
+// ---- GOTEIRA (ping com eco curto e agudo) ----
+function playDrip(ctx, dest, freq, { gain, dur, when }) {
+  const osc = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+
+  osc.type = 'sine';
+  // Pitch "escorrega" pra baixo (gota caindo)
+  osc.frequency.setValueAtTime(freq * 1.4, when);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.9, when + 0.06);
+
+  filter.type = 'bandpass';
+  filter.frequency.value = freq * 1.2;
+  filter.Q.value = 4;
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc.stop(when + dur + 0.02);
+}
+
+// ---- DRONE (oscilador grave contínuo) ----
+function playDrone(ctx, dest, freq, { gain, dur, when }) {
+  const osc = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, when);
+  osc2.type = 'sine';
+  // Levemente desafinado pra dar "batimento" (movimento)
+  osc2.frequency.setValueAtTime(freq * 1.003, when);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(220, when);
+  filter.Q.value = 0.5;
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.4);
+  g.gain.setValueAtTime(gain, when + dur - 0.4);
+  g.gain.linearRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(filter);
+  osc2.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc2.start(when);
+  osc.stop(when + dur + 0.02);
+  osc2.stop(when + dur + 0.02);
+}
+
+// ---- VENTO (ruído filtrado, sopro) ----
+function playWind(ctx, dest, { gain, dur, when }) {
+  const len = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let smooth = 0;
+  for (let i = 0; i < len; i++) {
+    // Ruído suavizado (lowpass simplificado)
+    smooth = smooth * 0.98 + (Math.random() * 2 - 1) * 0.02;
+    data[i] = smooth;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(400, when);
+  filter.frequency.linearRampToValueAtTime(700, when + dur * 0.5);
+  filter.frequency.linearRampToValueAtTime(300, when + dur);
+  filter.Q.value = 2;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + dur * 0.3);
+  g.gain.linearRampToValueAtTime(0.0001, when + dur);
+  src.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  src.start(when);
+  src.stop(when + dur + 0.02);
+}
+
+// ---- SINO COM ECO (para caverna) ----
+function playBellEcho(ctx, dest, freq, { gain, dur, when }) {
+  // Toca o sino principal e 2 ecos com delay decrescente
+  playBell(ctx, dest, freq, { gain, when, dur });
+  const echo1 = when + 0.35;
+  const echo2 = when + 0.75;
+  playBell(ctx, dest, freq, { gain: gain * 0.5, when: echo1, dur: dur * 0.7 });
+  playBell(ctx, dest, freq, { gain: gain * 0.25, when: echo2, dur: dur * 0.5 });
 }

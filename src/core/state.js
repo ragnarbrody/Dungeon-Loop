@@ -4,9 +4,10 @@ import {
   loadSave, writeSave, clearSave as clearSaveFs, getDefaultSave,
   SAVE_VERSION,
 } from './save.js';
-import { loadKnowledge, serializeKnowledge, revealRoom } from '../world/knowledge.js';
-import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter } from '../quests.js';
+import { loadKnowledge, serializeKnowledge, revealRoom, addMarker, revealMarker, removeMarker } from '../world/knowledge.js';
+import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter, setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter  } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
+import { dungeonCache } from '../world/rooms.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -32,8 +33,17 @@ export const STATE = {
   WORLDMAP: 'worldmap',
   QUEST_LOG: 'quest_log',
 };
+
 export let gameState = STATE.MENU;
 export function setGameState(s) { gameState = s; }
+
+// ---------- Pausa ----------
+// Usado pelo menu de dev (e futuramente por outros menus que precisem
+// congelar o mundo). Quando `true`, o loop principal NÃO atualiza o
+// player, os inimigos, a batalha, etc. O render continua, mas tudo
+// fica parado.
+export let paused = false;
+export function setPaused(v) { paused = v; }
 
 // ---------- PlayerStats ----------
 const loadedStats = savedData.stats || { str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0 };
@@ -79,8 +89,6 @@ export function effStat(id) {
   const b = playerStats.buffs[id];
   return base + (b ? b.amount : 0);
 }
-
-setInventoryGetter(() => playerStats.inventory);
 
 // ---------- Save (única função de escrita) ----------
 // Centraliza "o que é serializável" do state.
@@ -218,9 +226,17 @@ if (savedData.quests) {
 // Registra os getters pro quests.js (evita import cycle)
 setInventoryGetter(() => playerStats.inventory);
 setVisitedRoomsGetter(() => visitedRooms);
+setKnowledgeFunctions(removeMarker, addMarker, revealMarker);
+setDungeonCacheGetter(() => dungeonCache);
+setCurrentRoomGetter(() => currentRoom);
 
 // Revela a sala inicial
 revealRoom(startGX, startGY);
+
+export function setDungeonRoom(room) {
+  currentRoom = room;
+  // Não altera startGX/startGY (que são para o mundo aberto)
+}
 
 // Verifica se o jogador subiu de nível. Retorna true se subiu.
 // Pode chamar quantas vezes quiser — se não passou do limite, retorna false.

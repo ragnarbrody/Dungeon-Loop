@@ -432,6 +432,26 @@ export const ITEMS_DB = {
     icon: 'vulture_egg',
   },
 
+  bat_wing: {
+    id: 'bat_wing',
+    kind: 'material',
+    name: 'Asa de Morcego',
+    description: 'Uma asa membranosa e escura. Pode ser útil para poções.',
+    price: 10, sellPrice: 4,
+    rarity: 'common', stackable: true, stackCap: 20,
+    icon: 'bat_wing',
+  },
+  
+  nucleo_bruto: {
+    id: 'nucleo_bruto',
+    kind: 'material',
+    name: 'Núcleo Bruto',
+    description: 'Um núcleo de energia pulsante. Muito valioso para artesãos.',
+    price: 100, sellPrice: 50,
+    rarity: 'rare', stackable: false,
+    icon: 'nucleo_bruto',
+  },
+
   letter_to_elder: {
     id: 'letter_to_elder',
     kind: 'quest',              // fica impossível de vender/usar

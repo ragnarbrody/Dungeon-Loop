@@ -1,8 +1,10 @@
 import { GRID_SIZE, TILE_SIZE, CANVAS_W, CANVAS_H, SPAWN_MARGIN } from '../core/canvas.js';
 import { T, DIRS, isSolid, tileAt } from '../world/tiles.js';
 import { player, encounter, currentRoom, transitionCooldown,
-         decrementTransitionCooldown, setCurrentRoom, setTransitionCooldown, markRoomVisited, playerStats } from '../core/state.js';
-import { getRoom } from '../world/rooms.js';
+         decrementTransitionCooldown, setCurrentRoom, setTransitionCooldown,
+         markRoomVisited, playerStats, setDungeonRoom, saveGame,
+         startGX, startGY } from '../core/state.js';
+import { getRoom, dungeonCache } from '../world/rooms.js';
 import { updateHud } from '../ui/hud.js';
 import { startBattle } from '../battle/battle.js';
 import { keys } from '../ui/input.js';
@@ -10,6 +12,7 @@ import { clearLeaves } from './leaves.js';
 import { findNearbyInteractable } from '../world/interactables.js';
 import { revealRoom } from '../world/knowledge.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
+import { showToast } from '../ui/toast.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -100,12 +103,20 @@ function checkDoorTransition() {
     return;
   }
 
+  // Determina o lado da porta PRIMEIRO
   let side = null;
   if (ty === 0)                side = 'top';
   else if (ty === GRID_SIZE-1) side = 'bottom';
   else if (tx === 0)           side = 'left';
   else if (tx === GRID_SIZE-1) side = 'right';
   if (!side || !currentRoom.doors.includes(side)) return;
+
+  // --- Bloqueio de saída da dungeon ---
+  // --- Dungeon: não usa gx/gy, tem lógica própria ---
+  if (currentRoom.isDungeon) {
+    handleDungeonDoor(side);
+    return;
+  }
 
   const d = DIRS[side];
   
@@ -137,6 +148,67 @@ function collidesWithSolid(x, y, w, h) {
     if (isSolid(tileAt(currentRoom.map, px, py))) return true;
   }
   return false;
+}
+
+function handleDungeonDoor(side) {
+  const mid = Math.floor(GRID_SIZE / 2);
+  const dungeon = dungeonCache.get(currentRoom.dungeonId);
+  const depth = currentRoom.dungeonDepth;
+
+  if (side === 'bottom') {
+    if (currentRoom.enemies.some(e => !e.defeated)) {
+      showToast({
+        itemId: 'questlog',
+        title: 'Saída bloqueada',
+        subtitle: 'Derrote todos os inimigos antes de avançar.',
+        color: '#ff6b6b',
+      });
+      // empurra 1 tile pra dentro + cooldown (senão o toast dispara todo frame)
+      player.y -= TILE_SIZE;
+      setTransitionCooldown(30);
+      return;
+    }
+    const next = dungeon?.rooms.get(depth + 1);
+    if (!next) return;
+    setDungeonRoom(next);
+    player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+    player.y = 3 * TILE_SIZE + TILE_SIZE / 2;
+  } else if (side === 'top') {
+    if (depth === 0) { leaveDungeon(); return; }
+    const prev = dungeon?.rooms.get(depth - 1);
+    if (!prev) return;
+    setDungeonRoom(prev);
+    player.x = mid * TILE_SIZE + TILE_SIZE / 2;
+    player.y = (GRID_SIZE - 4) * TILE_SIZE + TILE_SIZE / 2;
+  } else {
+    return;
+  }
+
+  setMusicMode('cave');
+  clearLeaves();
+  updateHud();
+  setTransitionCooldown(30);
+  saveGame();
+}
+
+function leaveDungeon() {
+  // startGX/startGY nunca são alterados por setDungeonRoom,
+  // então sempre apontam para a sala do mundo de onde você entrou.
+  const room = getRoom(startGX, startGY);
+  setCurrentRoom(room);
+  clearLeaves();
+  updateHud();
+  setMusicMode(room.biomeId);
+
+  const ent = room.interactables?.find(i => i.kind === 'cave_entrance');
+  const tx = ent ? ent.tx : Math.floor(GRID_SIZE / 2);
+  const ty = ent ? ent.ty + 1 : Math.floor(GRID_SIZE / 2);
+  const safe = findSafeSpawn(room.map, tx, ty, null);
+  player.x = safe.tx * TILE_SIZE + TILE_SIZE / 2;
+  player.y = safe.ty * TILE_SIZE + TILE_SIZE / 2;
+
+  setTransitionCooldown(30);
+  saveGame();
 }
 
 export function updatePlayer(dt) {
@@ -188,7 +260,7 @@ export function updatePlayer(dt) {
 
   // ---- encontro aleatório ----
   // (não roda na cidade)
-  if (currentRoom && !currentRoom.isCity && !currentRoom.isInterior) {
+  if (currentRoom && !currentRoom.isCity && !currentRoom.isInterior && !currentRoom.isDungeon) {
     const movedDist = Math.hypot(player.x - oldX, player.y - oldY);
     if (movedDist > 0.01) {
       if (encounter.cooldownPx > 0) {

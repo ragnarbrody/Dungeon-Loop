@@ -11,6 +11,8 @@ export const T = {
   FOUNTAIN: 7,
   PLAZA: 8,       // chão de praça (pedra clara)
   STREET: 9,      // rua de terra batida
+  CAVE_ENTRANCE: 10,
+  CAVE_FLOOR: 11,
 };
 
 export const DIRS = {
@@ -22,7 +24,8 @@ export const DIRS = {
 
 export function isSolid(t) {
   return t === T.WALL || t === T.TREE || t === T.HOUSE ||
-         t === T.PORTAL || t === T.FOUNTAIN;
+         t === T.PORTAL || t === T.FOUNTAIN
+         t === T.CAVE_ENTRANCE;
 }
 
 // tileAt precisa do mapa da sala atual. Recebe o mapa por parâmetro

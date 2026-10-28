@@ -7,7 +7,7 @@ import { getIcon } from '../sprites/icons.js';
 import { CONSUMABLES, addItemToInventory } from '../items.js';
 import { openDialogue, closeDialogue, isDialogueOpen } from './dialogue.js';
 import { portalText } from '../world/interactables.js';
-import { enterBuilding } from '../world/rooms.js';
+import { enterBuilding, enterDungeon } from '../world/rooms.js';
 import { openShop, closeShop, isShopOpen } from './shop.js';
 import { openQuestLog, closeQuestLog, isQuestLogOpen } from './questlog.js';
 import { talkToElder } from './elderdialog.js';
@@ -20,6 +20,9 @@ import { talkToHerbalist } from './herbalistdialog.js';
 import { talkToBlacksmith } from './blacksmithdialog.js';
 import { sfx } from '../audio/audio.js';
 import { openAudioMenu, closeAudioMenu, isAudioMenuOpen } from './audiomenu.js';
+import { isQuestActive } from '../quests.js';
+import { playerEquip } from '../sprites/equipment.js';
+import { showToast } from './toast.js';
 
 export const keys = {};
 
@@ -216,6 +219,24 @@ export function installInput() {
           talkToBlacksmith();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
+        } else if (it.kind === 'cave_entrance') {
+          // Precisa da tocha EQUIPADA (não só no inventário)
+          const hasTorchEquipped = playerEquip.leftHand === 'torch';
+          if (!isQuestActive('story_cave')) {
+            openDialogue({
+              title: it.title,
+              text: 'A caverna está escura demais. Você precisa de uma fonte de luz.',
+            });
+          } else if (!hasTorchEquipped) {
+            showToast({
+              itemId: 'torch',
+              title: 'Tocha necessária',
+              subtitle: 'Equipe uma tocha na mão esquerda para entrar.',
+              color: '#ff6b6b',
+            });
+          } else {
+            enterDungeon('cave_quest_5_2');
+          }
         } else if (it.kind === 'lost_backpack') {
           const result = addItemToInventory(playerStats.inventory, 'letter_to_elder', 1);
           if (result > 0) {
@@ -461,6 +482,11 @@ export function installInput() {
       battle.tooltipSkill = null;
       battle.tooltipPos = null;
     }
+  });
+
+  // ---- Atalho do menu de desenvolvedor ----
+  import('./devmenu.js').then(mod => {
+    mod.installDevShortcut();
   });
 
   // ---- Som de clique em TODOS os botões ----

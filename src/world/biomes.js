@@ -14,6 +14,12 @@ export const BIOMES = {
     floorStyle: 'sand',
     enemies: ['scorpion', 'vulture', 'mummy', 'scarab'],
   },
+  cave: {
+    name: 'Caverna',
+    trees: false,
+    floorStyle: 'cave', // Usaremos isso no render
+    enemies: [], // Inimigos são fixos, não aleatórios
+  },
 };
 
 // Distância a partir da qual cada bioma começa.
