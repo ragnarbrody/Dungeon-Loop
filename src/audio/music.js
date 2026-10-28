@@ -53,14 +53,103 @@ const MODES = {
     ],
   },
 
-  desert: {
+    desert: {
     root: 329.63,
-    scale: [0, 1, 4, 5, 7],
+    scale: [0, 1, 4, 5, 7, 8, 10],
     bpm: 100,
-    arpGain: 0.07,
-    chordGain: 0.055,
+    arpGain: 0.055,
+    chordGain: 0.05,
     arpOct: 1,
     chordOct: 0,
+    barsPerPhase: 4,
+    backing: true,
+    backingGain: 0.035,
+    backingOct: 0,
+    backingDur: 0.6,
+    backingPatterns: [
+      [0, null, 3, null, 4, null, 3, null, 0, null, 3, null, 4, null, 3, null],
+      [0, 4, null, 4, 3, 4, 2, null, 0, 4, null, 4, 3, 4, 2, null],
+    ],
+    // SEM breatheAtBars — não há pausas na exploração
+    phases: [
+      // 0: Introdução (arpejo + sitar)
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: false, intensity: 0, chord: false,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null]
+      },
+      // 1: Entra a tabla (percussão)
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 1, chord: true,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        tabla: true, tablaGain: 0.05
+      },
+      // 2: Flauta de bambu entra (padrão A)
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 2, chord: true,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        tabla: true, tablaGain: 0.05,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, null, 2, 4, null, 2, null, 4, 0, null, 2, 4, null, 2, null, 4]
+      },
+      // 3: Flauta muda para padrão B (mais agudo e saltitante)
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 2, chord: true,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        tabla: true, tablaGain: 0.05,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, null, 2, null, null]
+      },
+      // 4: Entra o Sino de Vento + contrabaixo árabe
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 3, chord: true,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        tabla: true, tablaGain: 0.05,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, null, 2, null, null],
+        windChime: true, windChimeGain: 0.02,
+        windChimePattern: [0, null, null, null, 4, null, null, null, 0, null, null, null, 4, null, null, null],
+        arabicBass: true, arabicBassGain: 0.04
+      },
+      // 5: Flauta muda para padrão C (mais lento e melancólico)
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 3, chord: true,
+        sitar: true, sitarGain: 0.03,
+        sitarPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        tabla: true, tablaGain: 0.05,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, null, null, 2, null, 4, null, 2, 0, null, null, 2, null, 4, null, null],
+        windChime: true, windChimeGain: 0.02,
+        windChimePattern: [0, null, null, null, 4, null, null, null, 0, null, null, null, 4, null, null, null],
+        arabicBass: true, arabicBassGain: 0.04,
+        cymbal: true, cymbalGain: 0.02
+      },
+      // 6: Clímax — agora com variações nos padrões
+      { 
+        bass: true, arp: true, kick: false, snare: false, hihat: false, 
+        backing: true, intensity: 4, chord: true,
+        sitar: true, sitarGain: 0.035,
+        sitarPattern: [0, 2, null, 4, null, 3, null, 4, 0, 2, null, 4, 3, null, 4, null],
+        tabla: true, tablaGain: 0.055,
+        bambooFlute: true, bambooFluteGain: 0.035,
+        // Padrão D: mais ativo e com variação no final
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, 2, 4, 0, null],
+        windChime: true, windChimeGain: 0.025,
+        windChimePattern: [0, null, 3, null, 4, null, 3, null, 0, null, 3, null, 4, null, 3, null],
+        arabicBass: true, arabicBassGain: 0.045,
+        cymbal: true, cymbalGain: 0.025
+      },
+    ],
   },
 
   // ============================================================
@@ -472,6 +561,109 @@ function scheduleLoop(channel) {
       }
     }
 
+    // ---- SITAR ----
+    if (phase.sitar) {
+      // Variação de padrão: a cada 2 compassos, alterna
+      const sitarVariations = [
+        [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+        [0, 2, null, 4, null, 3, null, 4, 0, 2, null, 4, 3, null, 4, null],
+        [0, null, 3, null, 2, null, 4, null, 0, null, 3, null, 2, null, 4, null],
+      ];
+      const sitarPatIdx = Math.floor(channel.barIndex / 2) % sitarVariations.length;
+      const sitarPattern = phase.sitarPattern || sitarVariations[sitarPatIdx];
+      const deg = sitarPattern[beatIdxInBar];
+      if (deg !== null && deg !== undefined) {
+        const semi = mode.scale[deg % mode.scale.length] + 12;
+        const freq = mode.root * 2 ** (semi / 12);
+        const sGain = phase.sitarGain ?? 0.03;
+        playSitar(ctx, channel.gain, freq, { gain: sGain, dur: 60 / currentBpm * 0.4, when: channel.nextTime });
+      }
+    }
+
+    // ---- FLAUTA DE BAMBU ----
+    if (phase.bambooFlute) {
+      const BAMBOO_PHRASES = [
+        [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, 2, 4, 0, null],
+        [0, null, 4, 2, null, 4, null, 2, 0, null, 4, 2, null, 4, null, null],
+        [0, 2, 4, null, 2, null, 4, null, 0, 2, 4, null, 2, null, 4, null],
+      ];
+      let bambooPattern;
+      if (phase.bambooFlutePattern) {
+        bambooPattern = phase.bambooFlutePattern;
+      } else {
+        if (isDownbeat) {
+          channel.bambooPhraseIndex = ((channel.bambooPhraseIndex ?? 0) + 1) % BAMBOO_PHRASES.length;
+        }
+        bambooPattern = BAMBOO_PHRASES[channel.bambooPhraseIndex ?? 0];
+      }
+
+      const deg = bambooPattern[beatIdxInBar];
+      if (deg !== null && deg !== undefined) {
+        // A cada 4 compassos, sobe uma oitava (variação sutil)
+        const octaveBoost = (Math.floor(channel.barIndex / 4) % 2 === 1) ? 12 : 0;
+        const semi = mode.scale[deg % mode.scale.length] + 12 + octaveBoost;
+        const freq = mode.root * 2 ** (semi / 12);
+        const bfGain = phase.bambooFluteGain ?? 0.04;
+        playBambooFlute(ctx, channel.gain, freq, { gain: bfGain, dur: 60 / currentBpm * 0.5, when: channel.nextTime });
+      }
+    }
+
+    // ---- PERCUSSÃO DE DESERTO (TABLA) ----
+    if (phase.tabla) {
+      const tGain = phase.tablaGain ?? 0.05;
+      // Variação de padrão: a cada 2 compassos, alterna
+      const tablaVariations = [
+        [0, 3, 6, 9, 12, 15],
+        [0, 2, 5, 8, 11, 14],
+        [0, 4, 8, 12],
+        [0, 3, 6, 9, 12, 13, 15],
+      ];
+      const tablaPatIdx = Math.floor(channel.barIndex / 2) % tablaVariations.length;
+      const tablaPattern = tablaVariations[tablaPatIdx];
+      if (tablaPattern.includes(beatIdxInBar)) {
+        playTabla(ctx, channel.gain, mode, channel.nextTime, tGain);
+      }
+    }
+
+    // ---- SINO DE VENTO ----
+    if (phase.windChime) {
+      // A cada 4 compassos, muda o padrão (notas e espaçamento)
+      const wcVariations = [
+        [0, null, null, null, 4, null, null, null, 0, null, null, null, 4, null, null, null],
+        [0, null, 3, null, null, 4, null, 2, 0, null, null, null, 4, null, 3, null],
+        [0, null, null, null, 4, null, 3, null, 0, null, 2, null, 4, null, null, null],
+      ];
+      const wcPatIdx = Math.floor(channel.barIndex / 4) % wcVariations.length;
+      const wcPattern = phase.windChimePattern || wcVariations[wcPatIdx];
+      const deg = wcPattern[beatIdxInBar];
+      if (deg !== null && deg !== undefined) {
+        const semi = mode.scale[deg % mode.scale.length] + 24;
+        const freq = mode.root * 2 ** (semi / 12);
+        const wcGain = phase.windChimeGain ?? 0.02;
+        playWindChime(ctx, channel.gain, freq, { gain: wcGain, dur: 1.5, when: channel.nextTime });
+      }
+    }
+
+    // ---- CONTRABAIXO ÁRABE ----
+    if (phase.arabicBass) {
+      // Toca no downbeat (nota longa e grave)
+      if (isDownbeat) {
+        const octave = (mode.bassOct ?? 0) * 12; // proteção: se não existir, usa 0
+        const semi = mode.scale[0] + octave;
+        const freq = mode.root * 2 ** (semi / 12) / 2; // uma oitava abaixo
+        const abGain = phase.arabicBassGain ?? 0.05;
+        playArabicBass(ctx, channel.gain, freq, { gain: abGain, dur: 60 / currentBpm * 3.5, when: channel.nextTime });
+      }
+    }
+
+    // ---- CÍMBALO ----
+    if (phase.cymbal) {
+      if (isDownbeat) {
+        const cGain = phase.cymbalGain ?? 0.04;
+        playCymbal(ctx, channel.gain, mode, channel.nextTime, cGain);
+      }
+    }
+
     // ---- GUITARRA DISTORCIDA ----
     if (phase.guitar) {
       const guitarPattern = phase.guitarPattern || [0, 2, 4, 6, 4, 2, 0, null, 0, 2, 4, 6, 4, 2, 0, null];
@@ -852,4 +1044,162 @@ function playDeepDrum(ctx, dest, mode, when, gain) {
   g.connect(dest);
   osc.start(when);
   osc.stop(when + 0.4);
+}
+
+// ---- SITAR (som metálico, dedilhado) ----
+function playSitar(ctx, dest, freq, { gain, dur, when }) {
+  const osc = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq, when);
+
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(freq * 1.5, when); // era freq * 2 (mais agudo)
+  filter.Q.value = 6; // era 5 (mais focado, menos estridente)
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc.stop(when + dur + 0.02);
+}
+
+// ---- FLAUTA DE BAMBU (som oco, ataque rápido) ----
+function playBambooFlute(ctx, dest, freq, { gain, dur, when }) {
+  const osc = ctx.createOscillator();
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  const g = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, when);
+
+  lfo.frequency.value = 7;
+  lfoGain.gain.value = 4;
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.02);
+  g.gain.setValueAtTime(gain, when + dur * 0.5);
+  g.gain.linearRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  lfo.start(when);
+  osc.stop(when + dur + 0.02);
+  lfo.stop(when + dur + 0.02);
+}
+
+// ---- TABLA (tambor agudo e ressonante) ----
+function playTabla(ctx, dest, mode, when, gain) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(400, when);
+  osc.frequency.exponentialRampToValueAtTime(200, when + 0.05);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.2);
+  osc.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc.stop(when + 0.22);
+
+  // Ruído de pele (filtrado)
+  const noiseLen = Math.floor(ctx.sampleRate * 0.05);
+  const buffer = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < noiseLen; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 1500;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(gain * 0.3, when);
+  ng.gain.exponentialRampToValueAtTime(0.0001, when + 0.05);
+  src.connect(filter);
+  filter.connect(ng);
+  ng.connect(dest);
+  src.start(when);
+  src.stop(when + 0.06);
+}
+
+// ---- SINO DE VENTO (cristalino e esparso) ----
+function playWindChime(ctx, dest, freq, { gain, dur, when }) {
+  const osc = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const g = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, when);
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(freq * 2 ** (12 / 12), when); // oitava acima
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(g);
+  osc2.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc2.start(when);
+  osc.stop(when + dur + 0.02);
+  osc2.stop(when + dur + 0.02);
+}
+
+// ---- CONTRABAIXO ÁRABE (grave e longo) ----
+function playArabicBass(ctx, dest, freq, { gain, dur, when }) {
+  if (!isFinite(freq) || !isFinite(dur) || !isFinite(when)) return; // proteção
+  const osc = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, when);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(400, when);
+  filter.Q.value = 0.5;
+
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(gain, when + 0.1);
+  g.gain.setValueAtTime(gain, when + dur * 0.5);
+  g.gain.linearRampToValueAtTime(0.0001, when + dur);
+
+  osc.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  osc.start(when);
+  osc.stop(when + dur + 0.02);
+}
+
+// ---- CÍMBALO (som metálico curto) ----
+function playCymbal(ctx, dest, mode, when, gain) {
+  const len = Math.floor(ctx.sampleRate * 0.3);
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 5000;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(gain, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.3);
+  src.connect(filter);
+  filter.connect(g);
+  g.connect(dest);
+  src.start(when);
+  src.stop(when + 0.32);
 }

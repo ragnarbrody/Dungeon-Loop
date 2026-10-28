@@ -89,10 +89,10 @@ export function offerQuests() {
         `${greeting()} Vejo que conseguiu uma tocha.\n\n` +
         `A caverna fica ao sul de Aethel, ${vocative()}. Não é longe. ` +
         `Mas o que habita lá dentro já arrastou outros viajantes antes.\n\n` +
-        `Vá. E volte. Confio que você consegue.`,
+        `Na próxima vez que vier, te indicarei o caminho, ${vocative()}.`,
       actions: [
         {
-          label: 'Receber recompensa',
+          label: 'Continuar',
           action: () => {
             completeActiveQuest(playerStats, addItemToInventory);
             saveGame();
