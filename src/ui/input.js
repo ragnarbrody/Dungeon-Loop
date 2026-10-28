@@ -397,7 +397,6 @@ export function installInput() {
 
   // Clique no botão de áudio
   document.getElementById('btn-audio').addEventListener('click', () => {
-    sfx('click');
     openAudioMenu();
   });
 
@@ -461,6 +460,37 @@ export function installInput() {
     if (battle.tooltipSkill) {
       battle.tooltipSkill = null;
       battle.tooltipPos = null;
+    }
+  });
+
+  // ---- Som de clique em TODOS os botões ----
+  // Delegação no document: qualquer clique que tenha um <button> (ou um
+  // .class-card, que age como botão) no caminho sobe um `sfx('click')`.
+  // Funciona pra botões que já existem e pros que são criados depois
+  // (inventário, quest log, loja, diálogo, etc.).
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+
+    // Ignora cliques dentro do canvas (já são tratados à parte,
+    // e alguns deles têm som próprio, tipo o ⓘ do combate).
+    if (t.closest('canvas')) return;
+
+    // É um botão de verdade?
+    const btn = t.closest('button');
+    if (btn) {
+      // Se o botão está desabilitado, não toca.
+      if (btn.disabled) return;
+      // Se o botão já tem um som próprio (ex.: o de áudio), ainda
+      // tocamos o click — é barato e mantém consistência.
+      sfx('click');
+      return;
+    }
+
+    // Card de classe (div clicável que age como botão)
+    if (t.closest('.class-card')) {
+      sfx('click');
+      return;
     }
   });
 }

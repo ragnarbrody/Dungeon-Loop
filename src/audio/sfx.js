@@ -39,6 +39,7 @@ const SFX = {
   victory: { freq: 523,  dur: 0.12, type: 'square',   gain: 0.18, arp: [523, 659, 784] },
   defeat:  { freq: 392,  dur: 0.20, type: 'sine',     gain: 0.20, arp: [392, 330, 262] },
   step:    { freq: 120,  dur: 0.04, type: 'sine',     gain: 0.05 },
+  talk:    { freq: 440,  dur: 0.03, type: 'triangle', gain: 0.08 },
 };
 
 // Buffer de ruído branco, gerado uma vez só.

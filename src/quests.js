@@ -146,6 +146,49 @@ export const QUEST_DB = {
     rewards: { xp: 80, gold: 60, items: [{ id: 'potion_medium', qty: 2 }] },
     next: null,
   },
+  story_torch: {
+    id: 'story_torch',
+    type: 'story',
+    title: 'Uma Luz na Escuridão',
+    giver: 'elder',
+    prereq: ['story_forge_materials'],   // encadeia com a 4
+    description:
+      'O pergaminho que você trouxe tem uma mensagem escondida atrás. O aldeão desaparecido diz que está sendo arrastado para uma caverna ao sul. As cavernas são escuras — você vai precisar de uma tocha para entrar. O Ferreiro vende.',
+    objectives: [
+      {
+        id: 'collect_torch',
+        text: 'Consiga uma Tocha (o Ferreiro vende)',
+        target: 1,
+        type: 'collect',
+        filter: 'torch',
+        consume: false,   // ← NÃO consome a tocha ao entregar
+      },
+    ],
+    rewards: { xp: 15, gold: 0 },
+    next: 'story_cave',
+  },
+  story_cave: {
+    id: 'story_cave',
+    type: 'story',
+    title: 'A Caverna ao Sul',
+    giver: 'elder',
+    prereq: ['story_torch'],
+    description:
+      'Com a tocha em mãos, você pode descer até a caverna ao sul de Aethel. O aldeão está lá dentro — e o que o arrastou também.',
+    // Por enquanto, 1 objetivo simples de "visitar a caverna".
+    // Quando a dungeon existir, isso vira "derrote o que está lá dentro".
+    objectives: [
+      {
+        id: 'enter_cave',
+        text: 'Entre na caverna ao sul de Aethel',
+        target: 1,
+        type: 'visit',
+        filter: { gx: -2, gy: 8 },   // ← coordenada provisória; ajuste quando a dungeon existir
+      },
+    ],
+    rewards: { xp: 100, gold: 50 },
+    next: null,
+  },
 
 };
 
@@ -326,6 +369,7 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   for (const obj of q.objectives) {
     if (obj.type !== 'collect') continue;
     if (!obj.filter) continue;
+    if (obj.consume === false) continue;   // ← NOVO: não consome
 
     let toRemove = obj.target;
     const inv = playerStats.inventory;

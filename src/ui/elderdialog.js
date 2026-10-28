@@ -5,7 +5,7 @@ import {
   hasSeenElderIntro, markElderIntroSeen,
   getAvailableQuests, getActiveQuest, isQuestReadyToComplete,
   activateQuest, completeActiveQuest,
-  getTurnInNpc,
+  getTurnInNpc, isQuestCompleted, isQuestActive
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
@@ -81,6 +81,31 @@ export function offerQuests() {
     return;
   }
 
+  // ---- Entrega especial: quest 5.1 (tocha) ----
+  if (active && active.id === 'story_torch' && isQuestReadyToComplete(active.id)) {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Vejo que conseguiu uma tocha.\n\n` +
+        `A caverna fica ao sul de Aethel, ${vocative()}. Não é longe. ` +
+        `Mas o que habita lá dentro já arrastou outros viajantes antes.\n\n` +
+        `Vá. E volte. Confio que você consegue.`,
+      actions: [
+        {
+          label: 'Receber recompensa',
+          action: () => {
+            completeActiveQuest(playerStats, addItemToInventory);
+            saveGame();
+            closeDialogue();
+            checkLevelUp();
+            offerQuests();
+          },
+        },
+      ],
+    });
+    return;
+  }
+
   // ---- Se tem quest ativa e pronta pra entregar AO ANCIÃO: entrega ----
   if (active && isQuestReadyToComplete(active.id)) {
     const q = active;
@@ -118,6 +143,36 @@ export function offerQuests() {
 
   // ---- Sem quest ativa: oferece as disponíveis ----
   const available = getAvailableQuests();
+
+  // ---- Revelação especial: o Ancião encontra a mensagem atrás do pergaminho ----
+  // Só dispara UMA vez, na primeira vez que a 5.1 está disponível.
+  if (
+    available[0]?.id === 'story_torch' &&
+    !isQuestActive('story_torch') &&
+    !isQuestCompleted('story_torch')
+  ) {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `Espere, ${vocative()}. Há algo atrás deste pergaminho.\n\n` +
+        `Uma mensagem, escrita às pressas com carvão. É a letra do aldeão.\n\n` +
+        `"Estou sendo arrastado para uma caverna ao sul. Não sei por quanto tempo ainda vou ter consciência. Se alguém achar isto — cuidado com o que vive lá embaixo."\n\n` +
+        `Ele ainda pode estar vivo. Mas as cavernas ao sul são escuras como a própria Fratura. Você vai precisar de uma tocha para entrar.\n\n` +
+        `O Ferreiro vende. Vá até ele, consiga uma tocha, e volte para que eu te indique o caminho.`,
+      actions: [
+        {
+          label: 'Aceitar',
+          action: () => {
+            activateQuest('story_torch');
+            saveGame();
+            closeDialogue();
+          },
+        },
+      ],
+    });
+    return;
+  }
+
   if (available.length === 0) {
     openDialogue({
       title: 'Ancião de Aethel',

@@ -12,7 +12,7 @@ import { openDialogue, closeDialogue } from './dialogue.js';
 import { playerStats, saveGame, checkLevelUp } from '../core/state.js';
 import {
   getActiveQuest, isQuestReadyToComplete, getTurnInNpc,
-  completeActiveQuest, getProgress,
+  completeActiveQuest, getProgress, isQuestActive 
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative } from './classvocative.js';

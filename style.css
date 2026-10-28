@@ -532,6 +532,18 @@ canvas {
   cursor: not-allowed;
 }
 
+/* Indicador "▼" do typewriter (pisca quando o texto termina) */
+@keyframes twBlink {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.25; }
+}
+
+/* Botões de ação desabilitados durante a digitação */
+.dialogue-actions button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
 #shop-screen {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;

@@ -235,6 +235,15 @@ function finishStart() {
   }
 
   updateHud();
+
+  // garante que a música bate com a sala atual.
+  // (Se for cidade → 'aethel'; senão → biomeId.)
+  if (currentRoom) {
+    setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
+  } else {
+    setMusicMode('aethel'); // fallback
+  }
+
   lastTime = performance.now();
 }
 
@@ -259,6 +268,8 @@ export function loop(now) {
       document.getElementById('gameover-screen').classList.remove('hidden');
       clearSave();
       resetKnowledge();
+      //para a música de batalha (volta pra 'menu')
+      setMusicMode('menu');
     }
   } else if (gameState === STATE.EXPLORE) {
     if (playerStats.points > 0) {
