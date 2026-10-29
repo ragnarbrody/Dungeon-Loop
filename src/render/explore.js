@@ -229,6 +229,8 @@ export function renderExplore() {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.TREE) continue;
 
+        if (currentRoom.cage && x === currentRoom.cage.tx && y === currentRoom.cage.ty) continue;
+
         const cx = x * TILE_SIZE + TILE_SIZE / 2;
         const baseY = y * TILE_SIZE + TILE_SIZE;  // base do tile (chão)
         const topY  = baseY - 34;                 // sobe ~1.7 tiles
@@ -319,6 +321,7 @@ export function renderExplore() {
     }
   }
 
+  drawCage(currentRoom);
   drawMapEnemies(currentRoom);
 
   if (currentRoom.interactables) {
@@ -342,6 +345,8 @@ export function renderExplore() {
     let text;
     if (it.kind === 'lost_backpack') {
       text = 'Abrir mochila [E]';
+    } else if (it.kind === 'caged_villager') {
+      text = 'Examinar jaula [E]';
     } else {
       text = 'Aperte [E]';
     }
@@ -407,8 +412,37 @@ export function renderExplore() {
       ctx.fillStyle = glowGrd;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
+
+    // --- Luz adicional da tocha fincada no chão ---
+    if (currentRoom.floorTorch) {
+      const ft = currentRoom.floorTorch;
+      const ftx = ft.tx * TILE_SIZE + TILE_SIZE / 2;
+      const fty = ft.ty * TILE_SIZE + TILE_SIZE / 2;
+      const torchRadius = 80;
+
+      // Gradiente invertido: "apaga" a escuridão em volta da tocha.
+      // 0.75 no centro (deixa ainda um pouco de penumbra pra não "vazar"
+      // luz absoluta) e cai suave até 0 na borda.
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+
+      const tGrd = ctx.createRadialGradient(ftx, fty, 0, ftx, fty, torchRadius);
+      tGrd.addColorStop(0, 'rgba(0, 0, 0, 0.75)');
+      tGrd.addColorStop(0.55, 'rgba(0, 0, 0, 0.4)');
+      tGrd.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = tGrd;
+      ctx.beginPath();
+      ctx.arc(ftx, fty, torchRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Brilho quente MUITO sutil, e desenhado ANTES do sprite (ver drawFloorTorch).
+      // Aqui só guardamos — não desenha nada por cima da tocha.
+    }
   }
 
+  drawFloorTorch(currentRoom);
   // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
   drawQuestTracker();
 }
@@ -1422,4 +1456,90 @@ function drawCaveEntrance(px, py) {
 
   // 4. Restaura o contexto
   ctx.restore();
+}
+
+function drawCage(room) {
+  const c = room.cage;
+  if (!c) return;
+  const s = TILE_SIZE;
+  const x = c.tx * s, y = c.ty * s;
+  const freed = isQuestCompleted('story_cave');
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(x + 1, y + s - 3, s - 2, 3);
+
+  if (!freed) {                       // aldeão dentro
+    ctx.fillStyle = '#c98b5a';
+    ctx.beginPath(); ctx.arc(x + s / 2, y + s * 0.32, s * 0.16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6b4f8a';
+    ctx.fillRect(x + s * 0.3, y + s * 0.48, s * 0.4, s * 0.38);
+  }
+
+  ctx.fillStyle = '#4a4a55';
+  ctx.fillRect(x, y + s - 4, s, 4);
+  ctx.fillRect(x, y, s, 3);
+
+  ctx.fillStyle = '#8a8a99';
+  for (const i of (freed ? [0, 4] : [0, 1, 2, 3, 4])) {   // aberta: só as barras das pontas
+    ctx.fillRect(x + (i * (s - 2)) / 4, y + 3, 2, s - 7);
+  }
+}
+
+function drawFloorTorch(room) {
+  const t = room.floorTorch;
+  if (!t) return;
+
+  const px = t.tx * TILE_SIZE;
+  const py = t.ty * TILE_SIZE;
+  const cx = px + TILE_SIZE / 2;
+  const cy = py + TILE_SIZE / 2;
+
+  const now = performance.now() / 1000;
+  const flicker = 0.85 + Math.sin(now * 9) * 0.1 + Math.sin(now * 23) * 0.05;
+
+  // 1) Glow quente MUITO sutil no chão (embaixo de tudo).
+  //    Raio pequeno e alpha baixo — só dá "calor" pra área, sem apagar
+  //    o cabo nem a jaula.
+  const warmGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+  warmGrd.addColorStop(0, 'rgba(255, 170, 80, 0.10)');
+  warmGrd.addColorStop(1, 'rgba(255, 170, 80, 0)');
+  ctx.fillStyle = warmGrd;
+  ctx.fillRect(cx - 30, cy - 30, 60, 60);
+
+  // 2) Sombra no chão
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 7, 6, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3) Cabo (madeira) — desenhado DEPOIS do glow quente,
+  //    pra ficar visível mesmo com a luz forte.
+  ctx.fillStyle = '#5a3a1a';
+  ctx.fillRect(cx - 1, cy - 6, 2, 12);
+  // Brilho no cabo (dá leitura 3D)
+  ctx.fillStyle = 'rgba(160, 120, 70, 0.5)';
+  ctx.fillRect(cx - 1, cy - 6, 1, 12);
+
+  // 4) Chama (3 camadas, com flicker)
+  const flameH = 6 * flicker;
+  ctx.fillStyle = 'rgba(255, 120, 30, 0.9)';
+  ctx.beginPath();
+  ctx.moveTo(cx - 3, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 - flameH * 1.2, cx + 3, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 + 2, cx - 3, cy - 6);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255, 200, 60, 0.95)';
+  ctx.beginPath();
+  ctx.moveTo(cx - 2, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 - flameH * 0.9, cx + 2, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 + 1, cx - 2, cy - 6);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff5c0';
+  ctx.beginPath();
+  ctx.moveTo(cx - 1, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 - flameH * 0.6, cx + 1, cy - 6);
+  ctx.quadraticCurveTo(cx, cy - 6 + 0.5, cx - 1, cy - 6);
+  ctx.fill();
 }

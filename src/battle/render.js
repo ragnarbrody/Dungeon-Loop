@@ -197,6 +197,16 @@ export function renderBattleInner() {
     ctx.fillText(`☠ PSN ${playerStats.poisoned.turns}t (-${playerStats.poisoned.dmg}/t)`, 30, 76);
   }
 
+  // indicador de sangramento
+  if (playerStats.bleeding) {
+    ctx.fillStyle = '#ff3b3b';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const yBleed = playerStats.poisoned ? 90 : 76;
+    ctx.fillText(`🩸 SNG ${playerStats.bleeding.turns}t (-${playerStats.bleeding.dmg}/t)`, 30, yBleed);
+  }
+
   // Indicador de alvo (canto superior direito)
   if (battle.enemies.length > 1) {
     const vIdx = getVisualTargetIndex();

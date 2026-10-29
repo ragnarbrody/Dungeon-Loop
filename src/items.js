@@ -358,7 +358,7 @@ export const ITEMS_DB = {
     sellPrice: 2,      // preço de venda
     rarity: 'common',
     stackable: false,
-    stackCap: 1,
+    maxOwned: 1,
     icon: 'torch',
     stats: {}, // tocha não dá stats, é decorativa
     draw: null,
@@ -372,7 +372,7 @@ export const ITEMS_DB = {
     kind: 'loot',
     name: 'Cauda de Rato',
     description: 'Uma cauda fina e comprida. Herbalistas juram que tem propriedades medicinais.',
-    price: 8,          // preço de compra (não usado ainda)
+    price: 8,          // preço de compra 
     sellPrice: 3,      // preço de venda
     rarity: 'common',
     stackable: true,
@@ -398,8 +398,8 @@ export const ITEMS_DB = {
     kind: 'material',
     name: 'Geleia de Slime',
     description: 'Uma gosma verde que gruda nos dedos. Nojenta, mas útil.',
-    price: 6,
-    sellPrice: 1.5,
+    price: 4,
+    sellPrice: 1,
     rarity: 'common',
     stackable: true,
     stackCap: 20,
@@ -495,49 +495,77 @@ export function getItemsByType(type) {
  */
 export function addItemToInventory(inventory, itemId, qty = 1) {
   const info = ITEMS_DB[itemId];
-  if (!info) return 0;
+  if (!info || qty <= 0) return 0;
 
-  // stackable: false → nunca empilha, sempre cria slot novo
   const cap = info.stackable === false ? 1 : (info.stackCap ?? Infinity);
+  let remaining = qty;
 
-  let added = 0;
-  const existing = inventory.find(i => i.id === itemId);
-  if (existing && info.stackable !== false) {
-    const space = cap - existing.qty;
-    const toAdd = Math.min(space, qty);
-    existing.qty += toAdd;
-    added += toAdd;
-    qty -= toAdd;
+  // 1) completa os slots existentes (todos, não só o primeiro)
+  for (const slot of inventory) {
+    if (remaining <= 0) break;
+    if (slot.id !== itemId) continue;
+    const space = cap - slot.qty;
+    if (space <= 0) continue;
+    const take = Math.min(space, remaining);
+    slot.qty += take;
+    remaining -= take;
   }
 
-  if (qty > 0 && cap > 0) {
-    // Se não é stackable, cria 1 slot por unidade
-    if (info.stackable === false) {
-      // Cria um slot por unidade (raro, mas correto)
-      for (let i = 0; i < qty; i++) {
-        inventory.push({ id: itemId, qty: 1 });
-        added++;
-      }
-    } else {
-      const toAdd = Math.min(cap, qty);
-      inventory.push({ id: itemId, qty: toAdd });
-      added += toAdd;
-    }
+  // 2) o que sobrou vira slots novos, em blocos de `cap`
+  while (remaining > 0) {
+    const take = Math.min(cap, remaining);
+    inventory.push({ id: itemId, qty: take });
+    remaining -= take;
   }
-
-  return added;
+  return qty;
 }
 
-/**
- * Retorna o quanto ainda cabe de um item no inventário.
- */
+export function countItem(inventory, itemId) {
+  let n = 0;
+  for (const s of inventory) if (s.id === itemId) n += s.qty;
+  return n;
+}
+
+// Remove `qty` unidades, esvaziando primeiro os slots do fim (os parciais).
+// Retorna quantas foram removidas de fato.
+export function removeItem(inventory, itemId, qty = 1) {
+  let left = qty;
+  for (let i = inventory.length - 1; i >= 0 && left > 0; i--) {
+    const s = inventory[i];
+    if (s.id !== itemId) continue;
+    const take = Math.min(s.qty, left);
+    s.qty -= take;
+    left -= take;
+    if (s.qty <= 0) inventory.splice(i, 1);
+  }
+  return qty - left;
+}
+
+// Não há limite de slots, então só `maxOwned` (opcional) limita a compra.
 export function remainingSpace(inventory, itemId) {
   const info = ITEMS_DB[itemId];
   if (!info) return 0;
-  const cap = info.stackCap ?? Infinity;
-  const existing = inventory.find(i => i.id === itemId);
-  const cur = existing ? existing.qty : 0;
-  return Math.max(0, cap - cur);
+  if (info.maxOwned != null) {
+    return Math.max(0, info.maxOwned - countItem(inventory, itemId));
+  }
+  return Infinity;
+}
+
+// Conserta saves que já ficaram com slots fragmentados (10, 1, 1, 1...)
+export function normalizeInventory(inventory) {
+  const totals = new Map();
+  for (const s of inventory) {
+    if (!s || !(s.qty > 0)) continue;
+    totals.set(s.id, (totals.get(s.id) || 0) + s.qty);
+  }
+  const rebuilt = [];
+  for (const [id, qty] of totals) {
+    if (!ITEMS_DB[id]) rebuilt.push({ id, qty });   // desconhecido: não apaga
+    else addItemToInventory(rebuilt, id, qty);
+  }
+  inventory.length = 0;
+  inventory.push(...rebuilt);
+  return inventory;
 }
 
 // Cores por raridade (usadas no inventário e no toast de drop)

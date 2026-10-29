@@ -27,6 +27,7 @@
 
 //import { removeMarker } from '../src/world/knowledge.js';
 //import { checkLevelUp } from './core/state.js';
+import { countItem } from './items.js';
 
 let _removeMarker = () => {};
 let _addMarker = () => {};
@@ -42,6 +43,12 @@ let _getInventory = () => [];
 let _visitedRooms = () => new Set();
 let _getDungeonCache = () => new Map();
 let _getCurrentRoom = () => null;
+let _pendingCaveCollapse = false;
+export function consumeCaveCollapseNotice() {
+  const v = _pendingCaveCollapse;
+  _pendingCaveCollapse = false;
+  return v;
+}
 export function setCurrentRoomGetter(fn) { _getCurrentRoom = fn; }
 export function setDungeonCacheGetter(fn) { _getDungeonCache = fn; }
 export function setInventoryGetter(fn) { _getInventory = fn; }
@@ -188,15 +195,14 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_torch'],
     description:
-      'Com a tocha em mãos, você pode descer até a caverna ao sul de Aethel. O aldeão está lá dentro — e o que o arrastou também.',
+      'Com a tocha em mãos, você pode descer até a caverna ao sul de Aethel. O aldeão desaparecido está lá dentro, e quem o levou também.',
     objectives: [
-      {
-        id: 'clear_cave',
-        text: 'Derrote o Sargento Goblin na caverna',
-        target: 1,
-        type: 'dungeon_clear',
-        filter: 'cave_quest_5_2',
-      },
+      { id: 'reach_cave', text: 'Chegue à Caverna Sombria (marcada no mapa)',
+        target: 1, type: 'visit', filter: { gx: -2, gy: 8 } },
+      { id: 'clear_cave', text: 'Derrote o que sequestrou o aldeão',
+        target: 1, type: 'dungeon_clear', filter: 'cave_quest_5_2' },
+      { id: 'free_villager', text: 'Resgate o aldeão',
+        target: 1, type: 'interact' },
     ],
     rewards: { xp: 100, gold: 50 },
     next: null,
@@ -324,9 +330,7 @@ export function getProgress(questId, objId) {
 
   // 'collect': progresso é o que o jogador TEM no inventário
   if (obj.type === 'collect') {
-    const inv = _getInventory();
-    const item = inv.find(i => i.id === obj.filter);
-    return Math.min(obj.target, item ? item.qty : 0);
+    return Math.min(obj.target, countItem(_getInventory(), obj.filter));
   }
 
   // 'visit': checa se o jogador já visitou a(s) sala(s) alvo
@@ -444,6 +448,7 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   // ---- 2.5) Remove o marker e a caverna da quest 5.2 ----
   if (q.id === 'story_cave') {
     _removeMarker('marker_cave_entrance');
+    _pendingCaveCollapse = true;
     // Import dinâmico pra evitar dependência circular (quests <-> rooms)
     import('./world/rooms.js').then(mod => mod.clearCave()).catch(console.error);
   }
@@ -476,6 +481,7 @@ export function serializeQuests() {
     completed: Array.from(state.completed),
     tracked: state.tracked,
     elderIntroSeen: state.elderIntroSeen,
+    pendingCaveCollapse: _pendingCaveCollapse,
   };
 }
 
@@ -486,6 +492,7 @@ export function loadQuests(data) {
   state.completed = new Set(data.completed ?? []);
   state.tracked = data.tracked ?? null;
   state.elderIntroSeen = !!data.elderIntroSeen;
+  _pendingCaveCollapse = !!data.pendingCaveCollapse;
 }
 
 export function resetQuests() {

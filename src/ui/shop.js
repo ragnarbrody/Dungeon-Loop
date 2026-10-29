@@ -1,6 +1,6 @@
 // src/ui/shop.js
 import { playerStats, saveGame } from '../core/state.js';
-import { ITEMS_DB, addItemToInventory, remainingSpace, RARITY_COLORS } from '../items.js';
+import { ITEMS_DB, addItemToInventory, remainingSpace, RARITY_COLORS, countItem, removeItem } from '../items.js';
 import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
 import { pickShopGreeting } from './shopgreetings.js';
@@ -142,10 +142,9 @@ function renderBuyTab(itemsEl, shop) {
     name.textContent = item.name;
     info.appendChild(name);
     const desc = document.createElement('div');
-    const cap = item.stackCap ?? '∞';
-    const cur = playerStats.inventory.find(i => i.id === itemId)?.qty || 0;
+    const cur = countItem(playerStats.inventory, itemId);
     desc.className = 'shop-desc';
-    desc.textContent = `${item.description} (${cur}/${cap})`;
+    desc.textContent = `${item.description} Você tem ${cur}`;
     info.appendChild(desc);
     row.appendChild(info);
 
@@ -178,16 +177,16 @@ function renderSellTab(itemsEl, shop) {
   const sellFilter = shop.sellFilter || [];
 
   // Itens vendáveis: estão no inventário, batem com o filtro, e NÃO são quest.
-  const sellable = [];
+  const totals = new Map();
   for (const entry of playerStats.inventory) {
     if (!entry.qty || entry.qty <= 0) continue;
     const info = ITEMS_DB[entry.id];
-    if (!info) continue;
-    if (info.kind === 'quest') continue;           // ← bloqueio duro
+    if (!info || info.kind === 'quest') continue;
     if (!sellFilter.includes(info.kind)) continue;
     if (!info.sellPrice || info.sellPrice <= 0) continue;
-    sellable.push({ id: entry.id, qty: entry.qty, info });
+    totals.set(entry.id, (totals.get(entry.id) || 0) + entry.qty);
   }
+  const sellable = [...totals].map(([id, qty]) => ({ id, qty, info: ITEMS_DB[id] }));
 
   if (sellable.length === 0) {
     const p = document.createElement('p');
@@ -224,12 +223,7 @@ function renderSellTab(itemsEl, shop) {
     sellOne.className = 'shop-sell';
     sellOne.textContent = `Vender 1 (${item.info.sellPrice})`;
     sellOne.onclick = () => {
-      const original = playerStats.inventory.find(i => i.id === item.id);
-      if (!original || original.qty <= 0) return;
-      original.qty--;
-      if (original.qty <= 0) {
-        playerStats.inventory = playerStats.inventory.filter(i => i.id !== item.id);
-      }
+      if (removeItem(playerStats.inventory, item.id, 1) < 1) return;
       playerStats.gold += item.info.sellPrice;
       saveGame();
       renderBody(container);
@@ -242,23 +236,25 @@ function renderSellTab(itemsEl, shop) {
     };
     row.appendChild(sellOne);
 
-    // Botão 2: Vender tudo (só se qty > 1)
+    // Botão 2: Vender tudo (só se qty total > 1)
     if (item.qty > 1) {
       const sellAll = document.createElement('button');
       sellAll.className = 'shop-sell shop-sell-all';
       sellAll.textContent = `Vender tudo (${item.info.sellPrice * item.qty})`;
       sellAll.onclick = () => {
-        const original = playerStats.inventory.find(i => i.id === item.id);
-        if (!original) return;
-        const total = item.info.sellPrice * original.qty;
-        playerStats.inventory = playerStats.inventory.filter(i => i.id !== item.id);
-        playerStats.gold += total;
+        // Soma TODOS os slots, não só o primeiro
+        const n = countItem(playerStats.inventory, item.id);
+        if (n <= 0) return;
+
+        removeItem(playerStats.inventory, item.id, n);
+        playerStats.gold += item.info.sellPrice * n;
+
         saveGame();
         renderBody(container);
         showToast({
           itemId: item.id,
-          title: `${item.info.name} (x${item.qty})`,
-          subtitle: `+${total} ouro`,
+          title: `${item.info.name} (x${n})`,
+          subtitle: `+${item.info.sellPrice * n} ouro`,
           color: '#f0c060',
         });
       };

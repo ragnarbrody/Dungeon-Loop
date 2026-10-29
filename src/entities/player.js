@@ -13,6 +13,8 @@ import { findNearbyInteractable } from '../world/interactables.js';
 import { revealRoom } from '../world/knowledge.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
 import { showToast } from '../ui/toast.js';
+import { consumeCaveCollapseNotice } from '../quests.js';
+import { openDialogue } from '../ui/dialogue.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -209,6 +211,21 @@ function leaveDungeon() {
 
   setTransitionCooldown(30);
   saveGame();
+
+  // ---- Se a quest foi concluída, a caverna desabou ----
+  if (consumeCaveCollapseNotice()) {
+    sfx('collapse');
+    // pequeno delay pra dar tempo do som "pegar" antes do texto
+    setTimeout(() => {
+      openDialogue({
+        title: 'Desabamento',
+        text:
+          'Você sobe os últimos degraus e sente o chão tremer.\n\n' +
+          'Atrás de você, a entrada da caverna desmorona — pedra, poeira e escuridão.\n\n' +
+          'Não há mais como voltar lá para dentro.',
+      });
+    }, 400);
+  }
 }
 
 export function updatePlayer(dt) {

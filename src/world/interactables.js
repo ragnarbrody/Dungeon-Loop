@@ -90,6 +90,10 @@ export function getInteractables(room) {
       if (it.kind === 'cave_entrance') {
         if (!isQuestActive('story_cave')) continue;
       }
+
+      if (it.kind === 'caged_villager') {
+        if (!isQuestActive('story_cave')) continue;
+      }
       list.push({ ...it });
     }
   }
@@ -179,6 +183,7 @@ export function findNearbyInteractable(room) {
     shop_keep:         0,
     elder:             0,
     cave_entrance:     1,
+    caged_villager:    1,
     lost_backpack:     1,
     portal:            1,
     sign:              2,

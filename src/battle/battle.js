@@ -226,6 +226,7 @@ function tryDodge(e) {
     flashEnemyAt(e, 'white');
     spawnFloatingText(e, 'ESQUIVA', '#8ad8ff');
     battle.message += ` ${e.name} esquivou!`;
+    sfx('miss');
     return true;
   }
   return false;
@@ -329,6 +330,7 @@ export function startBattle(opts = {}) {
   playerStats.buffs = {};
   playerStats._mpRegenAcc = 0;
   playerStats.poisoned = null;
+  playerStats.bleeding = null;
 
   let chosenId;
   let pool = null;
@@ -396,6 +398,7 @@ export function endBattle(escaped) {
   playerStats.buffs = {};
   playerStats._mpRegenAcc = 0;
   playerStats.poisoned = null;
+  playerStats.bleeding = null;
   saveGame();
   updateHud();
 
@@ -420,6 +423,7 @@ const SKILL_IMPL = {
     const hitChance = Math.min(0.95, 0.70 + effStat('agi') * 0.02);
     if (Math.random() >= hitChance) {
       battle.message = 'Seu ataque rápido errou!';
+      sfx('miss');
       return;
     }
     if (tryDodge(t)) {
@@ -446,6 +450,7 @@ const SKILL_IMPL = {
     const hitChance = Math.min(0.95, 0.70 + effStat('agi') * 0.02) - 0.15;
     if (Math.random() >= hitChance) {
       battle.message = 'Seu ataque forte errou!';
+      sfx('miss');
       return;
     }
     const base = Math.round(battle.player.atk * 1.8);
@@ -464,6 +469,7 @@ const SKILL_IMPL = {
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) {
       battle.message = 'Golpe Giratório não acertou ninguém!';
+      sfx('miss'); 
       return;
     }
 
@@ -482,6 +488,7 @@ const SKILL_IMPL = {
 
     if (hits === 0) {
       battle.message = 'Golpe Giratório não acertou ninguém!';
+      sfx('miss'); 
       return;
     }
 
@@ -548,6 +555,7 @@ const SKILL_IMPL = {
 
     if (hits === 0) {
       battle.message = 'Impacto Arcano não acertou ninguém!';
+      sfx('miss'); 
       return;
     }
 
@@ -588,6 +596,7 @@ const SKILL_IMPL = {
     const hitChance = Math.min(0.95, 0.75 + effStat('agi') * 0.02);
     if (Math.random() >= hitChance) {
       battle.message = 'Seu ataque furtivo errou!';
+      sfx('miss');
       return;
     }
     const dmg = Math.max(1, Math.round((2 + effStat('str') * 2) * 1.6) + rand(-1, 2));
@@ -638,6 +647,7 @@ const SKILL_IMPL = {
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) {
       battle.message = 'Flecha Perfurante não acertou ninguém!';
+      sfx('miss');
       return;
     }
 
@@ -664,9 +674,12 @@ const SKILL_IMPL = {
       sfx('hit');
     }
     
-    battle.message = hits === 0
-      ? 'Flecha Perfurante não acertou ninguém!'
-      : `Flecha Perfurante! ${total} de dano em ${hits} inimigo(s).`;
+    if (hits === 0) {
+      battle.message = 'Flecha Perfurante não acertou ninguém!';
+      sfx('miss');
+    } else {
+      battle.message = `Flecha Perfurante! ${total} de dano em ${hits} inimigo(s).`;
+    }
     battle.anim.shake = 0.35;
     battle.anim.flashEnemy = 0.3;
   },
@@ -838,6 +851,7 @@ export function playerAction(action) {
     // Se a skill ignora hiding, deixa passar
     if (!SKILLS_THAT_IGNORE_HIDING.has(skill.id)) {
       battle.message = 'Não há alvo visível! (o inimigo está escondido)';
+      sfx('miss');
       return;
     }
   }
@@ -865,20 +879,32 @@ export function playerAction(action) {
 }
 
 function tickStatusEffects() {
-  // Lógica de veneno existente
-  if (playerStats.poisoned) {
-    // ...
+  const partes = [];
+
+  if (playerStats.poisoned && playerStats.poisoned.turns > 0) {
+    playerStats.hp = Math.max(0, playerStats.hp - playerStats.poisoned.dmg);
+    spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.64, `-${playerStats.poisoned.dmg}`, '#9b3fb5');
+    partes.push(`veneno (-${playerStats.poisoned.dmg} HP)`);
+    playerStats.poisoned.turns--;
+    if (playerStats.poisoned.turns <= 0) {
+      playerStats.poisoned = null;
+      partes.push('o veneno passou');
+    }
   }
-  // --- NOVO: Lógica de Sangramento ---
-  if (playerStats.bleeding) {
+
+  if (playerStats.bleeding && playerStats.bleeding.turns > 0) {
     playerStats.hp = Math.max(0, playerStats.hp - playerStats.bleeding.dmg);
-    spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.68, `-${playerStats.bleeding.dmg}`, '#ff3b3b'); // Vermelho
-    battle.message += ` Sangramento causa ${playerStats.bleeding.dmg} de dano.`;
+    spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.68, `-${playerStats.bleeding.dmg}`, '#ff3b3b');
+    partes.push(`sangramento (-${playerStats.bleeding.dmg} HP)`);
     playerStats.bleeding.turns--;
     if (playerStats.bleeding.turns <= 0) {
       playerStats.bleeding = null;
-      battle.message += ' O sangramento parou.';
+      partes.push('o sangramento parou');
     }
+  }
+
+  if (partes.length > 0) {
+    battle.message = `Você sofre ${partes.join(' e ')}.`;
     saveGame();
   }
 }
@@ -1249,6 +1275,7 @@ export function enemyTurn() {
         `${playerStats.hp}/${playerStats.maxHp}`;
     } else {
       battle.message = `${e.name} errou o ataque!`;
+      sfx('miss');
       battle.anim.lungeEnemy = 0;
     }
 

@@ -2,7 +2,7 @@
 import { playerEquip, ITEM_INFO } from '../sprites/equipment.js';
 import { playerStats, saveGame } from '../core/state.js';
 import {
-  CONSUMABLES, ITEMS_DB, RARITY_COLORS, RARITY_ORDER, addItemToInventory
+  CONSUMABLES, ITEMS_DB, RARITY_COLORS, RARITY_ORDER, addItemToInventory, removeItem
 } from '../items.js';
 import { getIcon, appendIcon } from '../sprites/icons.js';
 import { CLASSES } from '../classes.js';
@@ -38,26 +38,8 @@ function equipItem(itemId) {
   const currentId = playerEquip[slot];
   if (currentId === itemId) return;
 
-  // 1) Confirma que o item está no inventário com qty > 0
-  const invItem = playerStats.inventory.find(i => i.id === itemId && i.qty > 0);
-  if (!invItem) return;
-
-  // 2) Remove 1 unidade (splice em vez de filter)
-  invItem.qty--;
-  if (invItem.qty <= 0) {
-    const idx = playerStats.inventory.indexOf(invItem);
-    if (idx >= 0) playerStats.inventory.splice(idx, 1);
-  }
-
-  // 3) Devolve o equipamento anterior pro inventário (push direto, sem cap)
-  if (currentId) {
-    const existing = playerStats.inventory.find(i => i.id === currentId);
-    if (existing) {
-      existing.qty++;
-    } else {
-      playerStats.inventory.push({ id: currentId, qty: 1 });
-    }
-  }
+  if (removeItem(playerStats.inventory, itemId, 1) < 1) return;
+  if (currentId) addItemToInventory(playerStats.inventory, currentId, 1);
 
   // 4) Equipa
   playerEquip[slot] = itemId;
@@ -71,12 +53,7 @@ function unequipSlot(slotId) {
   if (!currentId) return;
 
   // Devolve o item pro inventário
-  const existing = playerStats.inventory.find(i => i.id === currentId);
-  if (existing) {
-    existing.qty++;
-  } else {
-    playerStats.inventory.push({ id: currentId, qty: 1 });
-  }
+  addItemToInventory(playerStats.inventory, currentId, 1);
 
   playerEquip[slotId] = null;
   saveGame();
@@ -219,7 +196,7 @@ function renderInventoryTab(parent) {
     if (!entry.qty || entry.qty <= 0) continue;   // ← NOVO: ignora qty 0
     const info = ITEMS_DB[entry.id];
     if (!info) continue;
-    allItems.push({ id: entry.id, qty: entry.qty, info });
+    allItems.push({ id: entry.id, qty: entry.qty, info, entry });
   }
 
   const kindOrder = {
@@ -325,12 +302,10 @@ function createItemTile(item, qty) {
     tile.style.cursor = 'pointer';
     tile.onclick = () => {
       const result = info.use(playerStats);
-      const original = playerStats.inventory.find(i => i.id === info.id);
-      if (original) {
-        original.qty--;
-        if (original.qty <= 0) {
-          playerStats.inventory = playerStats.inventory.filter(i => i.id !== info.id);
-        }
+      item.entry.qty--;
+      if (item.entry.qty <= 0) {
+        const idx = playerStats.inventory.indexOf(item.entry);
+        if (idx >= 0) playerStats.inventory.splice(idx, 1);
       }
       saveGame();
       renderInventory();

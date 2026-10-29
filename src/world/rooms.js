@@ -150,6 +150,22 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
     });
   }
 
+  // Jaula do aldeão (última sala da caverna da quest 5.2)
+  let cage = null;
+  let floorTorch = null;
+  const roomInteractables = [];
+  if (depth === CAVE_DEPTH - 1 && instanceId === 'cave_quest_5_2') {
+    cage = { tx: mid, ty: GRID_SIZE - 5 };
+    map[cage.ty][cage.tx] = T.TREE;
+    roomInteractables.push({ tx: cage.tx, ty: cage.ty, kind: 'caged_villager', title: 'Jaula' });
+
+    // Tocha fincada no chão, 2 tiles à esquerda da jaula (fora do tile sólido)
+    floorTorch = { tx: mid - 2, ty: GRID_SIZE - 5 };
+    if (map[floorTorch.ty]?.[floorTorch.tx] === T.CAVE_FLOOR) {
+      // fica como piso mesmo — não bloqueia
+    }
+  }
+
   // Decoração (algumas pedras)
   const occupied = new Set(enemies.map(e => `${e.tx},${e.ty}`));
   const numRocks = 5 + Math.floor(rng() * 5);
@@ -164,7 +180,10 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
   }
 
   // O nome da sala pode incluir o ID da instância
-  const name = `Caverna (${instanceId}) - Profundidade ${depth + 1}`;
+  const depthLabel = depth + 1;
+  const name = instanceId === 'cave_quest_5_2'
+    ? `Caverna Sombria - Profundidade ${depthLabel}`
+    : `Caverna (${instanceId}) - Profundidade ${depthLabel}`;
 
   return {
     map,
@@ -178,7 +197,9 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
     enemies,
     hasTrees: false,
     reserved: new Set(),
-    interactables: [],
+    interactables: roomInteractables, 
+    cage,
+    floorTorch,
   };
 }
 

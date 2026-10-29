@@ -35,6 +35,23 @@ const SFX = {
     toneGain: 0.50,
     toneSlideTo: 0.5,      // cai (multiplicador)
   },
+  miss: {
+    freq: 180, dur: 0.10,
+    type: 'triangle',
+    gain: 0.20,
+    // sem noise — é só um "whoosh" curto
+    slideTo: 0.6,        // cai (multiplicador)
+  },
+  collapse: {
+    freq: 80, dur: 0.6,
+    type: 'square',
+    gain: 0.35,
+    noise: true,
+    noiseFilter: 'lowpass',
+    noiseFreq: 300,
+    toneGain: 0.30,
+    toneSlideTo: 0.3,      // desce bastante — som de "desabamento"
+  },
   levelup: { freq: 523,  dur: 0.12, type: 'triangle', gain: 0.18, arp: [523, 659, 784, 1047] },
   victory: { freq: 523,  dur: 0.12, type: 'square',   gain: 0.18, arp: [523, 659, 784] },
   defeat:  { freq: 392,  dur: 0.20, type: 'sine',     gain: 0.20, arp: [392, 330, 262] },

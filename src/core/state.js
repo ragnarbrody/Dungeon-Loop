@@ -8,6 +8,7 @@ import { loadKnowledge, serializeKnowledge, revealRoom, addMarker, revealMarker,
 import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter, setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter  } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
 import { dungeonCache } from '../world/rooms.js';
+import { normalizeInventory } from '../items.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -75,10 +76,12 @@ export const playerStats = {
   inventory: savedData.inventory ?? [],
   shadowActive: false,
   poisoned: null,
+  bleeding: null,
   gold: savedData.gold ?? 0,
   portalCores: new Set(savedData.portalCores ?? []),
 };
 
+normalizeInventory(playerStats.inventory);
 // Garante que o HP/MP não passem do máximo
 if (playerStats.hp > playerStats.maxHp) playerStats.hp = playerStats.maxHp;
 if (playerStats.mp > playerStats.maxMp) playerStats.mp = playerStats.maxMp;

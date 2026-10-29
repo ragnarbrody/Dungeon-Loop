@@ -23,6 +23,7 @@ import { openAudioMenu, closeAudioMenu, isAudioMenuOpen } from './audiomenu.js';
 import { isQuestActive } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { showToast } from './toast.js';
+import { talkToCagedVillager } from './villagerrescue.js';
 
 export const keys = {};
 
@@ -253,6 +254,8 @@ export function installInput() {
               text: 'A mochila está vazia.',
             });
           }
+        } else if (it.kind === 'caged_villager') {
+          talkToCagedVillager();
         }
         for (let kk in keys) keys[kk] = false;
       }
