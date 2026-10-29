@@ -1,10 +1,14 @@
 import { currentRoom, playerStats } from '../core/state.js';
 import { CLASSES } from '../classes.js';
 import { getIcon } from '../sprites/icons.js';
+import { getTimeState } from '../core/timeofday.js';
 
 export const roomLabel  = document.getElementById('room-name');
 export const coordsLabel = document.getElementById('room-coords');
 export const hud        = document.getElementById('hud');
+
+const elTime = document.getElementById('hud-time');
+const elTimeLabel = document.getElementById('hud-time-label');
 
 const elHp    = document.getElementById('hud-hp');
 const elMp    = document.getElementById('hud-mp');
@@ -40,4 +44,14 @@ export function updateHud() {
   if (elXp) elXp.textContent = `${playerStats.xp}/${playerStats.xpToNextLevel}`;
   if (elGold) elGold.textContent = playerStats.gold;
   if (elLvl) elLvl.textContent = playerStats.level;
+
+  const time = getTimeState();
+  if (elTime) elTime.textContent = time.formatted;
+  if (elTimeLabel) {
+    elTimeLabel.textContent = time.label;
+    elTimeLabel.style.color =
+      time.label === 'Noite' ? '#8a9aff' :
+      time.label === 'Entardecer' ? '#ffb070' :
+      time.label === 'Manhã' ? '#f5d98a' : '#aaa';
+  }
 }

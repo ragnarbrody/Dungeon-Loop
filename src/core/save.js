@@ -19,7 +19,7 @@ const SAVE_KEY = 'dungeonLoop_save';
 
 // Sempre que adicionar uma migração, sobe esse número e adiciona
 // uma entrada em MIGRATIONS.
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 // ---------- Helpers de validação ----------
 function isObject(v) {
@@ -136,6 +136,16 @@ const MIGRATIONS = {
     }
     return data;
   },
+
+  // v3 -> v4: adiciona `timeOfDay` (hora do jogo 0..24)
+  3: (data) => {
+    if (typeof data.timeOfDay !== 'number' || !Number.isFinite(data.timeOfDay)) {
+      data.timeOfDay = 8; // começa de manhã
+    }
+    // Normaliza pro range [0, 24)
+    data.timeOfDay = ((data.timeOfDay % 24) + 24) % 24;
+    return data;
+  },
 };
 
 // ---------- Defaults ----------
@@ -162,6 +172,7 @@ export function getDefaultSave() {
     gy: 0,
     px: null,
     py: null,
+    timeOfDay: 8,
     visited: ['0,0'],
     worldSeed: Math.floor(Math.random() * 1e9),
     // knowledge

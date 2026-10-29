@@ -12,7 +12,8 @@ import { drawMapEnemies } from '../entities/enemies.js';
 import { NPC_SPRITES } from '../sprites/npcs.js';
 import { getTrackedQuest, getProgress, isQuestReadyToComplete,
          isQuestActive, isQuestCompleted } from '../quests.js';
-         import { playerEquip } from '../sprites/equipment.js';
+import { playerEquip } from '../sprites/equipment.js';
+import { getTimeState, getTimeOfDay } from '../core/timeofday.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -442,6 +443,64 @@ export function renderExplore() {
     }
   }
 
+// ---------- DIA/NOITE (fora de cidade/interior) ----------
+if (!currentRoom.isCity && !currentRoom.isInterior && biomeId !== 'cave') {
+  const time = getTimeState();
+
+  // 1) Overlay de cor (noite = azul, entardecer = laranja, etc.)
+  if (time.darkness > 0.01) {
+    const [r, g, b] = time.overlay;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${time.darkness * 0.65})`;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  }
+
+  // 2) Vinheta escura nas bordas quando está mais escuro
+  //    (dá profundidade sem escurecer o centro onde o player está)
+  if (time.darkness > 0.2) {
+    const cx = player.x;
+    const cy = player.y;
+    const radius = 260;
+    const grd = ctx.createRadialGradient(cx, cy, radius * 0.35, cx, cy, radius);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, `rgba(0,0,0,${0.45 * time.darkness})`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  }
+
+  // 3) Luz da tocha equipada (se tiver)
+  if (playerEquip.leftHand === 'torch') {
+    const lightX = player.x;
+    const lightY = player.y;
+    // À noite a tocha é mais útil; de dia quase não se nota
+    const torchStrength = Math.min(0.55, time.darkness * 0.85);
+    if (torchStrength > 0.05) {
+      // "fura" o overlay (destination-out) ao redor do player
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      const grd = ctx.createRadialGradient(lightX, lightY, 8, lightX, lightY, 110);
+      grd.addColorStop(0, `rgba(0,0,0,${torchStrength})`);
+      grd.addColorStop(0.5, `rgba(0,0,0,${torchStrength * 0.5})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(lightX, lightY, 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // brilho quente sutil
+      ctx.save();
+      const warm = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, 70);
+      warm.addColorStop(0, `rgba(255,180,90,${torchStrength * 0.35})`);
+      warm.addColorStop(1, 'rgba(255,180,90,0)');
+      ctx.fillStyle = warm;
+      ctx.beginPath();
+      ctx.arc(lightX, lightY, 70, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
   drawFloorTorch(currentRoom);
   // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
   drawQuestTracker();
@@ -732,6 +791,51 @@ function renderCity(room) {
 
   // ---------- PORTAL (estátua + portal) ----------
   drawPortalStatue(room.portal, mid);
+
+  // ---------- LUZES NOTURNAS (cidade) ----------
+  const time = getTimeState();
+  if (time.darkness > 0.15) {
+    const intensity = Math.min(1, (time.darkness - 0.15) / 0.55);
+
+    // --- Portal: brilho roxo pulsante ---
+    const px = room.portal.tx * TILE_SIZE + TILE_SIZE / 2;
+    const py = room.portal.ty * TILE_SIZE + TILE_SIZE / 2;
+    const pulse = 0.75 + Math.sin(performance.now() / 500) * 0.25;
+    const portalGrd = ctx.createRadialGradient(px, py, 4, px, py, 90);
+    portalGrd.addColorStop(0, `rgba(200,150,255,${0.55 * intensity * pulse})`);
+    portalGrd.addColorStop(0.5, `rgba(140,90,220,${0.25 * intensity * pulse})`);
+    portalGrd.addColorStop(1, 'rgba(120,60,180,0)');
+    ctx.fillStyle = portalGrd;
+    ctx.beginPath();
+    ctx.arc(px, py, 90, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- Janelas: brilho quente nas casas ---
+    for (const obj of room.cityObjects) {
+      const x = obj.tx * TILE_SIZE;
+      const y = obj.ty * TILE_SIZE;
+      const w = obj.w * TILE_SIZE;
+
+      const winY = y + 30;
+      const winW = 10;
+      const winH = 8;
+
+      // Replica a posição das janelas do drawBuilding
+      const windows = [
+        { cx: x + w * 0.25, cy: winY + winH / 2 },
+        { cx: x + w * 0.75, cy: winY + winH / 2 },
+      ];
+      for (const win of windows) {
+        const g = ctx.createRadialGradient(win.cx, win.cy, 1, win.cx, win.cy, 40);
+        g.addColorStop(0, `rgba(255,210,120,${0.45 * intensity})`);
+        g.addColorStop(1, 'rgba(255,210,120,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(win.cx, win.cy, 40, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
 
   // ---------- ESTANDARTES (ao lado das portas) ----------
   for (const obj of room.cityObjects) {
@@ -1330,6 +1434,13 @@ function renderInterior(room) {
     offY + player.y - (32 * scale) / 2,
     32 * scale, 32 * scale
   );
+
+  const time = getTimeState();
+  if (time.darkness > 0.3) {
+    // só uma penumbra MUITO leve — interiores têm velas/lampiões
+    ctx.fillStyle = `rgba(20, 15, 30, ${0.18 * time.darkness})`;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  }
 }
 
 function drawLostBackpack(px, py) {

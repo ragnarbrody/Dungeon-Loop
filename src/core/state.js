@@ -9,6 +9,7 @@ import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter,
 import { setMusicMode, sfx } from '../audio/audio.js';
 import { dungeonCache } from '../world/rooms.js';
 import { normalizeInventory } from '../items.js';
+import { loadTime, serializeTime } from './timeofday.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -21,6 +22,11 @@ if (savedData.knowledge) {
 //
 if (savedData.quests) {
   loadQuests(savedData.quests);
+}
+
+// Aplica o horário do save (se houver)
+if (savedData.timeOfDay !== undefined) {
+  loadTime({ timeOfDay: savedData.timeOfDay });
 }
 
 // ---------- Estados ----------
@@ -147,6 +153,9 @@ export function buildSaveData() {
 
     // Missões
     quests: serializeQuests(),
+
+    // Horário do dia (persistente)
+    ...serializeTime(),
   };
 }
 

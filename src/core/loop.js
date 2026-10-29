@@ -19,6 +19,7 @@ import { addItemToInventory } from '../items.js';
 import { getDefaultSave, writeSave } from '../core/save.js';
 import { resetQuests } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
+import { tickTime, startDayCycle } from './timeofday.js';
 
 let lastTime = performance.now();
 
@@ -189,6 +190,9 @@ function requestNewGame() {
       battle.tooltipSkill = null;
       battle.tooltipPos = null;
 
+      // ---- 6.5) Reinicia o horário pra manhã (novo jogo) ----
+      startDayCycle(true);
+
       // ---- 7) Grava já de cara ----
       saveGame();
       finishStart();
@@ -236,6 +240,7 @@ function finishStart() {
   }
 
   updateHud();
+  startDayCycle(false);
 
   // garante que a música bate com a sala atual.
   // (Se for cidade → 'aethel'; senão → biomeId.)
@@ -285,6 +290,7 @@ export function loop(now) {
       setMusicMode('menu');
     }
   } else if (gameState === STATE.EXPLORE) {
+    tickTime(dt);
     if (playerStats.points > 0) {
       setGameState(STATE.LEVEL_UP);
       sfx('levelup');
