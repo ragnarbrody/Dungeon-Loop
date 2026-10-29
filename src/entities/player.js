@@ -222,7 +222,8 @@ function leaveDungeon() {
         text:
           'Você sobe os últimos degraus e sente o chão tremer.\n\n' +
           'Atrás de você, a entrada da caverna desmorona — pedra, poeira e escuridão.\n\n' +
-          'Não há mais como voltar lá para dentro.',
+          'Não há mais como voltar lá para dentro.\n\n' +
+          '\nVocê se pergunta se o aldeão conseguiu escapar...\n\n',
       });
     }, 400);
   }
