@@ -370,6 +370,107 @@ export const ICONS = {
     p(9, 16, 1, 1, string);    // corda (base)
   }),
 
+  steel_sword: makeIcon((g) => {
+    const p = px(g);
+    // Lâmina mais larga e clara (aço polido)
+    p(8, 2, 4, 12, '#c8d0d8');
+    p(8, 2, 4, 1, '#e8f0f8');       // brilho topo
+    p(8, 2, 1, 12, '#e8f0f8');      // fio esquerdo
+    p(11, 2, 1, 12, '#7a8290');     // sombra direita
+    // Guarda dourada (maior)
+    p(6, 14, 8, 2, '#a87a3a');
+    p(6, 14, 8, 1, '#d8a860');
+    // Cabo escuro
+    p(9, 16, 2, 3, '#4a2a1a');
+    p(9, 19, 2, 1, '#a87a3a');
+    // Gema vermelha no centro da guarda
+    p(9, 14, 2, 2, '#c93030');
+    p(9, 14, 1, 1, '#ff8a8a');
+  }),
+
+  war_axe: makeIcon((g) => {
+    const p = px(g);
+    // Cabo de madeira escura
+    p(9, 4, 2, 14, '#4a2a1a');
+    p(9, 4, 1, 14, '#6b4a2b');
+    // Cabeça dupla (dois lados simétricos) — machado de guerra
+    p(4, 4, 5, 8, '#a8b0b8');
+    p(11, 4, 5, 8, '#a8b0b8');
+    p(4, 4, 5, 1, '#d8e0e8');
+    p(11, 4, 5, 1, '#d8e0e8');
+    p(4, 11, 5, 1, '#5a6268');
+    p(11, 11, 5, 1, '#5a6268');
+    // Fio das lâminas (linhas escuras)
+    p(4, 7, 5, 1, '#5a6268');
+    p(11, 7, 5, 1, '#5a6268');
+    // Faixa dourada no cabo
+    p(9, 12, 2, 1, '#c9a24d');
+    // Ponta do cabo (pedra)
+    p(9, 17, 2, 1, '#8a7a5a');
+  }),
+
+  arcane_staff: makeIcon((g) => {
+    const p = px(g);
+    // Cabo de madeira roxa
+    p(9, 6, 2, 12, '#3a2a5a');
+    p(9, 6, 1, 12, '#5a4a7a');
+    p(10, 6, 1, 12, '#1a0a3a');
+    // Gema grande no topo
+    p(7, 2, 6, 5, '#a8e8ff');
+    p(8, 3, 4, 3, '#e8f8ff');
+    p(9, 4, 2, 1, '#ffffff');
+    // Aro dourado ao redor da gema
+    p(6, 2, 1, 5, '#c9a24d');
+    p(13, 2, 1, 5, '#c9a24d');
+    p(7, 1, 6, 1, '#c9a24d');
+    p(7, 7, 6, 1, '#c9a24d');
+    // Brilho mágico
+    p(10, 5, 1, 1, '#ffffff');
+  }),
+
+  ranger_bow: makeIcon((g) => {
+    const p = px(g);
+    // Arco maior, curvado, madeira escura
+    p(11, 1, 1, 2, '#4a2a1a');
+    p(12, 3, 1, 2, '#4a2a1a');
+    p(13, 5, 1, 10, '#4a2a1a');
+    p(12, 15, 1, 2, '#4a2a1a');
+    p(11, 17, 1, 2, '#4a2a1a');
+    // Detalhes de madeira clara (brilho no lado de dentro)
+    p(12, 5, 1, 10, '#8a5a3a');
+    p(11, 3, 1, 1, '#8a5a3a');
+    p(13, 14, 1, 1, '#8a5a3a');
+    // Sombra
+    p(14, 5, 1, 10, '#2a1a0a');
+    // Corda
+    p(10, 2, 1, 1, '#e8e8d8');
+    p(9, 3, 1, 14, '#e8e8d8');
+    p(10, 17, 1, 1, '#e8e8d8');
+    // Enfeite dourado
+    p(13, 10, 1, 1, '#c9a24d');
+    p(12, 10, 1, 1, '#c9a24d');
+  }),
+
+  shadow_dagger: makeIcon((g) => {
+    const p = px(g);
+    // Lâmina escura (quase preta)
+    p(9, 2, 2, 9, '#2a1a3e');
+    p(9, 2, 1, 9, '#6a4a8a');       // brilho esquerdo
+    p(10, 2, 1, 9, '#1a0a2a');      // sombra direita
+    // Fio mágico (linha roxa no topo)
+    p(8, 2, 4, 1, '#a87aff');
+    p(8, 2, 4, 1, '#a87aff');
+    // Guarda curta
+    p(7, 11, 6, 1, '#8a5a3a');
+    // Cabo escuro
+    p(9, 12, 2, 3, '#3a1a0a');
+    // Gema no pomo (roxa brilhante)
+    p(9, 15, 2, 2, '#d78cff');
+    p(9, 15, 1, 1, '#ffffff');
+    // Detalhe extra: pontinha afiada no topo
+    p(10, 1, 1, 1, '#a87aff');
+  }),
+
   map: makeIcon((g) => {
     const p = px(g);
     // Pergaminho enrolado
@@ -789,6 +890,195 @@ export const ICONS = {
     // Brilho ao redor (pulsante)
     p(7, 6, 1, 1, 'rgba(138, 216, 255, 0.5)');
     p(12, 8, 1, 1, 'rgba(138, 216, 255, 0.5)');
+  }),
+
+  iron_shield: makeIcon((g) => {
+    const p = px(g);
+    // Escudo de ferro: mais escuro, bordas metálicas
+    const rim    = '#7a8290';
+    const rimHi  = '#a8b0b8';
+    const face   = '#3a3a44';
+    const faceHi = '#4a4a55';
+    const shade  = '#1e1e26';
+    const emblem = '#c9a24d';
+
+    // Corpo principal
+    p(4, 3, 12, 12, rim);
+    p(5, 4, 10, 10, face);
+    // Brilho no topo
+    p(5, 4, 10, 1, faceHi);
+    p(4, 3, 12, 1, rimHi);
+    // Sombra embaixo
+    p(4, 14, 12, 1, shade);
+    p(5, 13, 10, 1, shade);
+    // Borda metálica lateral
+    p(4, 4, 1, 10, rimHi);
+    p(15, 4, 1, 10, shade);
+    // Emblema central
+    p(9, 8, 2, 1, emblem);
+    p(9, 8, 1, 4, emblem);
+  }),
+
+  runic_shield: makeIcon((g) => {
+    const p = px(g);
+    // Escudo rúnico: aço escuro com runas roxas
+    const rim    = '#4a4a55';
+    const rimHi  = '#6a6a78';
+    const face   = '#25252e';
+    const rune   = '#a87aff';
+    const runeHi = '#e0c8ff';
+    const shade  = '#0f0f18';
+
+    // Corpo
+    p(3, 3, 14, 13, rim);
+    p(4, 4, 12, 11, face);
+    p(4, 4, 12, 1, rimHi);
+    p(3, 15, 14, 1, shade);
+    p(3, 3, 14, 1, rimHi);
+    // Runas
+    p(8, 5, 1, 6, rune);           // vertical
+    p(9, 5, 1, 1, rune);           // ramo
+    p(9, 7, 2, 1, rune);           // ramo
+    p(9, 9, 1, 1, rune);           // ramo
+    p(11, 6, 1, 4, rune);          // runa lateral
+    p(12, 6, 1, 1, runeHi);        // brilho
+    // Base
+    p(4, 13, 12, 1, '#1a1a22');
+  }),
+
+  // ============================================================
+  // CONJUNTO DE COURO
+  // ============================================================
+  leather_helmet: makeIcon((g) => {
+    const p = px(g);
+    const leather = '#8a5a3a';
+    const leatherHi = '#a87a5a';
+    const leatherSh = '#5a3a24';
+    const stud    = '#c9a24d';
+
+    // Corpo do capacete (meia-lua)
+    p(5, 5, 10, 8, leather);
+    p(5, 5, 10, 1, leatherHi);
+    p(5, 12, 10, 1, leatherSh);
+    // Tira de couro na parte de baixo
+    p(4, 12, 12, 2, leatherSh);
+    p(4, 13, 12, 1, '#3a2410');
+    // Rebites laterais
+    p(6, 9, 1, 1, stud);
+    p(13, 9, 1, 1, stud);
+  }),
+
+  leather_armor: makeIcon((g) => {
+    const p = px(g);
+    const leather = '#8a5a3a';
+    const leatherHi = '#a87a5a';
+    const leatherSh = '#5a3a24';
+    const strap  = '#3a2410';
+
+    // Corpo (peitoral)
+    p(6, 4, 8, 12, leather);
+    p(6, 4, 8, 1, leatherHi);
+    p(6, 15, 8, 1, leatherSh);
+    // Alças nos ombros
+    p(4, 4, 2, 6, leatherSh);
+    p(14, 4, 2, 6, leatherSh);
+    // Cinto
+    p(5, 12, 10, 1, strap);
+    p(9, 12, 2, 1, '#c9a24d');   // fivela
+  }),
+
+  leather_boots: makeIcon((g) => {
+    const p = px(g);
+    const leather = '#8a5a3a';
+    const leatherHi = '#a87a5a';
+    const leatherSh = '#5a3a24';
+    const sole  = '#3a2410';
+
+    // Par de botas (uma de frente)
+    // Bota esquerda
+    p(4, 6, 4, 8, leather);
+    p(4, 6, 4, 1, leatherHi);
+    p(4, 13, 4, 2, sole);
+    p(4, 14, 6, 1, sole);         // bico
+    // Bota direita
+    p(11, 6, 4, 8, leather);
+    p(11, 6, 4, 1, leatherHi);
+    p(10, 13, 4, 2, sole);
+    p(10, 14, 6, 1, sole);
+  }),
+
+  // ============================================================
+  // CONJUNTO RÚNICO (aço + runas roxas)
+  // ============================================================
+  runic_helmet: makeIcon((g) => {
+    const p = px(g);
+    const steel    = '#3a3a44';
+    const steelHi  = '#5a5a68';
+    const steelSh  = '#1e1e26';
+    const rune     = '#a87aff';
+    const runeHi   = '#e0c8ff';
+
+    // Corpo
+    p(4, 4, 12, 10, steel);
+    p(4, 4, 12, 1, steelHi);
+    p(4, 13, 12, 1, steelSh);
+    // Viseira
+    p(5, 8, 10, 3, steelSh);
+    p(5, 8, 10, 1, '#2a2a34');
+    // Runa na testa
+    p(9, 5, 2, 1, rune);
+    p(9, 6, 1, 2, rune);
+    p(11, 6, 1, 1, rune);
+    p(10, 6, 1, 1, runeHi);
+    // Rebites
+    p(5, 12, 1, 1, steelHi);
+    p(14, 12, 1, 1, steelHi);
+  }),
+
+  runic_armor: makeIcon((g) => {
+    const p = px(g);
+    const steel    = '#3a3a44';
+    const steelHi  = '#5a5a68';
+    const steelSh  = '#1e1e26';
+    const rune     = '#a87aff';
+    const runeHi   = '#e0c8ff';
+
+    // Corpo
+    p(5, 4, 10, 12, steel);
+    p(5, 4, 10, 1, steelHi);
+    p(5, 15, 10, 1, steelSh);
+    // Ombros
+    p(3, 4, 2, 5, steelSh);
+    p(15, 4, 2, 5, steelSh);
+    // Runa central (vertical)
+    p(9, 6, 1, 6, rune);
+    p(10, 6, 1, 1, runeHi);
+    p(9, 9, 2, 1, rune);
+    p(9, 11, 2, 1, rune);
+    // Cinto
+    p(5, 13, 10, 1, '#2a2a34');
+    p(9, 13, 2, 1, rune);
+  }),
+
+  runic_boots: makeIcon((g) => {
+    const p = px(g);
+    const steel    = '#3a3a44';
+    const steelHi  = '#5a5a68';
+    const steelSh  = '#1e1e26';
+    const rune     = '#a87aff';
+
+    // Greva esquerda
+    p(4, 4, 5, 10, steel);
+    p(4, 4, 5, 1, steelHi);
+    p(4, 13, 5, 2, steelSh);
+    p(4, 14, 7, 1, steelSh);
+    p(6, 6, 1, 4, rune);
+    // Greva direita
+    p(11, 4, 5, 10, steel);
+    p(11, 4, 5, 1, steelHi);
+    p(11, 13, 5, 2, steelSh);
+    p(10, 14, 7, 1, steelSh);
+    p(13, 6, 1, 4, rune);
   }),
 
   // ----- ITENS DE MISSÕES ------

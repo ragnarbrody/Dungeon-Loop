@@ -1,5 +1,5 @@
 // src/ui/inventory.js
-import { playerEquip, ITEM_INFO } from '../sprites/equipment.js';
+import { playerEquip, ITEM_INFO, getEquipBonusSources } from '../sprites/equipment.js';
 import { playerStats, saveGame } from '../core/state.js';
 import {
   CONSUMABLES, ITEMS_DB, RARITY_COLORS, RARITY_ORDER, addItemToInventory, removeItem
@@ -10,6 +10,7 @@ import { composeFrame } from '../sprites/compose.js';
 import { player } from '../core/state.js';
 import { showToast } from './toast.js';
 import { sfx } from '../audio/audio.js';
+import { attachTooltip } from './tooltip.js';
 
 let currentTab = 'inventory';
 let inventoryPage = 0;
@@ -27,12 +28,55 @@ const EQUIP_SLOTS = [
   { id: 'ring2',      label: 'Anel 2',      icon: 'ring' },
 ];
 
+const STAT_LABELS = {
+  str: 'Força',
+  agi: 'Agilidade',
+  int: 'Inteligência',
+  def: 'Defesa',
+  vit: 'Vitalidade',
+  magia: 'Magia',
+};
+
 // ============================================================
 // EQUIPAR / DESEQUIPAR
 // ============================================================
 function equipItem(itemId) {
   const info = ITEMS_DB[itemId];
   if (!info || !info.slot) return;
+
+  // ---- Requisitos ----
+  const reqLevel = info.reqLevel ?? 1;
+  if (playerStats.level < reqLevel) {
+    showToast({
+      itemId: info.id,
+      title: 'Requisito não atendido',
+      subtitle: `Precisa de nível ${reqLevel}.`,
+      color: '#ff6b6b',
+    });
+    return;
+  }
+
+  const reqStats = info.reqStats || {};
+  const missing = [];
+  for (const stat in reqStats) {
+    // IMPORTANTE: checar contra o stat BASE, não o effStat,
+    // senão dá pra burlar com anel.
+    const base = playerStats[stat] || 0;
+    const need = reqStats[stat];
+    if (base < need) {
+      const label = STAT_LABELS[stat] || stat;
+      missing.push(`${label} ${need}`);
+    }
+  }
+  if (missing.length > 0) {
+    showToast({
+      itemId: info.id,
+      title: 'Requisito não atendido',
+      subtitle: `Precisa de ${missing.join(', ')}.`,
+      color: '#ff6b6b',
+    });
+    return;
+  }
 
   const slot = info.slot;
   const currentId = playerEquip[slot];
@@ -41,7 +85,6 @@ function equipItem(itemId) {
   if (removeItem(playerStats.inventory, itemId, 1) < 1) return;
   if (currentId) addItemToInventory(playerStats.inventory, currentId, 1);
 
-  // 4) Equipa
   playerEquip[slot] = itemId;
   saveGame();
   sfx('equip');
@@ -135,7 +178,6 @@ function renderTabs(parent) {
 }
 
 function renderStatsHeader() {
-  // (idêntico ao seu)
   const statsHeader = document.getElementById('inventory-stats');
   if (!statsHeader) return;
   statsHeader.innerHTML = '';
@@ -165,21 +207,69 @@ function renderStatsHeader() {
   const grid = document.createElement('div');
   grid.style.cssText = 'font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;';
 
+  // Fontes de bônus por stat (uma vez só, evita recalcular)
+  const eqSources = getEquipBonusSources(playerEquip);
+
   const statRows = [
-    { id: 'str',   label: 'Força',        val: playerStats.str },
-    { id: 'agi',   label: 'Agilidade',    val: playerStats.agi },
-    { id: 'int',   label: 'Inteligência', val: playerStats.int },
-    { id: 'def',   label: 'Defesa',       val: playerStats.def },
-    { id: 'vit',   label: 'Vitalidade',   val: playerStats.vit },
-    { id: 'magia', label: 'Magia',        val: playerStats.magia },
+    { id: 'str',   label: 'Força' },
+    { id: 'agi',   label: 'Agilidade' },
+    { id: 'int',   label: 'Inteligência' },
+    { id: 'def',   label: 'Defesa' },
+    { id: 'vit',   label: 'Vitalidade' },
+    { id: 'magia', label: 'Magia' },
   ];
 
   for (const row of statRows) {
+    const base = playerStats[row.id] || 0;
+    const sources = eqSources[row.id] || [];
+    const bonus = sources.reduce((acc, s) => acc + s.amount, 0);
+    const total = base + bonus;
+    const modified = bonus !== 0;
+
     const line = document.createElement('span');
     line.style.cssText = 'display:flex; align-items:center; gap:4px;';
-    appendIcon(line, row.id, 14);
+
+    // Ícone maior (18px em vez de 14)
+    appendIcon(line, row.id, 18);
+
+    // Texto com cor diferente se modificado
     const txt = document.createElement('span');
-    txt.textContent = `${row.label}: ${row.val}`;
+    txt.textContent = modified
+      ? `${row.label}: ${total} `
+      : `${row.label}: ${total}`;
+    if (modified) {
+      txt.style.color = '#8ad8ff';   // azul claro = buffado
+      txt.style.fontWeight = 'bold';
+    } else {
+      txt.style.color = '#ddd';
+    }
+
+    // Parte do bônus, em outra cor, tipo "(+3)"
+    if (modified) {
+      const bonusSpan = document.createElement('span');
+      const sign = bonus > 0 ? '+' : '';
+      bonusSpan.textContent = `(${sign}${bonus})`;
+      bonusSpan.style.color = bonus > 0 ? '#6fbd63' : '#ff6b6b';
+      bonusSpan.style.fontSize = '11px';
+      txt.appendChild(bonusSpan);
+    }
+
+    // Tooltip no hover (dentro do <span> wrapper, pra pegar a linha toda)
+    if (modified) {
+      const detail = sources
+        .map(s => `${s.amount > 0 ? '+' : ''}${s.amount} ${s.name}`)
+        .join('\n');
+      attachTooltip(line, () => ({
+        title: STAT_LABELS[row.id] || row.label,
+        lines: [
+          `Base: ${base}`,
+          `Equipamento:`,
+          detail,
+          `Total: ${total}`,
+        ],
+      }));
+    }
+
     line.appendChild(txt);
     grid.appendChild(line);
   }
@@ -294,10 +384,43 @@ function createItemTile(item, qty) {
   tile.className = 'inv-item-tile'
     + (isQuest ? ' quest-item' : '')
     + (isCombatOnly ? ' combat-only' : '');
-  tile.title = isCombatOnly
-    ? `${info.description || info.name} — utilizável apenas em combates.`
-    : (info.description || info.name);
 
+  // ---- Tooltip estilizado ----
+  const tooltipTitle = info.name;
+  const tooltipLines = [info.description || info.name];
+  if (isCombatOnly) tooltipLines.push('— utilizável apenas em combates.');
+
+  // Requisitos: cada um com cor baseada em se o jogador cumpre
+  const reqLines = [];
+  if (info.reqLevel && info.reqLevel > 1) {
+    const ok = playerStats.level >= info.reqLevel;
+    reqLines.push({
+      text: `Nível ${info.reqLevel}`,
+      color: ok ? '#6fbd63' : '#ff6b6b',
+    });
+  }
+  if (info.reqStats) {
+    for (const stat in info.reqStats) {
+      const need = info.reqStats[stat];
+      const base = playerStats[stat] || 0;
+      const ok = base >= need;
+      reqLines.push({
+        text: `${STAT_LABELS[stat] || stat} ${need}`,
+        color: ok ? '#6fbd63' : '#ff6b6b',
+      });
+    }
+  }
+  if (reqLines.length > 0) {
+    tooltipLines.push('Requer:');
+    for (const r of reqLines) tooltipLines.push(r);
+  }
+
+  attachTooltip(tile, () => ({
+    title: tooltipTitle,
+    lines: tooltipLines,
+  }));
+
+  // ---- Comportamento ----
   if (isConsumable) {
     tile.style.cursor = 'pointer';
     tile.onclick = () => {
@@ -317,6 +440,7 @@ function createItemTile(item, qty) {
     tile.onclick = () => equipItem(info.id);
   }
 
+  // ---- Estilo ----
   const color = RARITY_COLORS[info.rarity] || '#bbb';
   tile.style.cssText += `
     width: 100%;
@@ -350,7 +474,6 @@ function createItemTile(item, qty) {
     tile.appendChild(kindEl);
   }
 
-  // Ícone
   const iconSize = isCombatOnly ? '24px' : '28px';
   const icon = getIcon(info.icon || info.id);
   icon.style.width = iconSize;
@@ -364,7 +487,6 @@ function createItemTile(item, qty) {
   name.textContent = info.name;
   tile.appendChild(name);
 
-  // aviso de "só em combate"
   if (isCombatOnly) {
     const warn = document.createElement('span');
     warn.style.cssText = `
@@ -384,6 +506,50 @@ function createItemTile(item, qty) {
     qtyEl.style.cssText = 'position: absolute; top: 3px; right: 5px; font-size: 11px; color: #eee; font-weight: bold; text-shadow: 1px 1px 0 #000;';
     qtyEl.textContent = `x${qty}`;
     tile.appendChild(qtyEl);
+  }
+
+  // ---- Selo de "equipável" (canto inferior direito) ----
+  // Um mini-escudo desenhado com CSS puro (borda + triângulo), sem imagem.
+  // Só aparece em itens que têm `slot` e não são consumíveis/quest.
+  if (isEquippable) {
+    const seal = document.createElement('div');
+    seal.title = 'Equipável';
+    seal.style.cssText = `
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      width: 12px;
+      height: 14px;
+      background: linear-gradient(180deg, #c9a24d 0%, #8a6a2a 100%);
+      border: 1px solid #f0d27a;
+      border-radius: 0 0 50% 50% / 0 0 35% 35%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+      pointer-events: none;
+    `;
+    // Pequena "cruz" no centro do escudo (dá leitura de "equipamento")
+    const inner = document.createElement('div');
+    inner.style.cssText = `
+      position: absolute;
+      top: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 6px;
+      background: #3a2a10;
+    `;
+    seal.appendChild(inner);
+    const horizontal = document.createElement('div');
+    horizontal.style.cssText = `
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 2px;
+      background: #3a2a10;
+    `;
+    seal.appendChild(horizontal);
+    tile.appendChild(seal);
   }
 
   return tile;

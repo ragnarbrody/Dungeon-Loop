@@ -301,6 +301,27 @@ function clearDeadEnemies() {
   return before !== battle.enemies.length;
 }
 
+// Stat de dano da classe atual
+function classDamageStat() {
+  const cls = CLASSES[playerStats.classId];
+  return cls?.damageStat || 'str';
+}
+
+// ATK "universal" da classe: usa o stat de dano + equip, em escala comparável
+function classAtk() {
+  const stat = classDamageStat();
+  const eq = weaponBonus(playerEquip)[stat] || 0;
+  return 2 + (effStat(stat) + eq) * 2;
+}
+
+// Soma do stat de dano efetivo (base + buff + equip) — usado por skills
+// que têm fórmula própria (mago, ladrão, caçadora)
+function dmgStat() {
+  const stat = classDamageStat();
+  const eq = weaponBonus(playerEquip)[stat] || 0;
+  return effStat(stat) + eq;
+}
+
 export function startBattle(opts = {}) {
   // Cidade é safezone — nunca entra em combate
   if (currentRoom && currentRoom.isCity) return;
@@ -350,8 +371,8 @@ export function startBattle(opts = {}) {
 
   battle.enemies = buildEnemyGroup(chosenId, playerStats.level, pool);
 
-  battle.player.atk = 2 + (effStat('str') + wb.str) * 2;
-  battle.player.def = playerStats.def;
+  battle.player.atk = classAtk();
+  battle.player.def = playerStats.def + (weaponBonus(playerEquip).def || 0);
 
   battle.message = battle.enemies.length === 1
     ? `Um ${battle.enemies[0].name} selvagem apareceu!`
@@ -416,21 +437,15 @@ export function endBattle(escaped) {
 
 // ==== SKILLS ====
 const SKILL_IMPL = {
-  // ---- CAVALEIRA ----
+  // ---- CAVALEIRA (str) ----
   quick: () => {
-    const t = target();
-    if (!t) return;
+    const t = target(); if (!t) return;
     const hitChance = Math.min(0.95, 0.70 + effStat('agi') * 0.02);
     if (Math.random() >= hitChance) {
-      battle.message = 'Seu ataque rápido errou!';
-      sfx('miss');
-      return;
+      battle.message = 'Seu ataque rápido errou!'; sfx('miss'); return;
     }
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
-    const dmg = Math.max(1, battle.player.atk - t.def + rand(-1, 1));
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
+    const dmg = Math.max(1, classAtk() - t.def + rand(-1, 1));
     const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
     const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
     t.hp = Math.max(0, t.hp - finalDmg);
@@ -441,19 +456,13 @@ const SKILL_IMPL = {
     spawnFloatingText(t, finalDmg, isCrit ? '#feca57' : '#ff3b3b');
   },
   heavy: () => {
-    const t = target();
-    if (!t) return;
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
+    const t = target(); if (!t) return;
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
     const hitChance = Math.min(0.95, 0.70 + effStat('agi') * 0.02) - 0.15;
     if (Math.random() >= hitChance) {
-      battle.message = 'Seu ataque forte errou!';
-      sfx('miss');
-      return;
+      battle.message = 'Seu ataque forte errou!'; sfx('miss'); return;
     }
-    const base = Math.round(battle.player.atk * 1.8);
+    const base = Math.round(classAtk() * 1.8);
     const dmg = Math.max(1, base - t.def + rand(-1, 2));
     const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
     const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
@@ -465,38 +474,21 @@ const SKILL_IMPL = {
     spawnFloatingText(t, finalDmg, isCrit ? '#feca57' : '#ff3b3b');
   },
   spin: () => {
-    // Só atinge inimigos visíveis (hiding === 0). Escondidos não são alvo de área.
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) {
-      battle.message = 'Golpe Giratório não acertou ninguém!';
-      sfx('miss'); 
-      return;
+      battle.message = 'Golpe Giratório não acertou ninguém!'; sfx('miss'); return;
     }
-
-    let total = 0;
-    let dodged = 0;
-    let hits = 0;
+    let total = 0, hits = 0;
     for (const e of living) {
-      if (tryDodge(e)) { dodged++; continue; }
-      const dmg = Math.max(1, Math.round(battle.player.atk * 1.3) - e.def);
+      if (tryDodge(e)) continue;
+      const dmg = Math.max(1, Math.round(classAtk() * 1.3) - e.def);
       e.hp = Math.max(0, e.hp - dmg);
-      total += dmg;
-      hits++;
+      total += dmg; hits++;
       flashEnemyAt(e, 'white');
       spawnFloatingText(e, dmg, '#feca57');
     }
-
-    if (hits === 0) {
-      battle.message = 'Golpe Giratório não acertou ninguém!';
-      sfx('miss'); 
-      return;
-    }
-
-    if ( hits > 0)
-    {
-      sfx('hit');
-    }
-
+    if (hits === 0) { battle.message = 'Golpe Giratório não acertou ninguém!'; sfx('miss'); return; }
+    sfx('hit');
     battle.message = hits === 1
       ? `Golpe Giratório! ${total} de dano em ${living[0].name}.`
       : `Golpe Giratório! ${total} de dano em ${hits} inimigos.`;
@@ -504,14 +496,11 @@ const SKILL_IMPL = {
     battle.anim.shake = 0.3;
   },
 
-  // ---- MAGO ----
+  // ---- MAGO (int) — ignora defesa ----
   bolt: () => {
     const t = target(); if (!t) return;
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
-    const dmg = Math.max(1, 3 + effStat('int') * 2 + rand(-1, 1));
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
+    const dmg = Math.max(1, 3 + dmgStat() * 2 + rand(-1, 1));
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
     battle.message = `Force Bolt! ${dmg} de dano em ${t.name}.`;
@@ -521,11 +510,8 @@ const SKILL_IMPL = {
   },
   fireball: () => {
     const t = target(); if (!t) return;
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
-    const dmg = Math.max(1, 5 + effStat('int') * 2 + rand(-1, 2));
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
+    const dmg = Math.max(1, 5 + dmgStat() * 2 + rand(-1, 2));
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
     battle.message = `Bola de Fogo! ${dmg} de dano em ${t.name} (ignora defesa).`;
@@ -534,52 +520,32 @@ const SKILL_IMPL = {
     spawnFloatingText(t, dmg, '#ff8a3b');
   },
   arcane: () => {
-    // Só atinge inimigos visíveis (hiding === 0). Inimigos escondidos
-    // (rato na toca, abutre voando) não são alvo de área.
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) return;
-
-    const baseDmg = 5 + effStat('int') * 2;
-    let total = 0;
-    let hits = 0;
-
+    const baseDmg = 5 + dmgStat() * 2;
+    let total = 0, hits = 0;
     for (const e of living) {
       if (tryDodge(e)) continue;
       const dmg = Math.max(1, baseDmg + rand(-2, 2));
       e.hp = Math.max(0, e.hp - dmg);
-      total += dmg;
-      hits++;
+      total += dmg; hits++;
       flashEnemyAt(e, 'white');
       spawnFloatingText(e, dmg, '#d78cff');
     }
-
-    if (hits === 0) {
-      battle.message = 'Impacto Arcano não acertou ninguém!';
-      sfx('miss'); 
-      return;
-    }
-
-    if ( hits > 0)
-    {
-      sfx('hit');
-    }
-
+    if (hits === 0) { battle.message = 'Impacto Arcano não acertou ninguém!'; sfx('miss'); return; }
+    sfx('hit');
     battle.message = hits === 1
       ? `Impacto Arcano! ${total} de dano em ${living[0].name}.`
       : `Impacto Arcano atinge ${hits} inimigos! ${total} de dano total.`;
-
     battle.anim.shake = 0.5;
     battle.anim.flashEnemy = 0.4;
   },
 
-  // ---- LADRÃO ----
+  // ---- LADRÃO (agi) ----
   stab: () => {
     const t = target(); if (!t) return;
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
-    const dmg = Math.max(1, 2 + effStat('str') * 2 + rand(-1, 1));
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
+    const dmg = Math.max(1, 1 + dmgStat() * 1.5 + rand(-1, 1)); 
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
     battle.message = `Estocada certeira! ${dmg} de dano em ${t.name}.`;
@@ -589,17 +555,13 @@ const SKILL_IMPL = {
   },
   backstab: () => {
     const t = target(); if (!t) return;
-    if (tryDodge(t)) {
-      battle.anim.shake = 0.1;
-      return;
-    }
+    if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
     const hitChance = Math.min(0.95, 0.75 + effStat('agi') * 0.02);
     if (Math.random() >= hitChance) {
-      battle.message = 'Seu ataque furtivo errou!';
-      sfx('miss');
-      return;
+      battle.message = 'Seu ataque furtivo errou!'; sfx('miss'); return;
     }
-    const dmg = Math.max(1, Math.round((2 + effStat('str') * 2) * 1.6) + rand(-1, 2));
+    const base = Math.round((1 + dmgStat() * 1.5) * 1.6); 
+    const dmg = Math.max(1, base + rand(-1, 2));
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
     battle.message = `Ataque furtivo! ${dmg} de dano em ${t.name}.`;
@@ -613,22 +575,16 @@ const SKILL_IMPL = {
     flashPlayer('white');
   },
 
-  // ---- Caçadora ----
+  // ---- CAÇADORA (agi) ----
   aimed_shot: () => {
-    const t = targetIgnoringHiding();
-    if (!t) return;
-
-    // Tiro Certeiro NÃO usa target() (que filtra hiding) e NÃO rola tryDodge.
-    // Isso é o diferencial da Caçadora: ela acerta o que ninguém acerta.
-    const base = battle.player.atk + effStat('agi') * 1.5;
+    const t = targetIgnoringHiding(); if (!t) return;
+    const base = 1 + dmgStat() * 1.8;
     const dmg = Math.max(1, Math.round(base - t.def * 0.5 + rand(-1, 1)));
     const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
     const finalDmg = applyMarkBonus(t, isCrit ? Math.floor(dmg * 1.5) : dmg);
 
-    // Se o abutre estava voando, ele "cai" — volta pro chão ao ser acertado
     if (t.hiding > 0) {
-      t.hiding = 0;
-      t.flyingAway = false;
+      t.hiding = 0; t.flyingAway = false;
       battle.message = `Tiro Certeiro acerta ${t.name} em pleno voo! `;
     } else {
       battle.message = `Tiro Certeiro em ${t.name}! `;
@@ -643,40 +599,25 @@ const SKILL_IMPL = {
   },
 
   piercing_arrow: () => {
-    // Só atinge inimigos visíveis (hiding === 0). Escondidos não são alvo de área.
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) {
-      battle.message = 'Flecha Perfurante não acertou ninguém!';
-      sfx('miss');
-      return;
+      battle.message = 'Flecha Perfurante não acertou ninguém!'; sfx('miss'); return;
     }
-
-    // Dano decrescente por "posição": 100%, 60%, 40%, 30%...
-    // A posição é contada só entre os VISÍVEIS (escondidos não "ocupam" slot).
     const multipliers = [1.0, 0.6, 0.4, 0.3];
-    const baseDmg = battle.player.atk + effStat('agi');
-    let total = 0;
-    let hits = 0;
-
+    const baseDmg = 1 + dmgStat() * 1.6;
+    let total = 0, hits = 0;
     living.forEach((e, i) => {
-      if (tryDodge(e)) return;   // abutre ainda pode esquivar (não é Tiro Certeiro)
+      if (tryDodge(e)) return;
       const mul = multipliers[i] ?? 0.3;
       const dmg = Math.max(1, Math.round(baseDmg * mul - e.def * 0.5) + rand(-1, 1));
       e.hp = Math.max(0, e.hp - dmg);
-      total += dmg;
-      hits++;
+      total += dmg; hits++;
       flashEnemyAt(e, 'white');
       spawnFloatingText(e, dmg, '#8a9a4a');
     });
-
-    if ( hits > 0)
-    {
-      sfx('hit');
-    }
-    
+    if (hits > 0) sfx('hit');
     if (hits === 0) {
-      battle.message = 'Flecha Perfurante não acertou ninguém!';
-      sfx('miss');
+      battle.message = 'Flecha Perfurante não acertou ninguém!'; sfx('miss');
     } else {
       battle.message = `Flecha Perfurante! ${total} de dano em ${hits} inimigo(s).`;
     }
@@ -685,13 +626,8 @@ const SKILL_IMPL = {
   },
 
   hunters_mark: () => {
-    const t = target();
-    if (!t) return;
-
-    // Aplica a marca: próximo ataque contra esse alvo não pode ser esquivado
-    // e dá +50% de dano.
+    const t = target(); if (!t) return;
     t.huntersMark = { damageBonus: 0.5, ignoreDodge: true };
-
     battle.message = `${t.name} foi marcado! O próximo ataque contra ele não pode ser esquivado e dá +50% de dano.`;
     flashEnemyAt(t, 'white');
     spawnFloatingText(t, 'MARCA', '#c9a24d');
@@ -1039,7 +975,7 @@ export function enemyTurn() {
     battle.activeEnemyIndex = -1;
     battle.turn = 'player';
     tickBuffs();
-    battle.player.atk = 2 + (effStat('str') + weaponBonus(playerEquip).str) * 2;
+    battle.player.atk = classAtk();
     if (battle.targetIndex >= battle.enemies.length) battle.targetIndex = 0;
 
     // Sombra cobre o turno inteiro dos inimigos. Agora que todos agiram, limpa.
@@ -1328,88 +1264,57 @@ export function enemyScreenPos(enemy) {
  * (seria muito variável) — então é uma estimativa "crua".
  */
 export function estimateSkillDamage(skillId) {
-  const wb = weaponBonus(playerEquip);
-  const atk = 2 + (effStat('str') + wb.str) * 2;
+  const stat = classDamageStat();
+  const atk = 2 + (effStat(stat) + (weaponBonus(playerEquip)[stat] || 0)) * 2;
+  const ds  = effStat(stat) + (weaponBonus(playerEquip)[stat] || 0);
   const agi = effStat('agi');
   const int = effStat('int');
 
   switch (skillId) {
-    // ---------- CAVALEIRA ----------
+    // CAVALEIRA
     case 'quick': {
-      // dmg = atk - def + rand(-1,1), crit 1.5x
-      // Estimamos sem def, com rand -1..+1
       const base = atk;
-      return {
-        min: Math.max(1, base - 1),
-        max: Math.floor((base + 1) * 1.5),
-      };
+      return { min: Math.max(1, base - 1), max: Math.floor((base + 1) * 1.5) };
     }
     case 'heavy': {
-      // base = round(atk * 1.8) + rand(-1,2), crit 1.5x
       const base = Math.round(atk * 1.8);
-      return {
-        min: Math.max(1, base - 1),
-        max: Math.floor((base + 2) * 1.5),
-      };
+      return { min: Math.max(1, base - 1), max: Math.floor((base + 2) * 1.5) };
     }
     case 'spin': {
-      // dmg = round(atk * 1.3) - def (sem rand/crit), em todos
       const base = Math.round(atk * 1.3);
       return { min: Math.max(1, base), max: base };
     }
-
-    // ---------- MAGO ----------
+    // MAGO
     case 'bolt': {
-      // 3 + int*2 + rand(-1,1)
-      const base = 3 + int * 2;
+      const base = 3 + ds * 2;
       return { min: Math.max(1, base - 1), max: base + 1 };
     }
     case 'fireball': {
-      // 5 + int*2 + rand(-1,2)
-      const base = 5 + int * 2;
+      const base = 5 + ds * 2;
       return { min: Math.max(1, base - 1), max: base + 2 };
     }
     case 'arcane': {
-      // (5 + int*2) + rand(-2,2), em todos
-      const base = 5 + int * 2;
+      const base = 5 + ds * 2;
       return { min: Math.max(1, base - 2), max: base + 2 };
     }
-
-    // ---------- LADRÃO ----------
+    // LADRÃO
     case 'stab': {
-      // 2 + str*2 + rand(-1,1)
-      const base = 2 + effStat('str') * 2;
+      const base = 1 + ds * 1.5;
       return { min: Math.max(1, base - 1), max: base + 1 };
     }
     case 'backstab': {
-      // round((2 + str*2) * 1.6) + rand(-1,2)
-      const base = Math.round((2 + effStat('str') * 2) * 1.6);
+      const base = Math.round((1 + ds * 1.5) * 1.6);
       return { min: Math.max(1, base - 1), max: base + 2 };
     }
-
-    // ---------- CAÇADORA ----------
+    // CAÇADORA
     case 'aimed_shot': {
-      // base = atk + agi*1.5 ; dmg = round(base - def*0.5 + rand(-1,1))
-      // (sem def) ; crit 1.5x
-      const base = atk + agi * 1.5;
-      return {
-        min: Math.max(1, Math.round(base - 1)),
-        max: Math.floor(Math.round(base + 1) * 1.5),
-      };
+      const base = 1 + ds * 1.8;
+      return { min: Math.max(1, Math.round(base - 1)), max: Math.floor(Math.round(base + 1) * 1.5) };
     }
     case 'piercing_arrow': {
-      // base = atk + agi ; multiplicadores [1.0, 0.6, 0.4, 0.3]
-      // Mostramos o PRIMEIRO alvo (100%) como referência
-      const base = atk + agi;
-      return {
-        min: Math.max(1, Math.round(base) - 1),
-        max: Math.round(base) + 1,
-      };
+      const base = 1 + ds * 1.6;
+      return { min: Math.max(1, Math.round(base) - 1), max: Math.round(base) + 1 };
     }
-
-    // ---------- Não-dano ----------
-    case 'shadow':
-    case 'hunters_mark':
     default:
       return null;
   }

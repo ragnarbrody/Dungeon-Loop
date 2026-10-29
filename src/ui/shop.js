@@ -4,10 +4,21 @@ import { ITEMS_DB, addItemToInventory, remainingSpace, RARITY_COLORS, countItem,
 import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
 import { pickShopGreeting } from './shopgreetings.js';
+import { attachTooltip } from './tooltip.js';
 
-// Estoque + filtros por loja.
-// buyFilter: tipos que a loja VENDE (só informativo).
-// sellFilter: tipos que a loja ACEITA do jogador.
+// Labels de stats (mesma nomenclatura usada no inventory)
+const STAT_LABELS = {
+  str: 'Força',
+  agi: 'Agilidade',
+  int: 'Inteligência',
+  def: 'Defesa',
+  vit: 'Vitalidade',
+  magia: 'Magia',
+};
+
+// ============================================================
+// ESTOQUE
+// ============================================================
 export const SHOPS = {
   herbalist: {
     name: 'Herbalista',
@@ -20,14 +31,79 @@ export const SHOPS = {
   },
   blacksmith: {
     name: 'Ferreiro',
-    items: ['torch'],
+    items: [
+      // Tocha (essencial pra caverna)
+      'torch',
+      // Armas básicas
+      'sword', 'dagger', 'staff', 'bow', 'axe',
+      // Armas avançadas
+      'steel_sword', 'war_axe', 'arcane_staff', 'ranger_bow', 'shadow_dagger',
+    ],
     sellFilter: ['material', 'weapon', 'loot', 'torch'],
+  },
+  armorer: {
+    name: 'Armeiro',
+    items: [
+      // Escudos
+      'shield', 'iron_shield', 'runic_shield',
+      // Conjunto de couro
+      'leather_helmet', 'leather_armor', 'leather_boots',
+      // Conjunto rúnico
+      'runic_helmet', 'runic_armor', 'runic_boots',
+    ],
+    sellFilter: ['shield', 'material', 'armor', 'helmet', 'boots'],
   },
 };
 
 let container = null;
 let currentTab = 'buy';   // 'buy' | 'sell'
 
+// ============================================================
+// HELPERS DE TEXTO
+// ============================================================
+
+// Monta a lista de requisitos como [{ label, value, ok }]
+// `ok` = true se o jogador cumpre aquele requisito.
+function getReqParts(item) {
+  const parts = [];
+  if (item.reqLevel && item.reqLevel > 1) {
+    parts.push({
+      label: 'Nível',
+      value: item.reqLevel,
+      ok: playerStats.level >= item.reqLevel,
+    });
+  }
+  if (item.reqStats) {
+    for (const stat in item.reqStats) {
+      const need = item.reqStats[stat];
+      const base = playerStats[stat] || 0;
+      parts.push({
+        label: STAT_LABELS[stat] || stat,
+        value: need,
+        ok: base >= need,
+      });
+    }
+  }
+  return parts;
+}
+
+// Monta a lista de bônus de stats como string " +N Força, +N Agilidade"
+// (só pro tooltip)
+function getStatsBonusText(item) {
+  if (!item.stats) return '';
+  const parts = [];
+  for (const stat in item.stats) {
+    const v = item.stats[stat];
+    if (v === 0) continue;
+    const sign = v > 0 ? '+' : '';
+    parts.push(`${sign}${v} ${STAT_LABELS[stat] || stat}`);
+  }
+  return parts.length > 0 ? parts.join(', ') : '';
+}
+
+// ============================================================
+// CONTAINER
+// ============================================================
 function ensureContainer() {
   if (container) return container;
   container = document.createElement('div');
@@ -60,6 +136,9 @@ function ensureContainer() {
   return container;
 }
 
+// ============================================================
+// ABRIR / FECHAR
+// ============================================================
 export function openShop(buildingId) {
   const shop = SHOPS[buildingId];
   if (!shop) return;
@@ -84,18 +163,20 @@ export function isShopOpen() {
   return container && !container.classList.contains('hidden');
 }
 
-// ---------- Render geral ----------
+// ============================================================
+// RENDER GERAL
+// ============================================================
 function renderBody(c) {
   const shop = SHOPS[Object.keys(SHOPS).find(k => SHOPS[k].name === c.querySelector('.shop-title').textContent)];
   // (fallback seguro se a busca por nome falhar)
   if (!shop) return;
 
-  // Atualiza abas ativas
+  // Abas ativas
   c.querySelectorAll('.shop-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === currentTab);
   });
 
-  // Gold
+  // Ouro
   const goldEl = c.querySelector('.shop-gold');
   goldEl.innerHTML = '';
   goldEl.style.cssText = 'display:flex;align-items:center;gap:6px;color:#f0c060;margin-bottom:10px;justify-content:center;';
@@ -118,13 +199,14 @@ function renderBody(c) {
   }
 }
 
-// ---------- Aba Comprar ----------
+// ============================================================
+// ABA COMPRAR
+// ============================================================
 function renderBuyTab(itemsEl, shop) {
   for (const itemId of shop.items) {
     const item = ITEMS_DB[itemId];
     if (!item) continue;
-    // Defensivo: nunca listar quest
-    if (item.kind === 'quest') continue;
+    if (item.kind === 'quest') continue;   // defesa: nunca listar quest
 
     const row = document.createElement('div');
     row.className = 'shop-row';
@@ -135,19 +217,26 @@ function renderBuyTab(itemsEl, shop) {
     icon.style.imageRendering = 'pixelated';
     row.appendChild(icon);
 
+    // --- Info (nome + descrição + requisitos inline) ---
     const info = document.createElement('div');
     info.className = 'shop-info';
+
     const name = document.createElement('div');
     name.className = 'shop-name';
     name.textContent = item.name;
     info.appendChild(name);
-    const desc = document.createElement('div');
+
     const cur = countItem(playerStats.inventory, itemId);
+    const reqParts = getReqParts(item);
+
+    const desc = document.createElement('div');
     desc.className = 'shop-desc';
-    desc.textContent = `${item.description} Você tem ${cur}`;
+    desc.textContent = `${item.description} Você tem ${cur}.`;
     info.appendChild(desc);
+
     row.appendChild(info);
 
+    // --- Botão de compra ---
     const space = remainingSpace(playerStats.inventory, itemId);
 
     const buyBtn = document.createElement('button');
@@ -164,15 +253,44 @@ function renderBuyTab(itemsEl, shop) {
       playerStats.gold -= item.price;
       saveGame();
       renderBody(container);
-      showToast({ itemId, title: item.name, subtitle: `-${item.price} ouro`, color: '#f0c060' });
+      showToast({
+        itemId,
+        title: item.name,
+        subtitle: `-${item.price} ouro`,
+        color: '#f0c060',
+      });
     };
     row.appendChild(buyBtn);
+
+    // --- Tooltip estilizado ---
+    const tooltipLines = [item.description || item.name];
+
+    const statsText = getStatsBonusText(item);
+    if (statsText) tooltipLines.push(`Bônus: ${statsText}`);
+
+    if (reqParts.length > 0) {
+      tooltipLines.push('Requer:');
+      for (const p of reqParts) {
+        // p = { label, value, ok }
+        tooltipLines.push({
+          text: `${p.label} ${p.value}`,
+          color: p.ok ? '#6fbd63' : '#ff6b6b',
+        });
+      }
+    }
+
+    attachTooltip(row, () => ({
+      title: item.name,
+      lines: tooltipLines,
+    }));
 
     itemsEl.appendChild(row);
   }
 }
 
-// ---------- Aba Vender ----------
+// ============================================================
+// ABA VENDER
+// ============================================================
 function renderSellTab(itemsEl, shop) {
   const sellFilter = shop.sellFilter || [];
 
@@ -206,19 +324,23 @@ function renderSellTab(itemsEl, shop) {
     icon.style.imageRendering = 'pixelated';
     row.appendChild(icon);
 
+    // --- Info ---
     const info = document.createElement('div');
     info.className = 'shop-info';
+
     const name = document.createElement('div');
     name.className = 'shop-name';
     name.textContent = `${item.info.name} (x${item.qty})`;
     info.appendChild(name);
+
     const desc = document.createElement('div');
     desc.className = 'shop-desc';
     desc.textContent = `Vende por ${item.info.sellPrice} ouro cada.`;
     info.appendChild(desc);
+
     row.appendChild(info);
 
-    // Botão 1: Vender 1
+    // --- Botão 1: Vender 1 ---
     const sellOne = document.createElement('button');
     sellOne.className = 'shop-sell';
     sellOne.textContent = `Vender 1 (${item.info.sellPrice})`;
@@ -236,13 +358,12 @@ function renderSellTab(itemsEl, shop) {
     };
     row.appendChild(sellOne);
 
-    // Botão 2: Vender tudo (só se qty total > 1)
+    // --- Botão 2: Vender tudo (se qty > 1) ---
     if (item.qty > 1) {
       const sellAll = document.createElement('button');
       sellAll.className = 'shop-sell shop-sell-all';
       sellAll.textContent = `Vender tudo (${item.info.sellPrice * item.qty})`;
       sellAll.onclick = () => {
-        // Soma TODOS os slots, não só o primeiro
         const n = countItem(playerStats.inventory, item.id);
         if (n <= 0) return;
 
@@ -260,6 +381,17 @@ function renderSellTab(itemsEl, shop) {
       };
       row.appendChild(sellAll);
     }
+
+    // --- Tooltip estilizado ---
+    const tooltipLines = [item.info.description || item.info.name];
+
+    const statsText = getStatsBonusText(item.info);
+    if (statsText) tooltipLines.push(`Bônus: ${statsText}`);
+
+    attachTooltip(row, () => ({
+      title: item.info.name,
+      lines: tooltipLines,
+    }));
 
     itemsEl.appendChild(row);
   }

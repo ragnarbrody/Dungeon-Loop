@@ -321,7 +321,9 @@ canvas {
 
 .levelup-row {
   display: flex;
+  align-items: flex-start;      /* alinha o botão ao TOPO quando o texto quebra */
   justify-content: space-between;
+  gap: 10px;                    /* espaço entre texto e botão */
   width: 300px;
   margin-bottom: 10px;
   background: #2a2a3e;
@@ -330,18 +332,45 @@ canvas {
   border: 1px solid #555;
 }
 
+/* O texto pode quebrar, mas o botão NUNCA encolhe nem se desloca */
+.levelup-row > span {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .levelup-row button {
+  flex-shrink: 0;
   background: #c9a24d;
   border: none;
   border-radius: 4px;
   width: 30px;
+  height: 30px;                 /* altura fixa: não depende do texto */
   font-weight: bold;
+  font-size: 16px;
+  line-height: 1;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;       /* garante que ele fica no topo da linha */
 }
 
 .levelup-row button:disabled {
   background: #555;
   cursor: not-allowed;
+}
+
+/* Destaque do stat principal (mantém o que você já tem) */
+.levelup-row.main-stat {
+  border-color: #feca57;
+  background: #3a2f1e;
+  box-shadow: 0 0 6px rgba(254, 202, 87, 0.4);
+}
+.levelup-row.main-stat button {
+  background: #feca57;
+  color: #1a1a2e;
 }
 
 #btn-confirm-levelup {

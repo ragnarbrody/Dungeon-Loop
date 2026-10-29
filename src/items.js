@@ -251,14 +251,34 @@ export const ITEMS_DB = {
     kind: 'weapon',
     slot: 'rightHand',
     name: 'Espada',
-    description: 'Uma espada simples de aço.',
+    description: 'Uma espada simples de ferro. Leve e confiável.',
     price: 50,
-    sellPrice: 20,      // preço de venda
+    sellPrice: 20,
     rarity: 'common',
     stackable: false,
     icon: 'sword',
-    stats: { str: 2 },
-    draw: null, // preenchido em equipment.js (import cycle)
+    stats: { str: 1 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+  },
+
+  steel_sword: {
+    id: 'steel_sword',
+    type: 'weapon',
+    kind: 'weapon',
+    slot: 'rightHand',
+    name: 'Espada de Aço',
+    description: 'Lâmina reforçada, forjada pra durar. Pesada, mas corta fundo.',
+    price: 180,
+    sellPrice: 70,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'steel_sword',
+    stats: { str: 4 },
+    reqLevel: 4,
+    reqStats: { str: 4 },
+    draw: null,
   },
 
   axe: {
@@ -267,13 +287,33 @@ export const ITEMS_DB = {
     kind: 'weapon',
     slot: 'rightHand',
     name: 'Machado',
-    description: 'Pesado, mas devastador.',
-    price: 70,
-    sellPrice: 18,      // preço de venda
+    description: 'Pesado, mas devastador. Feito pra quebrar coisas.',
+    price: 90,
+    sellPrice: 35,
     rarity: 'uncommon',
     stackable: false,
     icon: 'axe',
     stats: { str: 3 },
+    reqLevel: 3,
+    reqStats: { str: 3 },
+    draw: null,
+  },
+
+  war_axe: {
+    id: 'war_axe',
+    type: 'weapon',
+    kind: 'weapon',
+    slot: 'rightHand',
+    name: 'Machado de Guerra',
+    description: 'Um machado gigante. Exige corpo pra levantar, e mais ainda pra baixar.',
+    price: 320,
+    sellPrice: 130,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'war_axe',
+    stats: { str: 6, vit: 1 },
+    reqLevel: 6,
+    reqStats: { str: 6, vit: 2 },
     draw: null,
   },
 
@@ -283,13 +323,33 @@ export const ITEMS_DB = {
     kind: 'weapon',
     slot: 'rightHand',
     name: 'Adaga',
-    description: 'Rápida e precisa.',
+    description: 'Rápida e precisa. A arma preferida de quem não gosta de barulho.',
     price: 45,
-    sellPrice: 18,      // preço de venda
+    sellPrice: 18,
     rarity: 'common',
     stackable: false,
     icon: 'dagger',
-    stats: { str: 1, agi: 2 },
+    stats: { str: 1, agi: 1 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+  },
+
+  shadow_dagger: {
+    id: 'shadow_dagger',
+    type: 'weapon',
+    kind: 'weapon',
+    slot: 'rightHand',
+    name: 'Adaga das Sombras',
+    description: 'A lâmina parece absorver a luz. Quem empunha não costuma ser visto.',
+    price: 240,
+    sellPrice: 95,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'shadow_dagger',
+    stats: { str: 2, agi: 5 },
+    reqLevel: 5,
+    reqStats: { agi: 6, str: 2 },
     draw: null,
   },
 
@@ -301,11 +361,31 @@ export const ITEMS_DB = {
     name: 'Cajado',
     description: 'Foco mágico para conjurar feitiços.',
     price: 60,
-    sellPrice: 25,      // preço de venda
+    sellPrice: 25,
     rarity: 'uncommon',
     stackable: false,
     icon: 'staff',
     stats: { int: 2 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+  },
+
+  arcane_staff: {
+    id: 'arcane_staff',
+    type: 'weapon',
+    kind: 'weapon',
+    slot: 'rightHand',
+    name: 'Cajado Arcano',
+    description: 'A gema no topo pulsa com energia antiga. Só responde a quem já entende de magia.',
+    price: 280,
+    sellPrice: 110,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'arcane_staff',
+    stats: { int: 4, magia: 2 },
+    reqLevel: 5,
+    reqStats: { int: 5, magia: 3 },
     draw: null,
   },
 
@@ -317,11 +397,31 @@ export const ITEMS_DB = {
     name: 'Arco',
     description: 'Arma de longo alcance da caçadora.',
     price: 55,
-    sellPrice: 22,      // preço de venda
+    sellPrice: 22,
     rarity: 'uncommon',
     stackable: false,
     icon: 'bow',
-    stats: { str: 1, agi: 2 },
+    stats: { str: 1, agi: 1 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+  },
+
+  ranger_bow: {
+    id: 'ranger_bow',
+    type: 'weapon',
+    kind: 'weapon',
+    slot: 'rightHand',
+    name: 'Arco do Guardião',
+    description: 'Arco de teixo trabalhado por gerações. Só quem tem olho e braço firme consegue puxar.',
+    price: 260,
+    sellPrice: 100,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'ranger_bow',
+    stats: { str: 1, agi: 4 },
+    reqLevel: 5,
+    reqStats: { agi: 6 },
     draw: null,
   },
 
@@ -334,14 +434,174 @@ export const ITEMS_DB = {
     kind: 'shield',
     slot: 'leftHand',
     name: 'Escudo',
-    description: 'Um escudo de madeira reforçado com metal. +2 DEF',
+    description: 'Um escudo de madeira reforçado com metal.',
     price: 40,
     sellPrice: 16,      // preço de venda
     rarity: 'common',
     stackable: false,
     icon: 'shield',
-    stats: { def: 2 },
+    stats: { def: 1 },
     draw: null,
+  },
+
+  // ============================================================
+  // ESCUDOS — mais escudos
+  // ============================================================
+  iron_shield: {
+    id: 'iron_shield',
+    type: 'shield',
+    kind: 'shield',
+    slot: 'leftHand',
+    name: 'Escudo de Ferro',
+    description: 'Chapa de ferro reforçada nas bordas. Pesado, mas firme.',
+    price: 120,
+    sellPrice: 48,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'iron_shield',
+    stats: { def: 4 },
+    reqLevel: 3,
+    reqStats: { def: 2 },
+    draw: null,
+  },
+
+  runic_shield: {
+    id: 'runic_shield',
+    type: 'shield',
+    kind: 'shield',
+    slot: 'leftHand',
+    name: 'Escudo Rúnico',
+    description: 'Aço escurecido com runas gravadas. A luz desliza pelas marcas como se fossem vivas.',
+    price: 340,
+    sellPrice: 140,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'runic_shield',
+    stats: { def: 7 },
+    reqLevel: 6,
+    reqStats: { def: 5, vit: 2 },
+    draw: null,
+    set: 'runic',
+  },
+
+  // ============================================================
+  // CONJUNTO DE COURO (iniciante)
+  // ============================================================
+  leather_helmet: {
+    id: 'leather_helmet',
+    type: 'armor',
+    kind: 'helmet',
+    slot: 'helmet',
+    name: 'Capacete de Couro',
+    description: 'Proteção leve pra cabeça. Melhor que nada.',
+    price: 45,
+    sellPrice: 18,
+    rarity: 'common',
+    stackable: false,
+    icon: 'leather_helmet',
+    stats: { def: 1 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+    set: 'leather',
+  },
+
+  leather_armor: {
+    id: 'leather_armor',
+    type: 'armor',
+    kind: 'armor',
+    slot: 'armor',
+    name: 'Peitoral de Couro',
+    description: 'Couro curtido, reforçado no peito. Leve o bastante pra não travar os movimentos.',
+    price: 80,
+    sellPrice: 32,
+    rarity: 'common',
+    stackable: false,
+    icon: 'leather_armor',
+    stats: { def: 2 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+    set: 'leather',
+  },
+
+  leather_boots: {
+    id: 'leather_boots',
+    type: 'armor',
+    kind: 'boots',
+    slot: 'boots',
+    name: 'Botas de Couro',
+    description: 'Botas firmes. Boa pra andar longe sem tropeçar.',
+    price: 45,
+    sellPrice: 18,
+    rarity: 'common',
+    stackable: false,
+    icon: 'leather_boots',
+    stats: { def: 1, agi: 1 },
+    reqLevel: 1,
+    reqStats: {},
+    draw: null,
+    set: 'leather',
+  },
+
+  // ============================================================
+  // CONJUNTO RÚNICO (intermediário — aço com runas)
+  // ============================================================
+  runic_helmet: {
+    id: 'runic_helmet',
+    type: 'armor',
+    kind: 'helmet',
+    slot: 'helmet',
+    name: 'Elmo Rúnico',
+    description: 'Elmo de aço escuro com runas gravadas na testa. Sussurra baixinho quando o perigo chega.',
+    price: 180,
+    sellPrice: 72,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'runic_helmet',
+    stats: { def: 3, magia: 1 },
+    reqLevel: 4,
+    reqStats: { def: 3 },
+    draw: null,
+    set: 'runic',
+  },
+
+  runic_armor: {
+    id: 'runic_armor',
+    type: 'armor',
+    kind: 'armor',
+    slot: 'armor',
+    name: 'Peitoral Rúnico',
+    description: 'Aço que parece ter memória. As runas no peito ficam mais nítidas perto de magia.',
+    price: 320,
+    sellPrice: 128,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'runic_armor',
+    stats: { def: 6, magia: 2 },
+    reqLevel: 5,
+    reqStats: { def: 5, magia: 2 },
+    draw: null,
+    set: 'runic',
+  },
+
+  runic_boots: {
+    id: 'runic_boots',
+    type: 'armor',
+    kind: 'boots',
+    slot: 'boots',
+    name: 'Grevas Rúnicas',
+    description: 'Grevas de aço com runas nos tornozelos. O chão range embaixo, mas você não escorrega.',
+    price: 180,
+    sellPrice: 72,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'runic_boots',
+    stats: { def: 3, vit: 1 },
+    reqLevel: 4,
+    reqStats: { def: 3 },
+    draw: null,
+    set: 'runic',
   },
 
   // ============================================================
@@ -545,6 +805,10 @@ export function removeItem(inventory, itemId, qty = 1) {
 export function remainingSpace(inventory, itemId) {
   const info = ITEMS_DB[itemId];
   if (!info) return 0;
+  // Itens não empilháveis: só 1 por vez no inventário
+  if (info.stackable === false) {
+    return countItem(inventory, itemId) > 0 ? 0 : 1;
+  }
   if (info.maxOwned != null) {
     return Math.max(0, info.maxOwned - countItem(inventory, itemId));
   }
@@ -580,4 +844,29 @@ export const RARITY_COLORS = {
 // Ordem pra ordenar no inventário (menor = mais comum)
 export const RARITY_ORDER = {
   common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+};
+
+// ============================================================
+// BÔNUS DE CONJUNTO
+// ============================================================
+// Cada conjunto define o que ganha quando TODAS as peças com `set === id`
+// estão equipadas (em qualquer slot; o `weaponBonus`/`getSetBonus` conta).
+export const SET_BONUSES = {
+  leather: {
+    id: 'leather',
+    name: 'Conjunto de Couro',
+    // Peças que o conjunto exige pra ativar (todas precisam estar equipadas)
+    pieces: ['leather_helmet', 'leather_armor', 'leather_boots'],
+    // Bônus somado quando o conjunto está completo
+    bonus: { def: 1 },
+    // Texto curto pro tooltip
+    desc: '+1 Defesa',
+  },
+  runic: {
+    id: 'runic',
+    name: 'Conjunto Rúnico',
+    pieces: ['runic_helmet', 'runic_armor', 'runic_boots', 'runic_shield'],
+    bonus: { def: 1, magia: 2 },
+    desc: '+1 Defesa, +2 Magia',
+  },
 };

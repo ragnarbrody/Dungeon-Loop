@@ -1,5 +1,5 @@
 import { CANVAS_W, CANVAS_H } from './canvas.js';
-import { playerEquip } from '../sprites/equipment.js';
+import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import {
   loadSave, writeSave, clearSave as clearSaveFs, getDefaultSave,
   SAVE_VERSION,
@@ -90,7 +90,9 @@ if (playerStats.mp > playerStats.maxMp) playerStats.mp = playerStats.maxMp;
 export function effStat(id) {
   const base = playerStats[id] || 0;
   const b = playerStats.buffs[id];
-  return base + (b ? b.amount : 0);
+  // Bônus de equipamento (rightHand + leftHand)
+  const eq = weaponBonus(playerEquip)[id] || 0;
+  return base + (b ? b.amount : 0) + eq;
 }
 
 // ---------- Save (única função de escrita) ----------

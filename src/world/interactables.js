@@ -10,7 +10,12 @@ import { getActiveQuest, isQuestActive, isQuestCompleted } from '../quests.js';
 // O jogador interage se estiver no MESMO tile ou adjacente (4 dirs).
 // ============================================================
 
-const NPC_LABEL = { herbalist: 'Herbalista', blacksmith: 'Ferreiro', quest_giver: 'Ancião' };
+const NPC_LABEL = {
+  herbalist: 'Herbalista',
+  blacksmith: 'Ferreiro',
+  armorer: 'Armeiro',
+  quest_giver: 'Ancião',
+};
 
 export function getInteractables(room) {
   if (!room) return [];
@@ -22,8 +27,9 @@ export function getInteractables(room) {
     if (room.npc) {
       const npc = room.npc;
 
-      // Herbalista OU Ferreiro: abre loja (shop_keep)
-      if (npc.buildingId === 'herbalist' || npc.buildingId === 'blacksmith') {
+      // abre loja (shop_keep)
+      const SHOP_BUILDINGS = new Set(['herbalist', 'blacksmith', 'armorer']);
+      if (SHOP_BUILDINGS.has(npc.buildingId)) {
         list.push({
           tx: npc.tx, ty: npc.ty,
           kind: 'shop_keep',
@@ -141,7 +147,7 @@ function signTextFor(id) {
     blacksmith:
       'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos.',
     armorer:
-      'Armeiro. Compra e vende armaduras e escudos. Peças do mesmo conjunto dão bônus extras. [EM BREVE]',
+      'Armeiro. Compra e vende escudos, peitorais, botas e capacetes. Também aceita materiais em troca de ouro.',
     herbalist:
       'Herbalista. Vende poções e ervas medicinais. Dizem que ela também prepara remédios raros.',
     jeweler:

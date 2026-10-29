@@ -60,6 +60,31 @@ export const SHOP_GREETINGS = {
     () => `${greeting()} Ouro na mão, aço na outra. É assim que funciona.`,
     () => `${greeting()} Se não for pra comprar nem vender, fecha a porta. Tô trabalhando.`,
   ],
+  armorer: [
+    // ---- Cauteloso / inspeção ----
+    () => `${greeting()} Deixa eu ver o que você tem antes de falar de preço.`,
+    () => `${greeting()} Sem pressa. Mostre a peça, eu avalio.`,
+    () => `${greeting()} Escudo amassado, não vale o que você acha que vale. Mas eu compro.`,
+    () => `${greeting()} Se for pra trocar, quero ver o estado. Não compro gato por lebre.`,
+    () => `${greeting()} Já vi aventureiro vender "armadura" que era lata. Você parece mais honesto.`,
+
+    // ---- Aviso sobre o mundo / sobre a Fratura ----
+    () => `${greeting()} A Fratura torce o metal. Escudo bom hoje é escudo raro.`,
+    () => `${greeting()} Cuidado com o que compra por aí. Peça sem marca de forja racha no primeiro golpe.`,
+    () => `${greeting()} Se for pra caverna, leve capacete. Pedra cai do teto e não avisa.`,
+    () => `${greeting()} Eu não vendo promessa, vendo peça. Se quebrar, foi mal uso.`,
+
+    // ---- Reconhecimento do Andarilho ----
+    () => `${greeting()} Você de novo. Já voltou inteiro das suas andanças. Bom sinal.`,
+    () => `${greeting()} Não é todo dia que vejo ${agree('um', 'uma')} ${agree('Andarilho', 'Andarilhas')}. E olha que eu inspeciono tudo que passa por aqui.`,
+    () => `${greeting()} A maioria dos viajantes volta com a armadura em frangalhos. A sua tá inteira. Interessante.`,
+    () => `${greeting()} Quer vender ou comprar? Porque olhar eu já olhei.`,
+
+    // ---- Loja / mercadoria ----
+    () => `${greeting()} Escudo bom, preço justo. Escudo ruim, preço de sucata. Qual você quer?`,
+    () => `${greeting()} Vende o que não usa. Eu avalio e te faço uma oferta honesta.`,
+    () => `${greeting()} Se não for pra negociar, fecha a porta devagar. Tô no meio de uma inspeção.`,
+  ],
 };
 
 // Fallback se a loja não tiver pool definido.
