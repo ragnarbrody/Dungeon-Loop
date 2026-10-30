@@ -56,8 +56,37 @@ export const ICONS = {
   }),
   shield: makeIcon((g) => {
     const p = px(g);
-    p(4, 4, 12, 10, '#c9a24d'); p(5, 5, 10, 8, '#9b1c1c');
-    p(5, 5, 10, 1, '#6b1010'); p(9, 8, 2, 2, '#e0e0e0');
+    const wood    = '#8a5a3a';
+    const woodHi  = '#a87a5a';
+    const woodSh  = '#5a3a24';
+    const rim     = '#a8b0b8';
+    const rimSh   = '#6a7280';
+    const boss    = '#c8d0d8';
+    const bossSh  = '#7a8290';
+
+    // Aro externo (círculo "quadrado" 14x14)
+    p(3, 3, 14, 1, rim);
+    p(3, 16, 14, 1, rim);
+    p(3, 3, 1, 14, rim);
+    p(16, 3, 1, 14, rim);
+    // Sombra interna do aro (canto inf dir)
+    p(3, 16, 1, 1, rimSh);
+    p(16, 3, 1, 1, rimSh);
+
+    // Corpo de madeira
+    p(4, 4, 12, 12, wood);
+    // Tábuas verticais
+    p(7, 4, 1, 12, woodSh);
+    p(12, 4, 1, 12, woodSh);
+    // Brilho no topo (dá volume)
+    p(4, 4, 12, 1, woodHi);
+
+    // Umbo central (cúpula metálica)
+    p(8, 8, 4, 4, boss);
+    p(8, 8, 4, 1, '#e0e8f0');
+    p(8, 8, 1, 4, bossSh);
+    p(11, 8, 1, 4, bossSh);
+    p(8, 11, 4, 1, bossSh);
   }),
   staff: makeIcon((g) => {
     const p = px(g);
@@ -1005,6 +1034,76 @@ export const ICONS = {
     p(11, 6, 4, 1, leatherHi);
     p(10, 13, 4, 2, sole);
     p(10, 14, 6, 1, sole);
+  }),
+
+  // ============================================================
+  // CONJUNTO DE FERRO
+  // ============================================================
+  iron_helmet: makeIcon((g) => {
+    const p = px(g);
+    const iron    = '#6a6a72';
+    const ironHi  = '#8a8a94';
+    const ironSh  = '#3a3a42';
+    const stud    = '#c9a24d';
+
+    // Corpo (meia-lua mais fechada que o couro)
+    p(4, 4, 12, 10, iron);
+    p(4, 4, 12, 1, ironHi);
+    p(4, 13, 12, 1, ironSh);
+    // Viseira horizontal (fenda)
+    p(5, 8, 10, 2, ironSh);
+    p(5, 8, 10, 1, '#2a2a32');
+    // Rebites laterais
+    p(5, 6, 1, 1, stud);
+    p(14, 6, 1, 1, stud);
+    p(5, 11, 1, 1, stud);
+    p(14, 11, 1, 1, stud);
+    // Faixa central (reforço)
+    p(9, 4, 2, 2, ironHi);
+  }),
+
+  iron_armor: makeIcon((g) => {
+    const p = px(g);
+    const iron    = '#6a6a72';
+    const ironHi  = '#8a8a94';
+    const ironSh  = '#3a3a42';
+    const strap   = '#3a2410';
+    const rivet   = '#c9a24d';
+
+    // Corpo (peitoral)
+    p(5, 4, 10, 12, iron);
+    p(5, 4, 10, 1, ironHi);
+    p(5, 15, 10, 1, ironSh);
+    // Ombros
+    p(3, 4, 2, 5, ironSh);
+    p(15, 4, 2, 5, ironSh);
+    // Faixa central (linha de rebites)
+    p(9, 6, 2, 8, ironSh);
+    for (let y = 6; y <= 13; y += 2) p(9, y, 2, 1, rivet);
+    // Cinto
+    p(5, 12, 10, 1, strap);
+    p(9, 12, 2, 1, rivet);
+  }),
+
+  iron_boots: makeIcon((g) => {
+    const p = px(g);
+    const iron    = '#6a6a72';
+    const ironHi  = '#8a8a94';
+    const ironSh  = '#3a3a42';
+    const sole    = '#2a2a32';
+
+    // Greva esquerda
+    p(4, 4, 5, 10, iron);
+    p(4, 4, 5, 1, ironHi);
+    p(4, 13, 5, 2, ironSh);
+    p(4, 14, 7, 1, sole);
+    p(6, 6, 1, 4, ironSh);   // detalhe vertical
+    // Greva direita
+    p(11, 4, 5, 10, iron);
+    p(11, 4, 5, 1, ironHi);
+    p(11, 13, 5, 2, ironSh);
+    p(10, 14, 7, 1, sole);
+    p(13, 6, 1, 4, ironSh);
   }),
 
   // ============================================================

@@ -463,6 +463,7 @@ export const ITEMS_DB = {
     reqLevel: 3,
     reqStats: { def: 2 },
     draw: null,
+    set: 'iron',
   },
 
   runic_shield: {
@@ -542,6 +543,66 @@ export const ITEMS_DB = {
     reqStats: {},
     draw: null,
     set: 'leather',
+  },
+
+  // ============================================================
+  // CONJUNTO DE FERRO (intermediário — entre couro e rúnico)
+  // ============================================================
+  iron_helmet: {
+    id: 'iron_helmet',
+    type: 'armor',
+    kind: 'helmet',
+    slot: 'helmet',
+    name: 'Elmo de Ferro',
+    description: 'Elmo de ferro batido, com rebites nas laterais. Pesado, mas protege bem.',
+    price: 140,
+    sellPrice: 56,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'iron_helmet',
+    stats: { def: 2 },
+    reqLevel: 3,
+    reqStats: { def: 2 },
+    draw: null,
+    set: 'iron',
+  },
+
+  iron_armor: {
+    id: 'iron_armor',
+    type: 'armor',
+    kind: 'armor',
+    slot: 'armor',
+    name: 'Peitoral de Ferro',
+    description: 'Chapa de ferro sobre couro grosso. Não é confortável, mas aguenta o tranco.',
+    price: 260,
+    sellPrice: 104,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'iron_armor',
+    stats: { def: 4 },
+    reqLevel: 4,
+    reqStats: { def: 3, vit: 1 },
+    draw: null,
+    set: 'iron',
+  },
+
+  iron_boots: {
+    id: 'iron_boots',
+    type: 'armor',
+    kind: 'boots',
+    slot: 'boots',
+    name: 'Grevas de Ferro',
+    description: 'Grevas de ferro com cano alto. O chão range, mas você não escorrega.',
+    price: 140,
+    sellPrice: 56,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'iron_boots',
+    stats: { def: 2 },
+    reqLevel: 3,
+    reqStats: { def: 2 },
+    draw: null,
+    set: 'iron',
   },
 
   // ============================================================
@@ -868,5 +929,12 @@ export const SET_BONUSES = {
     pieces: ['runic_helmet', 'runic_armor', 'runic_boots', 'runic_shield'],
     bonus: { def: 1, magia: 2 },
     desc: '+1 Defesa, +2 Magia',
+  },
+   iron: {
+    id: 'iron',
+    name: 'Conjunto de Ferro',
+    pieces: ['iron_helmet', 'iron_armor', 'iron_boots', 'iron_shield'],
+    bonus: { def: 2 },
+    desc: '+2 Defesa',
   },
 };

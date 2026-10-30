@@ -236,7 +236,10 @@ function refresh() {
       'torch', 'potion_weak', 'potion_medium', 'potion_strong',
       'potion_mana', 'potion_mana_medium', 'potion_mana_strong',
       'rat_tail', 'goblin_tooth', 'slime_gel', 'scorpion_pincer',
-      'vulture_egg', 'letter_to_elder',
+      'vulture_egg', 'letter_to_elder', 'iron_shield', 'shield','runic_shield',
+      'bow', 'ranger_bow', 'staff', 'arcane_staff', 'dagger', 'shadow_dagger',
+      'axe', 'war_axe', 'sword', 'steel_sword', 'leather_helmet', 'leather_armor', 'leather_boots',
+      'iron_helmet', 'iron_armor', 'iron_boots', 'runic_helmet', 'runic_armor', 'runic_boots',
     ];
     for (const id of interestingIds) {
       const info = ITEMS_DB[id];

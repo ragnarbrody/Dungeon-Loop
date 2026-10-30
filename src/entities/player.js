@@ -4,7 +4,7 @@ import { player, encounter, currentRoom, transitionCooldown,
          decrementTransitionCooldown, setCurrentRoom, setTransitionCooldown,
          markRoomVisited, playerStats, setDungeonRoom, saveGame,
          startGX, startGY } from '../core/state.js';
-import { getRoom, dungeonCache } from '../world/rooms.js';
+import { getRoom, dungeonCache, getDungeon } from '../world/rooms.js';
 import { updateHud } from '../ui/hud.js';
 import { startBattle } from '../battle/battle.js';
 import { keys } from '../ui/input.js';
@@ -154,7 +154,7 @@ function collidesWithSolid(x, y, w, h) {
 
 function handleDungeonDoor(side) {
   const mid = Math.floor(GRID_SIZE / 2);
-  const dungeon = dungeonCache.get(currentRoom.dungeonId);
+  const dungeon = getDungeon(currentRoom.dungeonId);
   const depth = currentRoom.dungeonDepth;
 
   if (side === 'bottom') {

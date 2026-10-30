@@ -220,6 +220,7 @@ function drawMarker(m, x, y, zoom) {
   if (m.type === 'boss')   { color = '#c93030'; label = '☠'; }
   if (m.type === 'quest')  { color = '#eaecea'; label = '★'; }
   if (m.type === 'poi')    { color = '#8ad8ff'; label = '?'; }
+  if (m.type === 'cave_done') { color = '#ffb703'; label = '✓'; }
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.beginPath();
@@ -288,6 +289,7 @@ function drawHUD() {
     { color: '#d9b96b', label: 'Deserto' },
     { color: '#c93030', label: 'Boss' },
     { color: '#eaecea', label: 'Quest' },
+    { color: '#ffb703', label: 'Caverna concluída' },
   ];
   const legendX = 10;
   const legendY = 50;

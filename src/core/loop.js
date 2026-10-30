@@ -1,7 +1,7 @@
 import { STATE, gameState, setGameState, setCurrentRoom, currentRoom,
          startGX, startGY, markRoomVisited, saveGame, clearSave, playerStats,
          visitedRooms, battle, player, setWorldSeed, paused } from './state.js';
-import { getRoom, clearRoomCache, getCitySpawn, dungeonCache } from '../world/rooms.js';
+import { getRoom, clearRoomCache, getCitySpawn, dungeonCache, setPendingDungeonsData } from '../world/rooms.js';
 import { updatePlayer } from '../entities/player.js';
 import { updateLeaves } from '../entities/leaves.js';
 import { updateBattle } from '../battle/battle.js';
@@ -20,6 +20,7 @@ import { getDefaultSave, writeSave } from '../core/save.js';
 import { resetQuests } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
 import { tickTime, startDayCycle } from './timeofday.js';
+import { playerEquip, resetEquipment } from '../sprites/equipment.js';
 
 let lastTime = performance.now();
 
@@ -104,6 +105,8 @@ function startGame(loadSave) {
     clearRoomCache();
     visitedRooms.clear();
     visitedRooms.add('0,0');
+    // zera equipamento
+    resetEquipment()
     return;
   }
 
@@ -124,6 +127,7 @@ function requestNewGame() {
       clearSave();                 // apaga o save antigo
       clearRoomCache();
       dungeonCache.clear();
+      setPendingDungeonsData(null);
       visitedRooms.clear();
       visitedRooms.add('0,0');
       resetKnowledge();
@@ -154,6 +158,9 @@ function requestNewGame() {
         poisoned: null,
         portalCores: new Set(),
       });
+
+      // ---- 2.5) Reseta equipamento COMPLETO (senão armaduras antigas persistem) ----
+      resetEquipment()
 
       // ---- 3) Aplica a classe escolhida ----
       applyClass(classId);
@@ -282,9 +289,12 @@ export function loop(now) {
       clearSave();
       resetKnowledge();
 
-      // ---- NOVO: Limpa o cache de dungeons e salas ----
+      // ---- Limpa o cache de dungeons e salas ----
       dungeonCache.clear();
       clearRoomCache();
+
+      // também limpa o equipamento em memória
+      resetEquipment()
 
       //para a música de batalha (volta pra 'menu')
       setMusicMode('menu');

@@ -19,7 +19,7 @@ const SAVE_KEY = 'dungeonLoop_save';
 
 // Sempre que adicionar uma migração, sobe esse número e adiciona
 // uma entrada em MIGRATIONS.
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 // ---------- Helpers de validação ----------
 function isObject(v) {
@@ -146,6 +146,13 @@ const MIGRATIONS = {
     data.timeOfDay = ((data.timeOfDay % 24) + 24) % 24;
     return data;
   },
+  // v4 -> v5: adiciona `dungeons` (estado persistente das cavernas)
+  // e `openedChests` (Set serializado de baús abertos).
+  4: (data) => {
+    if (!isObject(data.dungeons)) data.dungeons = {};
+    if (!Array.isArray(data.openedChests)) data.openedChests = [];
+    return data;
+  },
 };
 
 // ---------- Defaults ----------
@@ -179,6 +186,8 @@ export function getDefaultSave() {
     knowledge: { revealed: [], markers: [] },
     // portal
     portalCores: [],
+    dungeons: {},
+    openedChests: [],
 
     quests: {
         active: null,

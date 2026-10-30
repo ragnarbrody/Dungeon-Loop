@@ -2,7 +2,7 @@
 import { knightessFrames } from './knightess.js';
 import { mageFrames } from './mage.js';
 import { thiefFrames } from './thief.js';
-import { ITEMS, playerEquip, drawEquipment } from './equipment.js';
+import { ITEMS, playerEquip, drawEquipment, drawEquipmentBehind } from './equipment.js';
 import { playerStats } from '../core/state.js';
 import { huntressFrames } from './huntress.js';
 
@@ -25,11 +25,18 @@ equipCtx.imageSmoothingEnabled = false;
 
 export function composeFrame(dir, step) {
   const frames = getActiveFrames();
-  
+
   equipCtx.clearRect(0, 0, 32, 32);
-  equipCtx.drawImage(frames[dir][step], 0, 0);
 
   const bob = step === 1 ? -1 : 0;
+
+  // 1) atrás do corpo (arma da mão direita quando olhando pra esquerda)
+  drawEquipmentBehind(equipCtx, dir, bob, playerEquip);
+
+  // 2) corpo
+  equipCtx.drawImage(frames[dir][step], 0, 0);
+
+  // 3) na frente do corpo (mão esquerda, e mão direita nas outras direções)
   drawEquipment(equipCtx, dir, bob, playerEquip);
 
   return equipCanvas;

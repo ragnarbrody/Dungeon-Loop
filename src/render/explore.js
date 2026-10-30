@@ -14,6 +14,7 @@ import { getTrackedQuest, getProgress, isQuestReadyToComplete,
          isQuestActive, isQuestCompleted } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { getTimeState, getTimeOfDay } from '../core/timeofday.js';
+import { applyLighting, applyDayNight, torchLight, nightFactor } from './lighting.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -323,6 +324,7 @@ export function renderExplore() {
   }
 
   drawCage(currentRoom);
+  drawTreasureChest(currentRoom);
   drawMapEnemies(currentRoom);
 
   if (currentRoom.interactables) {
@@ -348,6 +350,10 @@ export function renderExplore() {
       text = 'Abrir mochila [E]';
     } else if (it.kind === 'caged_villager') {
       text = 'Examinar jaula [E]';
+    } else if (it.kind === 'cave_entrance') {
+      text = it.procedural ? 'Entrar na caverna [E]' : 'Entrar na Caverna Sombria [E]';
+    } else if (it.kind === 'treasure_chest') {
+      text = 'Abrir baú [E]';
     } else {
       text = 'Aperte [E]';
     }
@@ -376,130 +382,23 @@ export function renderExplore() {
     32 * scale, 32 * scale
   );
 
-  // --- EFEITO DE ESCURIDÃO NA CAVERNA ---
+  // ---------- ILUMINAÇÃO ----------
   if (biomeId === 'cave') {
-    // Verifica se o player tem a tocha equipada na mão esquerda
-    const hasTorch = playerEquip.leftHand === 'torch';
-
-    // Se não tem tocha, a tela fica completamente escura (ou quase)
-    if (!hasTorch) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    } else {
-      // Com tocha: cria um "domo" de luz ao redor do player
-      const lightRadius = 120; // Raio da luz em pixels
-      const lightX = player.x;
-      const lightY = player.y;
-
-      // Cria um gradiente radial: centro transparente, borda preta
-      const grd = ctx.createRadialGradient(
-        lightX, lightY, lightRadius * 0.3, // Centro (raio interno)
-        lightX, lightY, lightRadius        // Borda (raio externo)
-      );
-      grd.addColorStop(0, 'rgba(0, 0, 0, 0)');      // Centro: transparente
-      grd.addColorStop(0.7, 'rgba(0, 0, 0, 0.6)');  // Meio: semi-escuro
-      grd.addColorStop(1, 'rgba(0, 0, 0, 0.95)');   // Borda: quase preto
-
-      ctx.fillStyle = grd;
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-      // Efeito extra: pequeno "brilho" amarelado no centro (chama da tocha)
-      const glowGrd = ctx.createRadialGradient(
-        lightX, lightY, 0,
-        lightX, lightY, lightRadius * 0.4
-      );
-      glowGrd.addColorStop(0, 'rgba(255, 200, 100, 0.15)');
-      glowGrd.addColorStop(1, 'rgba(255, 200, 100, 0)');
-      ctx.fillStyle = glowGrd;
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const lights = [];
+    if (playerEquip.leftHand === 'torch') {
+      lights.push({ x: player.x, y: player.y, radius: 120, strength: 1, inner: 0.3,
+                    color: [255, 200, 100], warm: 0.15, flicker: true });
     }
-
-    // --- Luz adicional da tocha fincada no chão ---
     if (currentRoom.floorTorch) {
       const ft = currentRoom.floorTorch;
-      const ftx = ft.tx * TILE_SIZE + TILE_SIZE / 2;
-      const fty = ft.ty * TILE_SIZE + TILE_SIZE / 2;
-      const torchRadius = 80;
-
-      // Gradiente invertido: "apaga" a escuridão em volta da tocha.
-      // 0.75 no centro (deixa ainda um pouco de penumbra pra não "vazar"
-      // luz absoluta) e cai suave até 0 na borda.
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-
-      const tGrd = ctx.createRadialGradient(ftx, fty, 0, ftx, fty, torchRadius);
-      tGrd.addColorStop(0, 'rgba(0, 0, 0, 0.75)');
-      tGrd.addColorStop(0.55, 'rgba(0, 0, 0, 0.4)');
-      tGrd.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = tGrd;
-      ctx.beginPath();
-      ctx.arc(ftx, fty, torchRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Brilho quente MUITO sutil, e desenhado ANTES do sprite (ver drawFloorTorch).
-      // Aqui só guardamos — não desenha nada por cima da tocha.
+      lights.push({ x: ft.tx * TILE_SIZE + TILE_SIZE / 2, y: ft.ty * TILE_SIZE + TILE_SIZE / 2,
+                    radius: 80, strength: 0.75, color: [255, 170, 80], warm: 0.12, flicker: true });
     }
+    applyLighting({ color: [0, 0, 0], alpha: 0.95, lights });
+  } else {
+    const torch = torchLight(player.x, player.y);
+    applyDayNight(torch ? [torch] : [], player);
   }
-
-// ---------- DIA/NOITE (fora de cidade/interior) ----------
-if (!currentRoom.isCity && !currentRoom.isInterior && biomeId !== 'cave') {
-  const time = getTimeState();
-
-  // 1) Overlay de cor (noite = azul, entardecer = laranja, etc.)
-  if (time.darkness > 0.01) {
-    const [r, g, b] = time.overlay;
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${time.darkness * 0.65})`;
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  }
-
-  // 2) Vinheta escura nas bordas quando está mais escuro
-  //    (dá profundidade sem escurecer o centro onde o player está)
-  if (time.darkness > 0.2) {
-    const cx = player.x;
-    const cy = player.y;
-    const radius = 260;
-    const grd = ctx.createRadialGradient(cx, cy, radius * 0.35, cx, cy, radius);
-    grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, `rgba(0,0,0,${0.45 * time.darkness})`);
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  }
-
-  // 3) Luz da tocha equipada (se tiver)
-  if (playerEquip.leftHand === 'torch') {
-    const lightX = player.x;
-    const lightY = player.y;
-    // À noite a tocha é mais útil; de dia quase não se nota
-    const torchStrength = Math.min(0.55, time.darkness * 0.85);
-    if (torchStrength > 0.05) {
-      // "fura" o overlay (destination-out) ao redor do player
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      const grd = ctx.createRadialGradient(lightX, lightY, 8, lightX, lightY, 110);
-      grd.addColorStop(0, `rgba(0,0,0,${torchStrength})`);
-      grd.addColorStop(0.5, `rgba(0,0,0,${torchStrength * 0.5})`);
-      grd.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.arc(lightX, lightY, 110, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // brilho quente sutil
-      ctx.save();
-      const warm = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, 70);
-      warm.addColorStop(0, `rgba(255,180,90,${torchStrength * 0.35})`);
-      warm.addColorStop(1, 'rgba(255,180,90,0)');
-      ctx.fillStyle = warm;
-      ctx.beginPath();
-      ctx.arc(lightX, lightY, 70, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-}
 
   drawFloorTorch(currentRoom);
   // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
@@ -694,7 +593,6 @@ function renderCity(room) {
 
   // ============================================================
   // CHÃO (grama, rua, praça)
-  // Desenha TODOS os tiles de chão primeiro.
   // ============================================================
   const grassRng = makeRng(seedFrom(room.gx * 3, room.gy * 11));
 
@@ -705,7 +603,6 @@ function renderCity(room) {
       const py = y * TILE_SIZE;
 
       if (t === T.FLOOR || t === T.TREE) {
-        // Grama (determinística)
         const roll = grassRng();
         let gType = 0;
         if (roll < 0.02)      gType = 2;
@@ -714,10 +611,8 @@ function renderCity(room) {
         else if (roll < 0.25) gType = 1;
         ctx.drawImage(grassTiles[gType], px, py);
       } else if (t === T.STREET) {
-        // Rua de terra batida
         ctx.fillStyle = '#a8845a';
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        // Ruído sutil (determinístico pelo x,y)
         if (((x * 7 + y * 13) % 5) === 0) {
           ctx.fillStyle = '#8a6a40';
           ctx.fillRect(px + 4, py + 6, 2, 2);
@@ -727,13 +622,11 @@ function renderCity(room) {
           ctx.fillRect(px + 12, py + 14, 2, 1);
         }
       } else if (t === T.PLAZA) {
-        // Praça: pedra clara
         ctx.fillStyle = '#a8a8b8';
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.strokeStyle = '#9090a0';
         ctx.lineWidth = 1;
         ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
-        // Detalhe central
         ctx.fillStyle = '#9a9aaa';
         ctx.fillRect(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2 - 1, 2, 2);
       } else if (t === T.WALL) {
@@ -751,11 +644,11 @@ function renderCity(room) {
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         ctx.fillStyle = '#a07e2f';
         ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-      } 
+      }
     }
   }
 
-  // 3. Grade
+  // Grade
   ctx.strokeStyle = '#5a5a6a';
   ctx.lineWidth = 1;
   ctx.globalAlpha = 0.25;
@@ -778,92 +671,42 @@ function renderCity(room) {
     const sw = obj.w * TILE_SIZE;
     const sh = obj.h * TILE_SIZE;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-    // Sombra à direita: começa mais alta (alinhada ao telhado) e cobre até a base
     ctx.fillRect(sx + sw, sy - 4, 6, sh + 8);
-    // Sombra no topo (atrás do telhado)
     ctx.fillRect(sx + 4, sy - 4, sw, 4);
   }
 
-  // ---------- CASAS (por cima dos tiles de HOUSE) ----------
+  // ---------- CASAS ----------
   for (const obj of room.cityObjects) {
     drawBuilding(obj, room);
   }
 
-  // ---------- PORTAL (estátua + portal) ----------
+  // ---------- PORTAL ----------
   drawPortalStatue(room.portal, mid);
 
-  // ---------- LUZES NOTURNAS (cidade) ----------
-  const time = getTimeState();
-  if (time.darkness > 0.15) {
-    const intensity = Math.min(1, (time.darkness - 0.15) / 0.55);
-
-    // --- Portal: brilho roxo pulsante ---
-    const px = room.portal.tx * TILE_SIZE + TILE_SIZE / 2;
-    const py = room.portal.ty * TILE_SIZE + TILE_SIZE / 2;
-    const pulse = 0.75 + Math.sin(performance.now() / 500) * 0.25;
-    const portalGrd = ctx.createRadialGradient(px, py, 4, px, py, 90);
-    portalGrd.addColorStop(0, `rgba(200,150,255,${0.55 * intensity * pulse})`);
-    portalGrd.addColorStop(0.5, `rgba(140,90,220,${0.25 * intensity * pulse})`);
-    portalGrd.addColorStop(1, 'rgba(120,60,180,0)');
-    ctx.fillStyle = portalGrd;
-    ctx.beginPath();
-    ctx.arc(px, py, 90, 0, Math.PI * 2);
-    ctx.fill();
-
-    // --- Janelas: brilho quente nas casas ---
-    for (const obj of room.cityObjects) {
-      const x = obj.tx * TILE_SIZE;
-      const y = obj.ty * TILE_SIZE;
-      const w = obj.w * TILE_SIZE;
-
-      const winY = y + 30;
-      const winW = 10;
-      const winH = 8;
-
-      // Replica a posição das janelas do drawBuilding
-      const windows = [
-        { cx: x + w * 0.25, cy: winY + winH / 2 },
-        { cx: x + w * 0.75, cy: winY + winH / 2 },
-      ];
-      for (const win of windows) {
-        const g = ctx.createRadialGradient(win.cx, win.cy, 1, win.cx, win.cy, 40);
-        g.addColorStop(0, `rgba(255,210,120,${0.45 * intensity})`);
-        g.addColorStop(1, 'rgba(255,210,120,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(win.cx, win.cy, 40, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-
-  // ---------- ESTANDARTES (ao lado das portas) ----------
+  // ---------- ESTANDARTES ----------
   for (const obj of room.cityObjects) {
     drawBannerNextToDoor(obj);
   }
 
-  // ---------- PLACAS DE MADEIRA (interativas depois) ----------
+  // ---------- PLACAS ----------
   for (const obj of room.cityObjects) {
     const signX = obj.signTx * TILE_SIZE + TILE_SIZE / 2;
     const signY = obj.signTy * TILE_SIZE + TILE_SIZE / 2;
 
-    // Poste
     ctx.fillStyle = '#5a3a1a';
     ctx.fillRect(signX - 1, signY + 4, 2, 6);
-    // Tábua
     ctx.fillStyle = '#8a5a3a';
     ctx.fillRect(signX - 14, signY - 4, 28, 10);
     ctx.strokeStyle = '#4a2a1a';
     ctx.lineWidth = 1;
     ctx.strokeRect(signX - 14 + 0.5, signY - 4 + 0.5, 27, 9);
-    // Linhas "texto"
     ctx.fillStyle = '#5a3a24';
     ctx.fillRect(signX - 10, signY - 1, 20, 1);
     ctx.fillRect(signX - 8, signY + 1, 16, 1);
     ctx.fillRect(signX - 6, signY + 3, 12, 1);
   }
 
-  // Árvores (mesmo desenho do campo)
+  // Árvores
   for (let y = 0; y < GRID_SIZE; y++) {
     for (let x = 0; x < GRID_SIZE; x++) {
       if (room.map[y][x] !== T.TREE) continue;
@@ -874,7 +717,7 @@ function renderCity(room) {
     }
   }
 
-  // ---------- FOLHAS CAINDO (por cima das árvores) ----------
+  // Folhas
   for (const L of getActiveLeaves()) {
     const tt = L.age / L.life;
     let color;
@@ -885,16 +728,53 @@ function renderCity(room) {
     ctx.fillRect(Math.floor(L.x), Math.floor(L.y), 2, 2);
   }
 
-  // ---------- PROMPT DE INTERAÇÃO ----------
+  // ---------- ILUMINAÇÃO NOTURNA (agora ANTES do prompt) ----------
+  if (getTimeState().darkness > 0.01) {
+    const lit = nightFactor();
+    const lights = [];
+
+    const torch = torchLight(player.x, player.y);
+    if (torch) lights.push(torch);
+
+    if (lit > 0) {
+      lights.push({
+        x: room.portal.tx * TILE_SIZE + TILE_SIZE / 2,
+        y: room.portal.ty * TILE_SIZE + TILE_SIZE / 2,
+        radius: 110, strength: 0.8 * lit, inner: 0.1,
+        color: [190, 120, 255], warm: 0.5 * lit, pulse: true,
+      });
+      for (const obj of room.cityObjects) {
+        for (const r of windowRects(obj)) {
+          lights.push({
+            x: r.x + r.w / 2, y: r.y + r.h / 2,
+            radius: 48, strength: 0.75 * lit,
+            color: [255, 200, 110], warm: 0.35 * lit,
+          });
+        }
+      }
+    }
+
+    applyDayNight(lights, player);
+
+    // Janelas emissivas redesenhadas POR CIMA da escuridão
+    if (lit > 0) {
+      ctx.fillStyle = windowColor(lit);
+      for (const obj of room.cityObjects) {
+        for (const r of windowRects(obj)) ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+      }
+    }
+  }
+
+  // ---------- PROMPT DE INTERAÇÃO (agora por cima de TUDO) ----------
   const it = playerStats._nearInteractable;
   if (it) {
     const cx = it.tx * TILE_SIZE + TILE_SIZE / 2;
-    const cy = it.ty * TILE_SIZE - 16; // acima do objeto
+    const cy = it.ty * TILE_SIZE - 16;
     const text = it.kind === 'building_entrance'
-    ? `Entrar: ${it.title} [E]`
-    : it.kind === 'sign'
-      ? `Ler: ${it.title} [E]`
-      : `Aperte [E]`;
+      ? `Entrar: ${it.title} [E]`
+      : it.kind === 'sign'
+        ? `Ler: ${it.title} [E]`
+        : `Aperte [E]`;
     ctx.font = 'bold 10px "Courier New", monospace';
     const w = ctx.measureText(text).width + 10;
     const h = 16;
@@ -1003,23 +883,13 @@ function drawBuilding(obj, room) {
   }
 
   // ---- JANELAS (2 por casa, sem porta) ----
-  const winY = y + 30;
-  const winW = 10;
-  const winH = 8;
-  const winColor = '#2a2a3a';
-  const winGlow  = '#feca57';
-
-  // Janela esquerda
-  ctx.fillStyle = winColor;
-  ctx.fillRect(x + w * 0.25 - winW / 2, winY, winW, winH);
-  ctx.fillStyle = winGlow;
-  ctx.fillRect(x + w * 0.25 - winW / 2 + 1, winY + 1, winW - 2, winH - 2);
-
-  // Janela direita
-  ctx.fillStyle = winColor;
-  ctx.fillRect(x + w * 0.75 - winW / 2, winY, winW, winH);
-  ctx.fillStyle = winGlow;
-  ctx.fillRect(x + w * 0.75 - winW / 2 + 1, winY + 1, winW - 2, winH - 2);
+  const lit = nightFactor();
+  for (const r of windowRects(obj)) {
+    ctx.fillStyle = '#2a2a3a';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = windowColor(lit);
+    ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+  }
 
   // ---- PORTA (arco central, base) ----
   const doorW = 18;
@@ -1048,6 +918,19 @@ function drawBuilding(obj, room) {
   ctx.beginPath();
   ctx.arc(doorX + doorW / 2, doorY, doorW / 2, Math.PI, 0);
   ctx.fill();
+}
+
+function windowRects(obj) {
+  const x = obj.tx * TILE_SIZE, y = obj.ty * TILE_SIZE, w = obj.w * TILE_SIZE;
+  const winW = 10, winH = 8, winY = y + 30;
+  // Só a janela esquerda: a direita é ocupada pelo estandarte da loja
+  return [{ x: x + w * 0.25 - winW / 2, y: winY, w: winW, h: winH }];
+}
+
+// cinza-azulado de dia → dourado de noite
+function windowColor(lit) {
+  const a = [90, 106, 122], b = [254, 202, 87];
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * lit)).join(',')})`;
 }
 
 // Adicionar no final de explore.js (ou antes de drawBannerNextToDoor):
@@ -1116,19 +999,19 @@ function drawBannerNextToDoor(obj) {
   const w = obj.w * TILE_SIZE;
   const h = obj.h * TILE_SIZE;
 
-  // Posição: à direita da porta, na parede
   const doorCenterX = x + w / 2;
   const bannerX = doorCenterX + 22;
   const bannerY = y + h - 30;
 
-  // Mastro horizontal (sai da parede)
+  const t = performance.now() / 1000;
+
+  // Mastro (fica parado — só o pano balança)
   ctx.fillStyle = '#5a3a1a';
   ctx.fillRect(bannerX - 2, bannerY, 12, 2);
-  // Ponta do mastro
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(bannerX + 10, bannerY - 1, 2, 4);
 
-  // Pano do estandarte (pendurado)
+  // Dimensões do pano
   const bannerW = 14;
   const bannerH = 20;
   const bx = bannerX - 1;
@@ -1143,27 +1026,103 @@ function drawBannerNextToDoor(obj) {
   };
   const bannerColor = bannerColors[obj.id] || '#8a1a1a';
 
-  ctx.fillStyle = bannerColor;
-  ctx.fillRect(bx, by, bannerW, bannerH);
+  // ------------------------------------------------------------
+  // Onda do pano:
+  //   - amplitude cresce com a distância do topo (ponta balança mais)
+  //   - phase global faz a onda "viajar" de cima pra baixo
+  //   - usamos segments de 1px pra ter um resultado suave
+  // ------------------------------------------------------------
+  const amplitudeMax = 1.8;   // px (quanto a ponta se desloca)
+  const waveSpeed = 1.8;      // velocidade da onda
 
-  // Borda dourada
+  // Pré-calcula o deslocamento de cada linha (y local 0..bannerH)
+  const offsets = [];
+  for (let ly = 0; ly < bannerH; ly++) {
+    // fator 0 no topo (preso ao mastro), 1 na base
+    const factor = ly / (bannerH - 1);
+    // onda viajando pra baixo + balanço lento
+    const wave =
+      Math.sin(t * waveSpeed - ly * 0.45) * amplitudeMax * factor +
+      Math.sin(t * 1.1) * 0.4 * factor;
+    offsets.push(wave);
+  }
+
+  // ------------------------------------------------------------
+  // Desenha o pano como faixas horizontais de 1px, cada uma
+  // deslocada horizontalmente pelo `offsets[ly]`.
+  // ------------------------------------------------------------
+  for (let ly = 0; ly < bannerH; ly++) {
+    const ox = Math.round(offsets[ly]);
+    ctx.fillStyle = bannerColor;
+    ctx.fillRect(bx + ox, by + ly, bannerW, 1);
+
+    // sombra/borda interna: escurece as laterais do pano
+    // (só desenha nas 2 colunas mais externas, com alpha)
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(bx + ox, by + ly, 1, 1);
+    ctx.fillRect(bx + ox + bannerW - 1, by + ly, 1, 1);
+
+    // brilho central (dá volume)
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(bx + ox + 2, by + ly, bannerW - 4, 1);
+  }
+
+  // ------------------------------------------------------------
+  // Borda dourada (também ondula, seguindo o mesmo offsets)
+  // ------------------------------------------------------------
   ctx.strokeStyle = '#c9a24d';
   ctx.lineWidth = 1;
-  ctx.strokeRect(bx + 0.5, by + 0.5, bannerW - 1, bannerH - 1);
+  ctx.beginPath();
+  // lado esquerdo de cima pra baixo
+  ctx.moveTo(bx + Math.round(offsets[0]) + 0.5, by + 0.5);
+  for (let ly = 1; ly < bannerH; ly++) {
+    ctx.lineTo(bx + Math.round(offsets[ly]) + 0.5, by + ly + 0.5);
+  }
+  // base esquerda → base direita (a "boca" do V ainda vem depois)
+  // lado direito de baixo pra cima
+  for (let ly = bannerH - 1; ly >= 0; ly--) {
+    ctx.lineTo(bx + Math.round(offsets[ly]) + bannerW - 0.5, by + ly + 0.5);
+  }
+  ctx.closePath();
+  ctx.stroke();
 
-  // Ponta inferior (V)
+  // ------------------------------------------------------------
+  // Ponta inferior (V): o ponto central "cai" um pouco
+  // e também ondula lateralmente junto com a última linha.
+  // ------------------------------------------------------------
+  const tipOffset = Math.round(offsets[bannerH - 1] + Math.sin(t * 2.2) * 0.8);
+  const leftX  = bx + Math.round(offsets[bannerH - 1]);
+  const rightX = leftX + bannerW;
+  const centerX = leftX + bannerW / 2 + Math.sin(t * 2.2) * 0.5;
+
   ctx.fillStyle = bannerColor;
   ctx.beginPath();
-  ctx.moveTo(bx, by + bannerH);
-  ctx.lineTo(bx + bannerW / 2, by + bannerH + 4);
-  ctx.lineTo(bx + bannerW, by + bannerH);
+  ctx.moveTo(leftX, by + bannerH);
+  ctx.lineTo(centerX + tipOffset * 0.2, by + bannerH + 4);
+  ctx.lineTo(rightX, by + bannerH);
   ctx.closePath();
   ctx.fill();
 
-  // Ícone no centro
+  // Borda dourada do V
+  ctx.strokeStyle = '#c9a24d';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(leftX + 0.5, by + bannerH + 0.5);
+  ctx.lineTo(centerX + tipOffset * 0.2, by + bannerH + 4.5);
+  ctx.lineTo(rightX - 0.5, by + bannerH + 0.5);
+  ctx.stroke();
+
+  // ------------------------------------------------------------
+  // Ícone no centro — PARADO (não ondula, pra ficar legível).
+  // Centralizado na posição média das linhas, pra não "descolar".
+  // ------------------------------------------------------------
+  let midSum = 0;
+  for (let ly = 6; ly < 16; ly++) midSum += offsets[ly]; // faixa do meio
+  const midOffset = midSum / 10;
+
   drawBannerIcon(
     obj.id,
-    Math.floor(bx + bannerW / 2),
+    Math.floor(bx + bannerW / 2 + midOffset),
     Math.floor(by + bannerH / 2)
   );
 }
@@ -1652,5 +1611,46 @@ function drawFloorTorch(room) {
   ctx.moveTo(cx - 1, cy - 6);
   ctx.quadraticCurveTo(cx, cy - 6 - flameH * 0.6, cx + 1, cy - 6);
   ctx.quadraticCurveTo(cx, cy - 6 + 0.5, cx - 1, cy - 6);
+  ctx.fill();
+}
+
+function drawTreasureChest(room) {
+  const c = room.treasureChest;
+  if (!c) return;
+  const s = TILE_SIZE;
+  const x = c.tx * s, y = c.ty * s;
+
+  // Só desenha se ainda não foi aberto
+  // (o estado "aberto" fica em currentRoom._chestOpened)
+  if (room._chestOpened) {
+    // baú aberto: tampa pra cima, interior escuro
+    ctx.fillStyle = '#4a2a10';
+    ctx.fillRect(x + 2, y + s - 12, s - 4, 10);
+    ctx.fillStyle = '#1a0f08';
+    ctx.fillRect(x + 4, y + s - 10, s - 8, 6);
+    ctx.fillStyle = '#c9a24d';
+    ctx.fillRect(x + 2, y + s - 6, s - 4, 1);
+    return;
+  }
+
+  // Baú fechado
+  // Corpo (madeira)
+  ctx.fillStyle = '#6b4a2b';
+  ctx.fillRect(x + 2, y + s - 12, s - 4, 10);
+  // Tampa (madeira mais escura)
+  ctx.fillStyle = '#4a3018';
+  ctx.fillRect(x + 2, y + s - 14, s - 4, 4);
+  // Faixa dourada
+  ctx.fillStyle = '#c9a24d';
+  ctx.fillRect(x + 2, y + s - 9, s - 4, 1);
+  // Fechadura
+  ctx.fillStyle = '#f0d27a';
+  ctx.fillRect(x + s / 2 - 1, y + s - 8, 2, 3);
+  // Brilho sutil pulsante
+  const t = performance.now() / 500;
+  const pulse = 0.25 + Math.sin(t) * 0.1;
+  ctx.fillStyle = `rgba(254, 202, 87, ${pulse})`;
+  ctx.beginPath();
+  ctx.arc(x + s / 2, y + s - 6, 10, 0, Math.PI * 2);
   ctx.fill();
 }

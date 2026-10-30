@@ -1,7 +1,7 @@
 import { playerStats, player, addGold } from '../core/state.js';
 import { ITEMS_DB } from '../items.js';
 import { TILE_SIZE } from '../core/canvas.js';
-import { getActiveQuest, isQuestActive, isQuestCompleted } from '../quests.js';
+import { getActiveQuest, isQuestActive, isQuestCompleted, areProceduralCavesUnlocked } from '../quests.js';
 
 // ============================================================
 // INTERACTABLES
@@ -94,11 +94,22 @@ export function getInteractables(room) {
       }
       // A entrada da caverna só existe enquanto a quest estiver ativa
       if (it.kind === 'cave_entrance') {
-        if (!isQuestActive('story_cave')) continue;
+        // Caverna procedural: independe de quest. Só precisa estar "desbloqueada".
+        if (it.procedural) {
+          if (!areProceduralCavesUnlocked()) continue;
+        } else {
+          // Caverna da quest: só existe enquanto a quest está ativa
+          if (!isQuestActive('story_cave')) continue;
+        }
       }
 
       if (it.kind === 'caged_villager') {
         if (!isQuestActive('story_cave')) continue;
+      }
+      if (it.kind === 'treasure_chest') {
+        if (room._chestOpened) continue;
+        // (a checagem do miniboss foi removida — o prompt deve aparecer sempre,
+        //  e o input.js decide se abre ou mostra "trancado")
       }
       list.push({ ...it });
     }
@@ -184,7 +195,7 @@ export function findNearbyInteractable(room) {
   // Prioridade: menor número = mais prioritário
   const priority = {
     herbalist_quest:  -1,
-    blacksmith_quest: -1,   // ← NOVO
+    blacksmith_quest: -1,
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
@@ -192,6 +203,7 @@ export function findNearbyInteractable(room) {
     caged_villager:    1,
     lost_backpack:     1,
     portal:            1,
+    treasure_chest:    1,
     sign:              2,
   };
 

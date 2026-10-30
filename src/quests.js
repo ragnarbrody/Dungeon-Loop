@@ -473,6 +473,13 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   return q;
 }
 
+export function hasSeenCaveCollapseLore() {
+  return state.caveCollapseLoreSeen === true;
+}
+export function markCaveCollapseLoreSeen() {
+  state.caveCollapseLoreSeen = true;
+}
+
 // ---------- Serialização ----------
 export function serializeQuests() {
   return {
@@ -482,6 +489,7 @@ export function serializeQuests() {
     tracked: state.tracked,
     elderIntroSeen: state.elderIntroSeen,
     pendingCaveCollapse: _pendingCaveCollapse,
+    caveCollapseLoreSeen: state.caveCollapseLoreSeen === true,
   };
 }
 
@@ -493,6 +501,7 @@ export function loadQuests(data) {
   state.tracked = data.tracked ?? null;
   state.elderIntroSeen = !!data.elderIntroSeen;
   _pendingCaveCollapse = !!data.pendingCaveCollapse;
+  state.caveCollapseLoreSeen = !!data.caveCollapseLoreSeen;
 }
 
 export function resetQuests() {
@@ -501,6 +510,8 @@ export function resetQuests() {
   state.completed.clear();
   state.tracked = null;
   state.elderIntroSeen = false;
+  state.caveCollapseLoreSeen = false;
+  _pendingCaveCollapse = false;
 }
 
 // Retorna a lista (ordenada por id) de quests concluídas com dados completos.
@@ -520,4 +531,8 @@ export function getQuestGiver(q) {
 export function getTurnInNpc(q) {
   if (!q) return null;
   return q.turnInNpc || q.giver || 'elder';
+}
+
+export function areProceduralCavesUnlocked() {
+  return state.completed.has('story_cave');
 }

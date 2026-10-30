@@ -17,7 +17,7 @@ export const CLASSES = {
     id: 'mage',
     name: 'Mago',
     description: 'Dano mágico por Inteligência. Ignora defesa, pouca vida.',
-    stats: { str: 1, agi: 2, int: 3, def: 1, vit: 1, magia: 3 },
+    stats: { str: 1, agi: 1, int: 2, def: 1, vit: 1, magia: 2 },
     equip: { rightHand: 'staff', leftHand: null },
     baseMp: 10,
     skills: [
@@ -31,7 +31,7 @@ export const CLASSES = {
     id: 'thief',
     name: 'Ladrão',
     description: 'Rápido e preciso. Agilidade aumenta o dano e a esquiva.',
-    stats: { str: 1, agi: 3, int: 2, def: 1, vit: 1, magia: 1 },
+    stats: { str: 1, agi: 2, int: 2, def: 1, vit: 1, magia: 1 },
     equip: { rightHand: 'dagger', leftHand: null },
     baseMp: 6,
     skills: [
@@ -45,7 +45,7 @@ export const CLASSES = {
     id: 'huntress',
     name: 'Caçadora',
     description: 'Precisão à distância. Agilidade aumenta o dano e acertos.',
-    stats: { str: 1, agi: 3, int: 1, def: 1, vit: 1, magia: 2 },
+    stats: { str: 1, agi: 2, int: 1, def: 1, vit: 1, magia: 2 },
     //         ^str baixa (não é corpo a corpo)   ^agi alta (acerta)     ^vit/def baixas (frágil)
     equip: { rightHand: 'bow', leftHand: null },
     baseMp: 6,

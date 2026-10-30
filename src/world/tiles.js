@@ -24,7 +24,7 @@ export const DIRS = {
 
 export function isSolid(t) {
   return t === T.WALL || t === T.TREE || t === T.HOUSE ||
-         t === T.PORTAL || t === T.FOUNTAIN
+         t === T.PORTAL || t === T.FOUNTAIN ||
          t === T.CAVE_ENTRANCE;
 }
 

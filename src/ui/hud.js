@@ -9,6 +9,7 @@ export const hud        = document.getElementById('hud');
 
 const elTime = document.getElementById('hud-time');
 const elTimeLabel = document.getElementById('hud-time-label');
+const elTimeIcon = document.getElementById('hud-time-icon');
 
 const elHp    = document.getElementById('hud-hp');
 const elMp    = document.getElementById('hud-mp');
@@ -53,5 +54,17 @@ export function updateHud() {
       time.label === 'Noite' ? '#8a9aff' :
       time.label === 'Entardecer' ? '#ffb070' :
       time.label === 'Manhã' ? '#f5d98a' : '#aaa';
+  }
+  if (elTimeIcon) {
+  if (time.darkness > 0.45) {
+      elTimeIcon.textContent = '🌙';
+    } else if (time.darkness > 0.15) {
+      elTimeIcon.textContent = '🌇';
+    } else {
+      elTimeIcon.textContent = '☀️';
+    }
+    elTimeIcon.style.filter = time.darkness > 0.45
+      ? 'drop-shadow(0 0 3px #8a9aff)'
+      : 'drop-shadow(0 0 3px #f5d98a)';
   }
 }

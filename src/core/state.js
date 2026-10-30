@@ -7,12 +7,19 @@ import {
 import { loadKnowledge, serializeKnowledge, revealRoom, addMarker, revealMarker, removeMarker } from '../world/knowledge.js';
 import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter, setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter  } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
-import { dungeonCache } from '../world/rooms.js';
+import { serializeDungeons, loadDungeons, dungeonCache, setPendingDungeonsData } from '../world/rooms.js';
 import { normalizeInventory } from '../items.js';
 import { loadTime, serializeTime } from './timeofday.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
+
+// NÃO reconstrói dungeons no import. Guarda os dados serializados
+// e deixa o `rooms.js` reconstruir sob demanda (lazy).
+// Isso evita ciclo de importação state <-> rooms.
+if (savedData.dungeons) {
+  setPendingDungeonsData(savedData.dungeons);
+}
 
 // Aplica knowledge (o `loadKnowledge` já lida com array vazio)
 if (savedData.knowledge) {
@@ -153,6 +160,9 @@ export function buildSaveData() {
 
     // Missões
     quests: serializeQuests(),
+
+    // dungeons (estado persistente de baús, inimigos mortos, jaulas)
+    dungeons: serializeDungeons(),
 
     // Horário do dia (persistente)
     ...serializeTime(),

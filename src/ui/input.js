@@ -1,5 +1,5 @@
 import { canvas } from '../core/canvas.js';
-import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame } from '../core/state.js';
+import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame, currentRoom, startGX, startGY } from '../core/state.js';
 import { playerAction } from '../battle/battle.js';
 import { renderInventory } from './inventory.js';
 import { CLASSES } from '../classes.js';
@@ -24,6 +24,10 @@ import { isQuestActive } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { showToast } from './toast.js';
 import { talkToCagedVillager } from './villagerrescue.js';
+import { addMarker, revealMarker, getMarker } from '../world/knowledge.js';
+
+const CHEST_GOLD_MIN = 40;
+const CHEST_GOLD_MAX = 100;
 
 export const keys = {};
 
@@ -221,8 +225,26 @@ export function installInput() {
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
         } else if (it.kind === 'cave_entrance') {
-          // Precisa da tocha EQUIPADA (não só no inventário)
           const hasTorchEquipped = playerEquip.leftHand === 'torch';
+
+          // Caverna PROCEDURAL (pós-quest): sempre exige tocha, mas não exige quest ativa
+          if (it.procedural) {
+            if (!hasTorchEquipped) {
+              showToast({
+                itemId: 'torch',
+                title: 'Tocha necessária',
+                subtitle: 'Equipe uma tocha na mão esquerda para entrar.',
+                color: '#ff6b6b',
+              });
+            } else {
+              // ID único por sala: assim cada caverna procedural é uma dungeon diferente
+              const dungeonId = `proc_cave_${currentRoom.gx}_${currentRoom.gy}`;
+              enterDungeon(dungeonId, { procedural: true });
+            }
+            return;
+          }
+
+          // Caverna da QUEST (comportamento antigo)
           if (!isQuestActive('story_cave')) {
             openDialogue({
               title: it.title,
@@ -256,6 +278,70 @@ export function installInput() {
           }
         } else if (it.kind === 'caged_villager') {
           talkToCagedVillager();
+          // Marca a jaula como aberta (persiste no save)
+          currentRoom._cageOpened = true;
+          saveGame();
+        } else if (it.kind === 'treasure_chest') {
+          // Se o miniboss da sala ainda está vivo, mostra um diálogo
+          // explicando por que o baú não abre.
+          const minibossAlive = (currentRoom.enemies || []).some(
+            e => !e.defeated && e.id === 'goblin_sergeant'
+          );
+          if (minibossAlive) {
+            openDialogue({
+              title: 'Baú trancado',
+              text:
+                'Você puxa a tampa, mas ela não cede. Há uma fechadura de ferro, ' +
+                'e você não tem a chave.\n\n' +
+                'O guardião da caverna ainda está vivo. A chave deve estar com ele.',
+            });
+            return;
+          }
+          // Abre o baú: sorteia ouro + 1-2 poções
+          const gold = CHEST_GOLD_MIN + Math.floor(
+            Math.random() * (CHEST_GOLD_MAX - CHEST_GOLD_MIN + 1)
+          );
+          playerStats.gold += gold;
+
+          const potionRoll = Math.random();
+          const potions = [];
+          if (potionRoll < 0.5) {
+            potions.push({ id: 'potion_weak', qty: 1 + Math.floor(Math.random() * 2) });
+          } else if (potionRoll < 0.85) {
+            potions.push({ id: 'potion_medium', qty: 1 });
+          } else {
+            potions.push({ id: 'potion_medium', qty: 1 });
+            potions.push({ id: 'potion_mana', qty: 1 });
+          }
+          for (const p of potions) addItemToInventory(playerStats.inventory, p.id, p.qty);
+
+          // Marca como aberto na sala em memória
+          currentRoom._chestOpened = true;
+          saveGame();
+          sfx('chest');
+
+          // Marca a caverna como concluída no mapa-múndi.
+          // A "sala" é a do MUNDO (onde fica a entrada da caverna), não a dungeon.
+          // `startGX`/`startGY` são exatamente isso — a sala de onde o jogador entrou
+          // em `enterDungeon`. Eles NÃO mudam com `setDungeonRoom`.
+          const markerId = `cave_done_${startGX}_${startGY}`;
+          if (!getMarker(markerId)) {
+            addMarker({
+              id: markerId,
+              type: 'cave_done',
+              gx: startGX,
+              gy: startGY,
+              title: 'Caverna concluída',
+              revealed: true,
+            });
+            revealMarker(markerId);
+          }
+
+          const dropStr = potions.map(p => `${p.qty}× ${p.id}`).join(', ');
+          openDialogue({
+            title: 'Baú',
+            text: `Você abre o baú.\n\nDentro, ${gold} de ouro e ${dropStr}.`,
+          });
         }
         for (let kk in keys) keys[kk] = false;
       }

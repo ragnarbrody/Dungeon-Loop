@@ -45,11 +45,11 @@ export const SHOPS = {
     name: 'Armeiro',
     items: [
       // Escudos
-      'shield', 'iron_shield', 'runic_shield',
+      'shield', 'iron_shield',
       // Conjunto de couro
       'leather_helmet', 'leather_armor', 'leather_boots',
-      // Conjunto rúnico
-      'runic_helmet', 'runic_armor', 'runic_boots',
+      // Conjunto de ferro (intermediário)
+      'iron_helmet', 'iron_armor', 'iron_boots',
     ],
     sellFilter: ['shield', 'material', 'armor', 'helmet', 'boots'],
   },

@@ -5,7 +5,7 @@ import { BIOMES, pickBiome } from './biomes.js';
 import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
 import { createInterior } from './interiors.js';
 import { setMusicMode } from '../audio/audio.js';
-import { isQuestActive } from '../quests.js';
+import { isQuestActive, areProceduralCavesUnlocked } from '../quests.js';
 
 // ============================================================
 // REGRA DE PORTAS
@@ -22,6 +22,21 @@ const FALLBACK_FIELDS_ENEMIES = ['slime', 'rat', 'goblin'];
 const DOOR_BLOCK = 4;          // a cada 4 bordas, pelo menos 1 porta
 const DOOR_RAW_CHANCE = 0.7;   // chance base (fora a forçada)
 const CAVE_DEPTH = 3;
+
+export const dungeonCache = new Map();
+// Exporta o cache para poder ser limpo
+export const roomCache = new Map();
+
+// ---------- Lazy loading de dungeons ----------
+// Os dados serializados do save ficam guardados aqui até a primeira
+// vez que a dungeon for acessada. Isso evita reconstruir no import
+// (ciclo de importação state <-> rooms) e deixa `createDungeonInstance`
+// rodar só quando `worldSeed` já está disponível.
+let _pendingDungeonsData = null;
+
+export function setPendingDungeonsData(data) {
+  _pendingDungeonsData = data || null;
+}
 
 function hashString(s) {
   let h = 2166136261;
@@ -92,8 +107,9 @@ export function hasDoor(gx, gy, side) {
 }
 
 // Gera uma sala de dungeon procedural
-function createDungeonRoom(instanceId, depth, seed, maxDepth) {
+function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
   const rng = makeRng(seed + depth);
+  const mid = Math.floor(GRID_SIZE / 2);
   const map = [];
   for (let y = 0; y < GRID_SIZE; y++) {
     const row = [];
@@ -101,7 +117,7 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
     map.push(row);
   }
 
-  // Bordas (paredes)
+  // Bordas
   for (let i = 0; i < GRID_SIZE; i++) {
     map[0][i] = T.WALL;
     map[GRID_SIZE - 1][i] = T.WALL;
@@ -109,19 +125,21 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
     map[i][GRID_SIZE - 1] = T.WALL;
   }
 
-  // Porta de entrada (sempre no topo, pois o jogador desce)
-  const mid = Math.floor(GRID_SIZE / 2);
+  const isLastRoom = depth === maxDepth - 1;   // ← MOVIDO PRA CIMA
+
+  // Porta de entrada (sempre no topo)
   map[0][mid] = T.DOOR;
 
-  // Porta de saída (para a próxima sala), exceto na última
-  if (depth < CAVE_DEPTH - 1) {
+  // Porta de saída (pra próxima sala), exceto na última
+  // CORREÇÃO: usa isLastRoom (funciona pra procedural E quest)
+  if (!isLastRoom) {
     map[GRID_SIZE - 1][mid] = T.DOOR;
   }
 
-  // Geração de inimigos (procedural)
+  // Inimigos comuns
   const enemies = [];
-  if (depth < CAVE_DEPTH - 1) {
-    const enemyCount = 2 + depth; // Aumenta com a profundidade
+  if (!isLastRoom) {
+    const enemyCount = 2 + Math.min(depth, 3);
     const enemyPool = ['bat', 'slime', 'goblin'];
     for (let i = 0; i < enemyCount; i++) {
       let tx, ty, attempts = 0;
@@ -130,7 +148,6 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
         ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
         attempts++;
       } while (attempts < 50 && (map[ty][tx] !== T.CAVE_FLOOR || Math.hypot(tx - mid, ty - mid) < 4));
-      // Se não achou um lugar, ignora este inimigo
       if (attempts >= 50) continue;
 
       enemies.push({
@@ -140,34 +157,54 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
       });
     }
   }
-  // Miniboss na última sala
-  if (depth === CAVE_DEPTH - 1) {
+
+  // ---- Última sala: miniboss + recompensa ----
+  let cage = null;
+  let floorTorch = null;
+  let treasureChest = null;
+  const roomInteractables = [];
+
+  if (isLastRoom) {
+    // Miniboss SEMPRE (quest e procedural) — só UMA vez
     enemies.push({
       id: 'goblin_sergeant',
       tx: mid,
       ty: 10,
       defeated: false,
     });
-  }
 
-  // Jaula do aldeão (última sala da caverna da quest 5.2)
-  let cage = null;
-  let floorTorch = null;
-  const roomInteractables = [];
-  if (depth === CAVE_DEPTH - 1 && instanceId === 'cave_quest_5_2') {
-    cage = { tx: mid, ty: GRID_SIZE - 5 };
-    map[cage.ty][cage.tx] = T.TREE;
-    roomInteractables.push({ tx: cage.tx, ty: cage.ty, kind: 'caged_villager', title: 'Jaula' });
-
-    // Tocha fincada no chão, 2 tiles à esquerda da jaula (fora do tile sólido)
-    floorTorch = { tx: mid - 2, ty: GRID_SIZE - 5 };
-    if (map[floorTorch.ty]?.[floorTorch.tx] === T.CAVE_FLOOR) {
-      // fica como piso mesmo — não bloqueia
+    if (isProcedural) {
+      treasureChest = { tx: mid, ty: GRID_SIZE - 5 };
+      map[treasureChest.ty][treasureChest.tx] = T.TREE;
+      roomInteractables.push({
+        tx: treasureChest.tx,
+        ty: treasureChest.ty,
+        kind: 'treasure_chest',
+        title: 'Baú',
+      });
+      floorTorch = { tx: mid - 2, ty: GRID_SIZE - 5 };
+    } else if (instanceId === 'cave_quest_5_2') {
+      cage = { tx: mid, ty: GRID_SIZE - 5 };
+      map[cage.ty][cage.tx] = T.TREE;
+      roomInteractables.push({ tx: cage.tx, ty: cage.ty, kind: 'caged_villager', title: 'Jaula' });
+      floorTorch = { tx: mid - 2, ty: GRID_SIZE - 5 };
     }
   }
 
-  // Decoração (algumas pedras)
+  // Decoração (pedras)
+  // IMPORTANTE: inclui baú e jaula no set de ocupados, senão uma pedra
+  // pode nascer no mesmo tile e bloquear a interação.
   const occupied = new Set(enemies.map(e => `${e.tx},${e.ty}`));
+  function reserveAround(t, r) {
+    if (!t) return;
+    occupied.add(`${t.tx},${t.ty}`);
+    occupied.add(`${t.tx - 1},${t.ty}`);
+    occupied.add(`${t.tx + 1},${t.ty}`);
+    occupied.add(`${t.tx},${t.ty - 1}`);
+    occupied.add(`${t.tx},${t.ty + 1}`);
+  }
+  reserveAround(treasureChest);
+  reserveAround(cage);
   const numRocks = 5 + Math.floor(rng() * 5);
   for (let i = 0; i < numRocks; i++) {
     const tx = 2 + Math.floor(rng() * (GRID_SIZE - 4));
@@ -175,41 +212,43 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth) {
     if (map[ty][tx] !== T.CAVE_FLOOR) continue;
     if (Math.hypot(tx - mid, ty - mid) <= 3) continue;
     if (occupied.has(`${tx},${ty}`)) continue;
-    if (Math.abs(tx - mid) <= 1) continue;   // mantém um corredor livre até as portas
+    if (Math.abs(tx - mid) <= 1) continue;
     map[ty][tx] = T.TREE;
   }
 
-  // O nome da sala pode incluir o ID da instância
   const depthLabel = depth + 1;
-  const name = instanceId === 'cave_quest_5_2'
-    ? `Caverna Sombria - Profundidade ${depthLabel}`
-    : `Caverna (${instanceId}) - Profundidade ${depthLabel}`;
+  const name = isProcedural
+    ? `Caverna - Profundidade ${depthLabel}`
+    : (instanceId === 'cave_quest_5_2'
+        ? `Caverna Sombria - Profundidade ${depthLabel}`
+        : `Caverna (${instanceId}) - Profundidade ${depthLabel}`);
 
   return {
     map,
-    doors: ['top', ...(depth < CAVE_DEPTH - 1 ? ['bottom'] : [])],
+    doors: ['top', ...(!isLastRoom ? ['bottom'] : [])],
     biomeId: 'cave',
     nameCoords: '',
     isDungeon: true,
     dungeonId: instanceId,
     dungeonDepth: depth,
+    dungeonMaxDepth: maxDepth,
     name,
     enemies,
     hasTrees: false,
     reserved: new Set(),
-    interactables: roomInteractables, 
+    interactables: roomInteractables,
     cage,
+    treasureChest,
     floorTorch,
   };
 }
 
-export const dungeonCache = new Map();
-
-export function enterDungeon(instanceId) {
+export function enterDungeon(instanceId, opts = {}) {
+  _hydrateDungeonIfNeeded(instanceId);   // ← NOVO
   let dungeon = dungeonCache.get(instanceId);
   if (!dungeon) {
     const seed = seedFrom(instanceId.length, instanceId.charCodeAt(0) + worldSeed);
-    dungeon = createDungeonInstance(instanceId, seed);
+    dungeon = createDungeonInstance(instanceId, seed, opts);
   }
 
   if (!dungeon || !dungeon.rooms || !dungeon.rooms.get(0)) {
@@ -664,6 +703,49 @@ export function createRoom(gx, gy) {
     });
   }
 
+  // ---- Caverna procedural (pós-quest 5.2) ----
+  // Aparece em ~8% das salas do anel externo (Campos), longe de Aethel.
+  // NÃO aparece na sala da caverna da quest (-2,8), nem perto da cidade.
+  if (
+    areProceduralCavesUnlocked() &&
+    biomeId === 'fields' &&
+    !(gx === -2 && gy === 8) &&           // não colide com a caverna da quest
+    Math.hypot(gx, gy) > 2 &&             // longe de Aethel
+    !interactables.some(it => it.kind === 'cave_entrance')
+  ) {
+    const caveRoll = rng();               // usa o RNG seedado da sala (determinístico)
+    if (caveRoll < 0.20) {
+      // Acha um tile FLOOR livre, longe do centro e das portas
+      const mid = Math.floor(GRID_SIZE / 2);
+      let caveTx = -1, caveTy = -1;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const tx = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        const ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        if (map[ty][tx] !== T.FLOOR) continue;
+        if (reserved.has(`${tx},${ty}`)) continue;
+        if (Math.hypot(tx - mid, ty - mid) < 4) continue;
+        caveTx = tx; caveTy = ty;
+        break;
+      }
+      if (caveTx >= 0) {
+        map[caveTy][caveTx] = T.CAVE_ENTRANCE;
+        reserved.add(`${caveTx},${caveTy}`);
+        // limpa vizinhos se forem árvores
+        for (const [nx, ny] of [[caveTx-1,caveTy],[caveTx+1,caveTy],[caveTx,caveTy-1],[caveTx,caveTy+1]]) {
+          if (map[ny]?.[nx] === T.TREE) map[ny][nx] = T.FLOOR;
+        }
+        interactables.push({
+          tx: caveTx, ty: caveTy,
+          kind: 'cave_entrance',
+          title: 'Caverna',
+          text: 'Uma fenda escura na terra. O ar sai frio de dentro.',
+          // marca como procedural pra lógica de entrada saber
+          procedural: true,
+        });
+      }
+    }
+  }
+
   return {
     gx, gy, map, doors, biomeId,
     name: biome.name,
@@ -674,9 +756,6 @@ export function createRoom(gx, gy) {
     interactables,
   };
 }
-
-// Exporta o cache para poder ser limpo
-export const roomCache = new Map();
 
 // Exporta a função de limpar o cache
 export function clearRoomCache() {
@@ -759,88 +838,99 @@ export function clearCave() {
   }
 }
 
-// Função para gerar uma sala de caverna
-function createCaveRoom(gx, gy, depth) {
-  const map = [];
-  for (let y = 0; y < GRID_SIZE; y++) {
-    const row = [];
-    for (let x = 0; x < GRID_SIZE; x++) row.push(T.CAVE_FLOOR); // Chão de caverna
-    map.push(row);
-  }
-
-  // Bordas (paredes)
-  for (let i = 0; i < GRID_SIZE; i++) {
-    map[0][i] = T.WALL;
-    map[GRID_SIZE - 1][i] = T.WALL;
-    map[i][0] = T.WALL;
-    map[i][GRID_SIZE - 1] = T.WALL;
-  }
-
-  // Porta de entrada (de onde o jogador veio)
-  const mid = Math.floor(GRID_SIZE / 2);
-  // A porta de entrada é sempre no topo (jogador desce)
-  map[0][mid] = T.DOOR;
-
-  // Porta de saída (para a próxima sala), exceto na última
-  if (depth < CAVE_DEPTH) {
-    map[GRID_SIZE - 1][mid] = T.DOOR;
-  }
-
-  // Inimigos fixos
-  const enemies = [];
-  const enemyCount = 2 + depth; // Aumenta com a profundidade
-  const enemyPool = ['bat', 'slime', 'goblin']; // Mistura de inimigos
-  for (let i = 0; i < enemyCount; i++) {
-    // Posições fixas ou aleatórias dentro da sala
-    const tx = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
-    const ty = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
-    enemies.push({
-      id: enemyPool[Math.floor(Math.random() * enemyPool.length)],
-      tx, ty,
-      defeated: false,
-    });
-  }
-
-  // Miniboss na última sala
-  if (depth === CAVE_DEPTH) {
-    enemies.push({
-      id: 'goblin_sergeant',
-      tx: mid,
-      ty: 10, // Posição fixa para o chefe
-      defeated: false,
-    });
-  }
-
-  return {
-    gx, gy, map,
-    doors: ['top', ...(depth < CAVE_DEPTH ? ['bottom'] : [])],
-    biomeId: 'cave',
-    name: `Caverna - Profundidade ${depth + 1}`,
-    nameCoords: `${gx}, ${gy}`,
-    isDungeon: true, // <-- NOVO: Identificador de dungeon
-    dungeonDepth: depth,
-    enemies,
-    hasTrees: false,
-    reserved: new Set(),
-    interactables: [],
-  };
-}
-
 // Gera uma dungeon procedural e a armazena no cache.
 // Retorna a sala de entrada da dungeon.
-export function createDungeonInstance(instanceId, seed) {
+export function createDungeonInstance(instanceId, seed, opts = {}) {
+  const isProcedural = opts.procedural === true;
+  const depth = isProcedural ? 4 + (seed % 2) : 3;  // 4 ou 5 salas
   const dungeon = {
     id: instanceId,
-    seed: seed,
+    seed,
     rooms: new Map(),
-    depth: 3,
+    depth,
+    procedural: isProcedural,
   };
 
-  for (let depth = 0; depth < dungeon.depth; depth++) {
-    const room = createDungeonRoom(instanceId, depth, seed, dungeon.depth);
-    dungeon.rooms.set(depth, room);
+  for (let d = 0; d < depth; d++) {
+    const room = createDungeonRoom(instanceId, d, seed, depth, isProcedural);
+    dungeon.rooms.set(d, room);
   }
 
   dungeonCache.set(instanceId, dungeon);
   return dungeon;
+}
+
+// ============================================================
+// SERIALIZAÇÃO DAS DUNGEONS
+// Só o que precisa persistir entre sessões:
+//   - quais inimigos já foram derrotados (por tx,ty)
+//   - se o baú já foi aberto
+//   - se a jaula já foi aberta
+// (O mapa em si é regenerado igual, porque o seed é determinístico.)
+// ============================================================
+export function serializeDungeons() {
+  const out = {};
+  for (const [id, dungeon] of dungeonCache) {
+    const rooms = [];
+    for (const [depth, room] of dungeon.rooms) {
+      rooms.push({
+        depth,
+        defeatedEnemies: (room.enemies || [])
+          .filter(e => e.defeated)
+          .map(e => `${e.tx},${e.ty}`),
+        chestOpened: room._chestOpened === true,
+        cageOpened: room._cageOpened === true,
+      });
+    }
+    out[id] = {
+      id: dungeon.id,
+      seed: dungeon.seed,
+      depth: dungeon.depth,
+      procedural: dungeon.procedural === true,
+      rooms,
+    };
+  }
+  return out;
+}
+
+export function loadDungeons(data) {
+  // Mantido pra compat, mas agora só delega pro lazy.
+  setPendingDungeonsData(data);
+}
+
+// Reconstrói uma dungeon a partir dos dados pendentes, se ainda não
+// está no cache.
+function _hydrateDungeonIfNeeded(id) {
+  if (dungeonCache.has(id)) return;
+  if (!_pendingDungeonsData) return;
+  const d = _pendingDungeonsData[id];
+  if (!d || !Array.isArray(d.rooms)) return;
+
+  // Reconstrói com o MESMO seed
+  const dungeon = createDungeonInstance(d.id, d.seed, {
+    procedural: d.procedural === true,
+  });
+
+  // Aplica estado persistido
+  for (const r of d.rooms) {
+    const room = dungeon.rooms.get(r.depth);
+    if (!room) continue;
+
+    const defeatedSet = new Set(r.defeatedEnemies || []);
+    for (const e of room.enemies || []) {
+      if (defeatedSet.has(`${e.tx},${e.ty}`)) e.defeated = true;
+    }
+    if (r.chestOpened) room._chestOpened = true;
+    if (r.cageOpened)  room._cageOpened = true;
+  }
+
+  // Remove dos pendentes (já está no cache)
+  delete _pendingDungeonsData[id];
+}
+
+// Substitui o uso direto de `dungeonCache.get(id)` no `enterDungeon`
+// e no `player.js` (via um getter).
+export function getDungeon(id) {
+  _hydrateDungeonIfNeeded(id);
+  return dungeonCache.get(id);
 }

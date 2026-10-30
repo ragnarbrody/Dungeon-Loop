@@ -23,6 +23,7 @@ const MARKER_COLORS = {
   boss:  '#c93030',
   quest: '#4f9a4a',
   poi:   '#8ad8ff',
+  cave_done: '#ffb703',
 };
 
 function drawHouseIcon(cx, cy, size, color) {

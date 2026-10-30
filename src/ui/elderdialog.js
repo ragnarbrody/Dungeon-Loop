@@ -5,7 +5,8 @@ import {
   hasSeenElderIntro, markElderIntroSeen,
   getAvailableQuests, getActiveQuest, isQuestReadyToComplete,
   activateQuest, completeActiveQuest,
-  getTurnInNpc, isQuestCompleted, isQuestActive
+  getTurnInNpc, isQuestCompleted, isQuestActive, areProceduralCavesUnlocked, hasSeenCaveCollapseLore,
+  markCaveCollapseLoreSeen
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
@@ -49,6 +50,31 @@ export function talkToElder() {
 // Mostra a tela de oferta de quests (ou entrega, se a ativa estiver pronta).
 export function offerQuests() {
   const active = getActiveQuest();
+
+  // ---- Lore pós-quest 5.2: cavernas procedurais liberadas ----
+  if (areProceduralCavesUnlocked() && !hasSeenCaveCollapseLore()) {
+    markCaveCollapseLoreSeen();
+    saveGame();
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `Soube que conseguiu resgatar o aldeão desaparecido, ${vocative()}.\n\n` +
+        `Ele conseguiu sair por uma passagem secreta na caverna — e me avisou dos seus feitos.\n\n` +
+        `Mas há algo mais. Soube, através de outros viajantes, que cavernas começaram a aparecer por todo o anel externo. Fendas onde antes havia só campo.\n\n` +
+        `A Fratura está se desestabilizando. Cada vez mais.\n\n` +
+        `Tome cuidado em suas viagens. Se encontrar uma dessas cavernas, entre. Lá dentro, o que a Fratura esconde pode valer a pena.`,
+      actions: [
+        {
+          label: 'Entendi.',
+          action: () => {
+            closeDialogue();
+            offerQuests(); // continua o fluxo normal
+          },
+        },
+      ],
+    });
+    return;
+  }
 
   // ---- Se a quest ativa NÃO é entregue ao Ancião, ele só orienta ----
   if (active && getTurnInNpc(active) !== 'elder') {
