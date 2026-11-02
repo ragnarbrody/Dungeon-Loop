@@ -3,6 +3,7 @@ import { herbalistFrames } from './herbalist.js';
 import { elderFrames } from './elder.js';
 import { blacksmithFrames } from './blacksmith.js';
 import { armorerFrames } from './armorer.js';  
+import { bankerFrames } from './banker.js';
 
 export const NPC_SPRITES = {
   herbalist: herbalistFrames,
@@ -10,4 +11,5 @@ export const NPC_SPRITES = {
   elder: elderFrames,
   blacksmith: blacksmithFrames,
   armorer: armorerFrames, 
+  banker: bankerFrames,
 };

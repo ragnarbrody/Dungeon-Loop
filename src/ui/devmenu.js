@@ -10,15 +10,21 @@
 // O painel permite:
 //   - Ativar qualquer quest
 //   - Concluir a quest ativa
+//   - Pular direto pra quests específicas (caverna, escolta)
 //   - Adicionar ouro, XP, HP, MP
-//   - Adicionar itens (tocha, poções, materiais)
-//   - Pular direto para a quest 5.2 (caverna)
-//   - Resetar o save (perigoso!)
+//   - Adicionar itens (tocha, poções, ervas, materiais)
+//   - Matar o personagem (testar game over)
+//   - Toggle imortalidade
+//   - Resetar o cofre (sem apagar o save)
+//   - Resetar o save inteiro (perigoso!)
+//   - Trocar de classe
+//   - Forçar checkpoint do Deserto
 // ============================================================
 
-import { playerStats, saveGame, checkLevelUp, setPaused } from '../core/state.js';
+import { playerStats, saveGame, checkLevelUp, setPaused, metaState } from '../core/state.js';
 import { QUEST_DB, activateQuest, completeActiveQuest,
-         getActiveQuest, isQuestCompleted, isQuestActive } from '../quests.js';
+         getActiveQuest, isQuestCompleted, isQuestActive,
+         getProgress } from '../quests.js';
 import { addItemToInventory, ITEMS_DB } from '../items.js';
 import { showToast } from './toast.js';
 import { sfx } from '../audio/audio.js';
@@ -28,6 +34,9 @@ let visible = false;
 let keyBuffer = '';
 const SECRET = 'dev';
 const DEV_PASSWORD = 'batata2026**';
+
+// Flag de "imortalidade" (só no dev menu — não persiste no save)
+let godMode = false;
 
 // ------------------------------------------------------------
 // Container (criado uma vez)
@@ -53,8 +62,8 @@ function ensureContainer() {
 
   container.innerHTML = `
     <div style="
-      width: min(90%, 720px);
-      max-height: 90%;
+      width: min(90%, 760px);
+      max-height: 92%;
       background: #1a1a2e;
       border: 2px solid #c9a24d;
       border-radius: 6px;
@@ -88,7 +97,11 @@ function ensureContainer() {
           <button data-action="jump-cave" style="
             background:#8a5a3a; color:#fff; border:none; padding:8px 14px;
             border-radius:4px; cursor:pointer; font-family:inherit; font-weight:bold;
-          ">🕳️ Pular para a caverna (5.2)</button>
+          ">🕳️ Pular pra caverna (5.2)</button>
+          <button data-action="jump-escort" style="
+            background:#2a6b2a; color:#fff; border:none; padding:8px 14px;
+            border-radius:4px; cursor:pointer; font-family:inherit; font-weight:bold;
+          ">🌿 Pular pra escolta da Herbalista</button>
         </div>
       </div>
 
@@ -125,16 +138,84 @@ function ensureContainer() {
         <div id="dev-item-list" style="
           display:flex; flex-wrap:wrap; gap:6px;
         "></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+          <button data-action="add-herbs" style="
+            background:#2a2a3e; color:#6fbd63; border:1px solid #6fbd63;
+            padding:6px 12px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-size:11px; font-weight:bold;
+          ">+3 Ervas da Herbalista</button>
+        </div>
+      </div>
+
+      <!-- Testes -->
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <h3 style="color:#ffb703; margin:0; font-size:14px;">🧪 Testes</h3>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button data-action="kill-player" style="
+            background:#5a1a1a; color:#fff; border:2px solid #ff6b6b;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">💀 Matar o personagem</button>
+          <button data-action="toggle-god" id="dev-god-btn" style="
+            background:#2a2a3e; color:#8ad8ff; border:2px solid #8ad8ff;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">🛡️ Imortalidade: OFF</button>
+          <button data-action="force-checkpoint" style="
+            background:#2a2a3e; color:#c9a24d; border:2px solid #c9a24d;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">📍 Forçar checkpoint do Deserto</button>
+          <button data-action="log-state" style="
+            background:#2a2a3e; color:#ddd; border:1px solid #666;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">📋 Logar estado no console</button>
+        </div>
+      </div>
+
+      <!-- Classe -->
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <h3 style="color:#c9a24d; margin:0; font-size:14px;">⚔️ Classe</h3>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button data-action="class:knightess" style="
+            background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
+            padding:6px 12px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-size:11px;
+          ">Cavaleira</button>
+          <button data-action="class:mage" style="
+            background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
+            padding:6px 12px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-size:11px;
+          ">Mago</button>
+          <button data-action="class:thief" style="
+            background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
+            padding:6px 12px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-size:11px;
+          ">Ladrão</button>
+          <button data-action="class:huntress" style="
+            background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
+            padding:6px 12px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-size:11px;
+          ">Caçadora</button>
+        </div>
       </div>
 
       <!-- Perigoso -->
       <div style="display:flex; flex-direction:column; gap:6px;">
         <h3 style="color:#ff6b6b; margin:0; font-size:14px;">⚠️ Zona de Perigo</h3>
-        <button data-action="reset-save" style="
-          background:#5a1a1a; color:#fff; border:2px solid #ff6b6b;
-          padding:8px 14px; border-radius:4px; cursor:pointer;
-          font-family:inherit; font-weight:bold; align-self:flex-start;
-        ">Apagar save e voltar ao menu</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button data-action="reset-meta" style="
+            background:#3a1a1a; color:#ffb703; border:2px solid #ffb703;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">Resetar cofre/meta (sem apagar save)</button>
+          <button data-action="reset-save" style="
+            background:#5a1a1a; color:#fff; border:2px solid #ff6b6b;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">Apagar save e voltar ao menu</button>
+        </div>
       </div>
 
       <!-- Fechar -->
@@ -174,11 +255,25 @@ function refresh() {
   if (statsEl) {
     const cls = playerStats.classId || '—';
     const active = getActiveQuest();
+    const checkpoint = playerStats.checkpoint
+      ? `bioma "${playerStats.checkpoint.biomeId}" (Nv ${playerStats.checkpoint.level})`
+      : '—';
+    const companion = playerStats._escortActive ? 'ativa (Herbalista)' : 'inativa';
     statsEl.innerHTML = `
       <div>Classe: <b style="color:#c9a24d">${cls}</b> · Nv <b>${playerStats.level}</b> · XP ${playerStats.xp}/${playerStats.xpToNextLevel}</div>
       <div>HP: <span style="color:#ff6b6b">${playerStats.hp}/${playerStats.maxHp}</span> · MP: <span style="color:#3aa0ff">${playerStats.mp}/${playerStats.maxMp}</span> · Ouro: <span style="color:#f0c060">${playerStats.gold}</span></div>
       <div>Quest ativa: <b style="color:#feca57">${active ? active.title : '—'}</b></div>
+      <div>Companion: <b style="color:#6fbd63">${companion}</b> · Checkpoint: <b style="color:#c9a24d">${checkpoint}</b></div>
+      <div>Núcleos: <b style="color:#8ad8ff">${playerStats.portalCores.size}/8</b> · Cofre: <b style="color:#f0c060">${metaState.vault.gold} ouro</b>, ${metaState.vault.items.filter(Boolean).length}/${metaState.vault.slots} slots</div>
     `;
+  }
+
+  // Botão de imortalidade
+  const godBtn = container.querySelector('#dev-god-btn');
+  if (godBtn) {
+    godBtn.textContent = godMode ? '🛡️ Imortalidade: ON' : '🛡️ Imortalidade: OFF';
+    godBtn.style.color = godMode ? '#6fbd63' : '#8ad8ff';
+    godBtn.style.borderColor = godMode ? '#6fbd63' : '#8ad8ff';
   }
 
   // Lista de quests
@@ -204,17 +299,7 @@ function refresh() {
           showToast({ itemId: 'bag', title: 'Quest já concluída', color: '#6fbd63' });
           return;
         }
-        // Ativa a quest (se não estiver ativa já)
         if (!active) {
-          // Marca pré-requisitos como concluídos se necessário
-          if (q.prereq) {
-            for (const pre of q.prereq) {
-              // Aqui forçamos a marcação manual (não há API pública pra isso,
-              // então usamos o método: completar a quest via completeActiveQuest
-              // não funciona porque ela não está ativa. Vamos só ignorar o prereq
-              // e ativar mesmo assim. O `getAvailableQuests` não é usado aqui.
-            }
-          }
           activateQuest(q.id);
           showToast({ itemId: 'questlog', title: 'Quest ativada', subtitle: q.title, color: '#feca57' });
         } else {
@@ -231,10 +316,10 @@ function refresh() {
   const itemList = container.querySelector('#dev-item-list');
   if (itemList) {
     itemList.innerHTML = '';
-    // Lista de itens interessantes (não tudo, pra não poluir)
     const interestingIds = [
       'torch', 'potion_weak', 'potion_medium', 'potion_strong',
       'potion_mana', 'potion_mana_medium', 'potion_mana_strong',
+      'herb_herbalist',
       'rat_tail', 'goblin_tooth', 'slime_gel', 'scorpion_pincer',
       'vulture_egg', 'letter_to_elder', 'iron_shield', 'shield','runic_shield',
       'bow', 'ranger_bow', 'staff', 'arcane_staff', 'dagger', 'shadow_dagger',
@@ -266,6 +351,32 @@ function refresh() {
       itemList.appendChild(btn);
     }
   }
+}
+
+// ------------------------------------------------------------
+// Helpers de "pular pra quest"
+// ------------------------------------------------------------
+
+// Marca uma quest como concluída SEM aplicar recompensa (usado pra
+// pular pré-requisitos). Não chama `completeActiveQuest` — só mexe
+// no Set de completas. O `getAvailableQuests` já respeita isso.
+function markQuestCompletedSilently(questId) {
+  return import('../quests.js').then((mod) => {
+    // Não temos API pública pra isso, então usamos o `completeActiveQuest`
+    // só se a quest estiver ativa e pronta. Senão, "forçamos" pelo
+    // internalState via `activateQuest` + `advanceObjective` + `complete`.
+    if (mod.isQuestCompleted(questId)) return;
+    mod.activateQuest(questId);
+    const q = mod.getQuest(questId);
+    if (!q) return;
+    for (const obj of q.objectives) {
+      const cur = mod.getProgress(questId, obj.id);
+      if (cur < obj.target) {
+        mod.advanceObjective(questId, obj.id, obj.target - cur);
+      }
+    }
+    mod.completeActiveQuest(playerStats, addItemToInventory);
+  });
 }
 
 // ------------------------------------------------------------
@@ -310,119 +421,294 @@ function handleAction(action) {
     return;
   }
 
-    if (action === 'complete-quest') {
+  if (action === 'add-herbs') {
+    const n = addItemToInventory(playerStats.inventory, 'herb_herbalist', 3);
+    saveGame();
+    showToast({ itemId: 'herb_herbalist', title: 'Ervas', subtitle: `+${n}`, color: '#6fbd63' });
+    refresh();
+    return;
+  }
+
+  if (action === 'complete-quest') {
     const q = getActiveQuest();
     if (!q) {
       showToast({ itemId: 'questlog', title: 'Nenhuma quest ativa', color: '#ff6b6b' });
       return;
     }
 
-    // Importação dinâmica pra evitar ciclo de imports
     Promise.all([
       import('../quests.js'),
       import('../core/state.js'),
     ]).then(([questsMod, stateMod]) => {
       // 1) Preenche os objetivos
       for (const obj of q.objectives) {
-        if (obj.type === 'kill') {
-          // Avança o progresso até o target
+        if (obj.type === 'kill' || obj.type === 'dungeon_clear') {
           const cur = questsMod.getProgress(q.id, obj.id);
           if (cur < obj.target) {
             questsMod.advanceObjective(q.id, obj.id, obj.target - cur);
           }
         } else if (obj.type === 'collect') {
-          // Dá os itens que faltam
           const inv = playerStats.inventory;
           const existing = inv.find(i => i.id === obj.filter);
           const current = existing ? existing.qty : 0;
           const needed = Math.max(0, obj.target - current);
-          if (needed > 0) {
-            addItemToInventory(inv, obj.filter, needed);
-          }
+          if (needed > 0) addItemToInventory(inv, obj.filter, needed);
         } else if (obj.type === 'visit') {
-          // Marca as salas alvo como visitadas
           const targets = Array.isArray(obj.filter) ? obj.filter : [obj.filter];
           for (const t of targets) {
             if (t) stateMod.visitedRooms.add(`${t.gx},${t.gy}`);
           }
+        } else if (obj.type === 'interact' || obj.type === 'escort_arrive') {
+          // Avança direto (o input.js faria isso, mas o devmenu não passa por lá)
+          const cur = questsMod.getProgress(q.id, obj.id);
+          if (cur < obj.target) {
+            questsMod.advanceObjective(q.id, obj.id, obj.target - cur);
+          }
         }
       }
 
-      // 2) Pequeno delay pra garantir que o `getProgress` reflita
-      setTimeout(() => {
-        const result = completeActiveQuest(playerStats, addItemToInventory);
-        if (result) {
-          saveGame();
-          showToast({
-            itemId: 'levelup',
-            title: 'Quest concluída!',
-            subtitle: result.title,
-            color: '#6fbd63',
-          });
-          refresh();
-        } else {
-          showToast({
-            itemId: 'questlog',
-            title: 'Não foi possível completar',
-            subtitle: 'Verifique os objetivos',
-            color: '#ff6b6b',
-          });
-        }
-      }, 100);
+      // 2) Completa a quest
+      const result = completeActiveQuest(playerStats, addItemToInventory);
+      if (result) {
+        saveGame();
+        showToast({
+          itemId: 'levelup',
+          title: 'Quest concluída!',
+          subtitle: result.title,
+          color: '#6fbd63',
+        });
+        refresh();
+      } else {
+        showToast({
+          itemId: 'questlog',
+          title: 'Não foi possível completar',
+          subtitle: 'Verifique os objetivos',
+          color: '#ff6b6b',
+        });
+      }
     });
     return;
   }
 
+  // ---- Pular pra caverna (5.2) ----
   if (action === 'jump-cave') {
-    // 1) Marca story_torch como concluída (se ainda não estiver)
-    // 2) Ativa story_cave
-    // 3) Dá uma tocha
-    // 4) Teleporta o jogador para a sala (-2, 8)
-    import('../quests.js').then((mod) => {
-      // Dá a tocha
+    Promise.all([
+      import('../quests.js'),
+      import('../core/state.js'),
+      import('../world/rooms.js'),
+      import('../world/knowledge.js'),
+    ]).then(([questsMod, stateMod, roomsMod, knowledgeMod]) => {
+      // 1) Dá a tocha (o `story_torch` precisa dela)
       addItemToInventory(playerStats.inventory, 'torch', 1);
 
-      // Se story_torch não está concluída, completa ela (sem reward duplicado)
-      if (!mod.isQuestCompleted('story_torch')) {
-        // Precisa que a story_torch esteja ativa e pronta
-        // Vamos forçar: ativar e completar direto
-        mod.activateQuest('story_torch');
-        // Hack: dar o item necessário já foi feito (tocha)
-        // Avançar objetivos
-        if (mod.advanceObjective) {
-          mod.advanceObjective('story_torch', 'collect_torch', 1);
+      // 2) Garante os prereqs (sem reward duplicado)
+      const prereqs = ['story_slimes', 'story_rat_tails', 'story_lost_traveler',
+                       'story_forge_materials', 'story_torch'];
+      let chain = Promise.resolve();
+      for (const id of prereqs) {
+        chain = chain.then(() => markQuestCompletedSilently(id));
+      }
+
+      chain.then(() => {
+        // 3) Ativa a story_cave
+        if (!questsMod.isQuestCompleted('story_cave')) {
+          questsMod.activateQuest('story_cave');
         }
-        // Tentar completar
-        mod.completeActiveQuest(playerStats, addItemToInventory);
-      }
-
-      // Ativa story_cave
-      if (!mod.isQuestCompleted('story_cave')) {
-        mod.activateQuest('story_cave');
-      }
-
-      // Teleporta
-      import('../core/state.js').then((st) => {
-        import('../world/rooms.js').then((rooms) => {
-          const room = rooms.getRoom(-2, 8);
-          st.setCurrentRoom(room);
-          st.markRoomVisited(-2, 8);
-          import('../world/knowledge.js').then((k) => {
-            k.revealRoom(-2, 8);
-          });
-          // Spawn no centro
-          st.player.x = 15 * 20 + 10;
-          st.player.y = 15 * 20 + 10;
-          st.setTransitionCooldown(30);
-          saveGame();
-          showToast({ itemId: 'questlog', title: 'Teleportado', subtitle: 'Caverna (-2, 8)', color: '#c9a24d' });
-          closeDevMenu();
-        });
+        // 4) Teleporta pra sala -2, 8
+        const room = roomsMod.getRoom(-2, 8);
+        stateMod.setCurrentRoom(room);
+        stateMod.markRoomVisited(-2, 8);
+        knowledgeMod.revealRoom(-2, 8);
+        stateMod.player.x = 15 * 20 + 10;
+        stateMod.player.y = 15 * 20 + 10;
+        stateMod.setTransitionCooldown(30);
+        saveGame();
+        showToast({ itemId: 'questlog', title: 'Teleportado', subtitle: 'Caverna (-2, 8)', color: '#c9a24d' });
+        closeDevMenu();
       });
     });
     return;
   }
 
+  // ---- Pular pra escolta da Herbalista ----
+  if (action === 'jump-escort') {
+    Promise.all([
+      import('../quests.js'),
+      import('../core/state.js'),
+      import('../world/rooms.js'),
+      import('../world/knowledge.js'),
+    ]).then(([questsMod, stateMod, roomsMod, knowledgeMod]) => {
+      // 1) Garante TODAS as quests dos Campos até a caverna
+      const prereqs = ['story_slimes', 'story_rat_tails', 'story_lost_traveler',
+                       'story_forge_materials', 'story_torch', 'story_cave'];
+      let chain = Promise.resolve();
+      for (const id of prereqs) {
+        chain = chain.then(() => markQuestCompletedSilently(id));
+      }
+
+      chain.then(() => {
+        // 2) Ativa a escolta
+        if (!questsMod.isQuestCompleted('story_herbalist_escort')) {
+          questsMod.activateQuest('story_herbalist_escort');
+        }
+        // 3) Teleporta pra sala -5, -2
+        const room = roomsMod.getRoom(-5, -2);
+        stateMod.setCurrentRoom(room);
+        stateMod.markRoomVisited(-5, -2);
+        knowledgeMod.revealRoom(-5, -2);
+        stateMod.player.x = 15 * 20 + 10;
+        stateMod.player.y = 15 * 20 + 10;
+        stateMod.setTransitionCooldown(30);
+        saveGame();
+        showToast({ itemId: 'questlog', title: 'Teleportado', subtitle: 'Sala da Herbalista (-5, -2)', color: '#c9a24d' });
+        closeDevMenu();
+      });
+    });
+    return;
+  }
+
+  // ---- Matar o personagem ----
+  if (action === 'kill-player') {
+    Promise.all([
+      import('../core/state.js'),
+      import('../battle/battle.js'),
+    ]).then(([stateMod, battleMod]) => {
+      stateMod.playerStats.hp = 0;
+      // Se não estiver em combate, força um game over "manual"
+      if (stateMod.gameState === stateMod.STATE.BATTLE) {
+        stateMod.battle.turn = 'resolve-end';
+        stateMod.battle.turnTimer = 0;
+        // O loop pega daqui e chama resolveDeath()
+      } else {
+        // Fora de combate: chama resolveDeath direto + vai pro game over
+        import('../core/death.js').then((deathMod) => {
+          stateMod.setGameState(stateMod.STATE.GAME_OVER);
+          const r = deathMod.resolveDeath();
+          deathMod.showDeathSummary(r);
+          document.getElementById('gameover-screen').classList.remove('hidden');
+          document.getElementById('hud').classList.add('hidden');
+          closeDevMenu();
+        });
+      }
+      saveGame();
+      showToast({ itemId: 'potion_weak', title: 'Matando...', subtitle: 'HP = 0', color: '#ff6b6b' });
+      refresh();
+    });
+    return;
+  }
+
+  // ---- Toggle imortalidade ----
+  if (action === 'toggle-god') {
+    godMode = !godMode;
+    showToast({
+      itemId: 'shield',
+      title: godMode ? 'Imortalidade ativada' : 'Imortalidade desativada',
+      color: godMode ? '#6fbd63' : '#8ad8ff',
+    });
+    refresh();
+    return;
+  }
+
+  // ---- Forçar checkpoint do Deserto ----
+  if (action === 'force-checkpoint') {
+    import('../core/state.js').then((stateMod) => {
+      // Marca o checkpoint manualmente (sem precisar ir em Akmira)
+      stateMod.playerStats.checkpoint = {
+        biomeId: 'desert',
+        level: stateMod.playerStats.level,
+        stats: {
+          str: stateMod.playerStats.str,
+          agi: stateMod.playerStats.agi,
+          int: stateMod.playerStats.int,
+          def: stateMod.playerStats.def,
+          vit: stateMod.playerStats.vit,
+          magia: stateMod.playerStats.magia,
+        },
+        equipped: {
+          rightHand: stateMod.playerStats._equip?.rightHand ?? null,
+          leftHand:  stateMod.playerStats._equip?.leftHand ?? null,
+        },
+        completedQuests: [], // preenchido abaixo
+        portalCores: Array.from(stateMod.playerStats.portalCores),
+        timeOfDay: 8,
+        savedAt: Date.now(),
+      };
+      // Preenche as quests concluídas
+      import('../quests.js').then((questsMod) => {
+        stateMod.playerStats.checkpoint.completedQuests =
+          [...questsMod.getCompletedQuests().map(q => q.id)];
+        saveGame();
+        showToast({
+          itemId: 'questlog',
+          title: 'Checkpoint do Deserto',
+          subtitle: `Nv ${stateMod.playerStats.level}`,
+          color: '#c9a24d',
+        });
+        refresh();
+      });
+    });
+    return;
+  }
+
+  // ---- Logar estado no console ----
+  if (action === 'log-state') {
+    Promise.all([
+      import('../core/state.js'),
+      import('../quests.js'),
+    ]).then(([stateMod, questsMod]) => {
+      const active = questsMod.getActiveQuest();
+      const progress = active ? active.objectives.map(o => ({
+        id: o.id,
+        cur: questsMod.getProgress(active.id, o.id),
+        target: o.target,
+      })) : null;
+      console.log('%c[dev] Estado atual', 'color:#c9a24d;font-weight:bold', {
+        level: stateMod.playerStats.level,
+        xp: `${stateMod.playerStats.xp}/${stateMod.playerStats.xpToNextLevel}`,
+        hp: `${stateMod.playerStats.hp}/${stateMod.playerStats.maxHp}`,
+        mp: `${stateMod.playerStats.mp}/${stateMod.playerStats.maxMp}`,
+        gold: stateMod.playerStats.gold,
+        inventory: JSON.parse(JSON.stringify(stateMod.playerStats.inventory)),
+        portalCores: [...stateMod.playerStats.portalCores],
+        escortActive: stateMod.playerStats._escortActive,
+        checkpoint: stateMod.playerStats.checkpoint,
+        metaState: JSON.parse(JSON.stringify(stateMod.metaState)),
+        activeQuest: active ? active.id : null,
+        progress,
+        completed: [...questsMod.getCompletedQuests().map(q => q.id)],
+      });
+      showToast({ itemId: 'questlog', title: 'Logado no console', color: '#ddd' });
+    });
+    return;
+  }
+
+  // ---- Trocar de classe ----
+  if (action.startsWith('class:')) {
+    const classId = action.replace('class:', '');
+    import('./classselect.js').then((mod) => {
+      mod.applyClass(classId);
+      saveGame();
+      showToast({ itemId: 'bag', title: 'Classe trocada', subtitle: classId, color: '#6fbd63' });
+      refresh();
+    });
+    return;
+  }
+
+  // ---- Reset do cofre/meta (não apaga o save) ----
+  if (action === 'reset-meta') {
+    if (confirm('Resetar o cofre/meta (sem apagar o save)?')) {
+      metaState.deaths = 0;
+      metaState.vault.gold = 0;
+      metaState.vault.slots = 4;
+      metaState.vault.items = [null, null, null, null];
+      saveGame();
+      showToast({ itemId: 'bag', title: 'Cofre resetado', color: '#ffb703' });
+      refresh();
+    }
+    return;
+  }
+
+  // ---- Reset total do save ----
   if (action === 'reset-save') {
     if (confirm('Tem certeza que quer APAGAR o save? Isso não pode ser desfeito.')) {
       import('../core/save.js').then((mod) => {
@@ -432,8 +718,16 @@ function handleAction(action) {
     }
     return;
   }
+}
 
-  // Ações com prefixo "quest:" ou "item:" já foram tratadas nos próprios botões.
+// ------------------------------------------------------------
+// Imortalidade: hook simples. Sempre que HP for <= 0 e godMode
+// estiver ligado, restaura pro max. Chamado pelo loop de combate
+// se você quiser, mas é opcional — o dev menu já mostra o botão
+// e o efeito é "instantâneo" no próximo frame.
+// ------------------------------------------------------------
+export function isGodMode() {
+  return godMode;
 }
 
 // ------------------------------------------------------------
@@ -466,13 +760,10 @@ export function isDevMenuOpen() {
 // Ativação via teclado
 // ------------------------------------------------------------
 export function installDevShortcut() {
-  // Flag de sessão: depois de autenticar uma vez, os próximos atalhos
-  // não pedem senha de novo (só resetam ao recarregar a página).
   let sessionUnlocked = false;
   function tryOpenWithPassword() {
     if (visible) return;
 
-    // Já autenticou nessa sessão? Abre direto.
     if (sessionUnlocked) {
       openDevMenu();
       return;
@@ -482,7 +773,7 @@ export function installDevShortcut() {
     if (input === null) return;
 
     if (input === DEV_PASSWORD) {
-      sessionUnlocked = true;  // ← NOVO: marca a sessão
+      sessionUnlocked = true;
       openDevMenu();
     } else {
       showToast({
@@ -498,11 +789,8 @@ export function installDevShortcut() {
     // Ctrl+Shift+D (funciona em qualquer lugar, exceto combate)
     if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
       e.preventDefault();
-      if (visible) {
-        closeDevMenu();
-      } else {
-        tryOpenWithPassword();
-      }
+      if (visible) closeDevMenu();
+      else tryOpenWithPassword();
       return;
     }
 

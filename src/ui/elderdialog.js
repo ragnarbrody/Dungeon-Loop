@@ -14,22 +14,39 @@ import { addMarker, revealMarker } from '../world/knowledge.js';
 
 // Texto de lore da introdução. A saudação inicial é dinâmica (via greeting()),
 // então essa constante NÃO começa com "Bem-vindo" — ela é concatenada depois.
+// contexto clica em "O que aconteceu com o mundo?".
 const LORE_INTRO =
-  'Há muito tempo, o mundo era inteiro. Havia um continente verde, e no centro dele, uma torre que ligava a base ao topo.\n\n' +
-  'Então veio a Fratura. Ninguém sabe por quê. Ela partiu o continente em anéis, isolou os pedaços, e moldou os seres vivos de cada um.\n\n' +
-  'Aethel é o último lugar que a Fratura não tocou. É por isso que ainda estamos aqui.\n\n' +
-  'Você é um Andarilho — um dos raros que a Fratura não consegue consumir. Só você pode atravessar os anéis e voltar.\n\n' +
-  'O Portal Antigo no centro da praça é o que resta da torre. Ele precisa de 8 Núcleos para abrir o caminho de volta ao centro do mundo.\n\n' +
-  'Mas antes de pensar no Portal, há problemas mais próximos. Os arredores de Aethel estão infestados de criaturas. Se você me ajudar, eu te ajudo a entender o caminho.';
+  'Você chegou numa hora estranha. Aethel costumava ser só mais uma cidade no caminho — mas agora é a última parada antes do fim.\n\n' +
+  'Há algumas gerações, o mundo era inteiro. Um continente só, sem anéis. Então algo aconteceu — ninguém sabe o quê, nem por quê — e o mundo se partiu em círculos. Chamamos isso de Fratura.\n\n' +
+  'Aethel sobreviveu porque estava no lugar certo. O Portal Antigo na praça é a única coisa que restou de antes — e a única porta pra fora dos anéis.\n\n' +
+  'Você chegou a pé. Ninguém chega a pé. A Fratura desfaz quem tenta. Você não foi desfeito — então ou você é um Andarilho, ou é a Fratura disfarçada. E a Fratura não conversa.';
+
+// Diálogo longo, opcional, atrás do botão "O que aconteceu com o mundo?".
+// Não substitui o LORE_INTRO — complementa.
+const LORE_DEEP =
+  'Você não sabe o que é a Fratura, sabe? Não nasceu aqui, eu suponho.\n\n' +
+  'A Fratura partiu o continente em anéis. Cada anel virou um lugar diferente — com clima, animais e regras próprias. Campos, Deserto, e mais além. Quanto mais perto do centro, mais instável. O espaço entre os anéis desfaz quem tenta atravessar a pé. Ninguém chega a Aethel a pé. Ninguém.\n\n' +
+  'Cada anel tem um Guardião. Uma criatura (ou uma pessoa — não sei mais) que carrega um Núcleo. Enquanto o Guardião vive, o anel fica estável. Se ele morre, o anel racha um pouco mais. Por isso ninguém vai lá. Por isso ninguém volta.\n\n' +
+  'O Portal Antigo era a base de uma torre. A Fratura rachou o continente, mas a base ficou. Oito encaixes. Oito Núcleos. Se os oito forem colocados, o caminho para o centro se abre. O que tem lá, eu não sei. Ninguém que foi voltou pra contar.\n\n' +
+  'Você é um Andarilho. Um dos raros que a Fratura não consegue consumir. Só você pode atravessar os anéis e voltar. Eu já vi outros como você. Nenhum voltou.';
 
 export function talkToElder() {
-  // Primeira vez: diálogo de lore, depois oferece quests
+  // Primeira vez: diálogo curto, com botão opcional pra lore profunda
   if (!hasSeenElderIntro()) {
     openDialogue({
       title: 'Ancião de Aethel',
-      // Saudação dinâmica no topo + lore
       text: `${greeting()}\n\n${LORE_INTRO}`,
       actions: [
+        {
+          label: 'O que aconteceu com o mundo?',
+          action: () => {
+            // Marca como visto (não importa qual botão o jogador escolheu)
+            markElderIntroSeen();
+            saveGame();
+            closeDialogue();
+            openLoreDeep();
+          },
+        },
         {
           label: 'Entendi. O que precisa?',
           action: () => {
@@ -47,6 +64,23 @@ export function talkToElder() {
   offerQuests();
 }
 
+// Diálogo de lore profunda, acessível pelo botão no primeiro contato.
+function openLoreDeep() {
+  openDialogue({
+    title: 'A Fratura',
+    text: LORE_DEEP,
+    actions: [
+      {
+        label: 'Entendi. O que precisa?',
+        action: () => {
+          closeDialogue();
+          offerQuests();
+        },
+      },
+    ],
+  });
+}
+
 // Mostra a tela de oferta de quests (ou entrega, se a ativa estiver pronta).
 export function offerQuests() {
   const active = getActiveQuest();
@@ -58,7 +92,7 @@ export function offerQuests() {
     openDialogue({
       title: 'Ancião de Aethel',
       text:
-        `Soube que conseguiu resgatar o aldeão desaparecido, ${vocative()}.\n\n` +
+        `Soube que conseguiu resgatar o Corin, ${vocative()}.\n\n` +
         `Ele conseguiu sair por uma passagem secreta na caverna — e me avisou dos seus feitos.\n\n` +
         `Mas há algo mais. Soube, através de outros viajantes, que cavernas começaram a aparecer por todo o anel externo. Fendas onde antes havia só campo.\n\n` +
         `A Fratura está se desestabilizando. Cada vez mais.\n\n` +
@@ -180,8 +214,8 @@ export function offerQuests() {
     openDialogue({
       title: 'Ancião de Aethel',
       text:
-        `Espere, ${vocative()}. Há algo atrás deste pergaminho.\n\n` +
-        `Uma mensagem, escrita às pressas com carvão. É a letra do aldeão.\n\n` +
+        `Espere, ${vocative()}. Há algo atrás daquele pergaminho que me trouxe.\n\n` +
+        `Uma mensagem, escrita às pressas com carvão. É a letra do Corin.\n\n` +
         `"Estou sendo arrastado para uma caverna ao sul. Não sei por quanto tempo ainda vou ter consciência. Se alguém achar isto — cuidado com o que vive lá embaixo."\n\n` +
         `Ele ainda pode estar vivo. Mas as cavernas ao sul são escuras como a própria Fratura. Você vai precisar de uma tocha para entrar.\n\n` +
         `O Ferreiro vende. Vá até ele, consiga uma tocha, e volte para que eu te indique o caminho.`,

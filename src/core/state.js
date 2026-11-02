@@ -10,6 +10,8 @@ import { setMusicMode, sfx } from '../audio/audio.js';
 import { serializeDungeons, loadDungeons, dungeonCache, setPendingDungeonsData } from '../world/rooms.js';
 import { normalizeInventory } from '../items.js';
 import { loadTime, serializeTime } from './timeofday.js';
+import { serializeProgression, loadProgression } from './progression.js';
+import { isQuestActive } from '../quests.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -26,10 +28,11 @@ if (savedData.knowledge) {
   loadKnowledge(savedData.knowledge);
 }
 
-//
 if (savedData.quests) {
   loadQuests(savedData.quests);
 }
+
+loadProgression(savedData.progression);
 
 // Aplica o horário do save (se houver)
 if (savedData.timeOfDay !== undefined) {
@@ -52,15 +55,36 @@ export let gameState = STATE.MENU;
 export function setGameState(s) { gameState = s; }
 
 // ---------- Pausa ----------
-// Usado pelo menu de dev (e futuramente por outros menus que precisem
-// congelar o mundo). Quando `true`, o loop principal NÃO atualiza o
-// player, os inimigos, a batalha, etc. O render continua, mas tudo
-// fica parado.
 export let paused = false;
 export function setPaused(v) { paused = v; }
 
 // ---------- PlayerStats ----------
 const loadedStats = savedData.stats || { str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0 };
+
+// ---------- Meta (cofre, mortes) ----------
+const _defaultMeta = getDefaultSave().meta;
+const _savedMeta = savedData.meta && typeof savedData.meta === 'object'
+  ? savedData.meta
+  : _defaultMeta;
+
+export const metaState = {
+  deaths: Math.max(0, Math.floor(Number(_savedMeta.deaths) || 0)),
+  vault: (() => {
+    const v = _savedMeta.vault || {};
+    const slots = Math.min(8, Math.max(4, Math.floor(Number(v.slots) || 4)));
+    const items = Array.from({ length: slots }, (_, i) => {
+      const it = v.items?.[i];
+      return it && typeof it.id === 'string' && it.qty > 0
+        ? { id: it.id, qty: Math.floor(it.qty) }
+        : null;
+    });
+    return {
+      gold: Math.max(0, Math.floor(Number(v.gold) || 0)),
+      slots,
+      items,
+    };
+  })(),
+};
 
 export const playerStats = {
   level: savedData.level ?? 1,
@@ -91,11 +115,12 @@ export const playerStats = {
   poisoned: null,
   bleeding: null,
   gold: savedData.gold ?? 0,
+  _escortActive: false,
+  _escortPos: null,
   portalCores: new Set(savedData.portalCores ?? []),
 };
 
 normalizeInventory(playerStats.inventory);
-// Garante que o HP/MP não passem do máximo
 if (playerStats.hp > playerStats.maxHp) playerStats.hp = playerStats.maxHp;
 if (playerStats.mp > playerStats.maxMp) playerStats.mp = playerStats.maxMp;
 
@@ -103,19 +128,12 @@ if (playerStats.mp > playerStats.maxMp) playerStats.mp = playerStats.maxMp;
 export function effStat(id) {
   const base = playerStats[id] || 0;
   const b = playerStats.buffs[id];
-  // Bônus de equipamento (rightHand + leftHand)
   const eq = weaponBonus(playerEquip)[id] || 0;
   return base + (b ? b.amount : 0) + eq;
 }
 
-// ---------- Save (única função de escrita) ----------
-// Centraliza "o que é serializável" do state.
-// Se você adicionar um campo em `playerStats` que precisa
-// persistir entre sessões, ele DEVE entrar aqui. Se você adicionar
-// um campo que NÃO precisa persistir (ex.: `_nearInteractable`), ele
-// deve ficar FORA do playerStats (ou ser limpo ao recarregar).
+// ---------- Save ----------
 export function buildSaveData() {
-
   return {
     version: SAVE_VERSION,
 
@@ -152,16 +170,23 @@ export function buildSaveData() {
     visited: Array.from(visitedRooms),
     worldSeed: worldSeed,
 
+    // escolta (companion)
+    _escortActive: playerStats._escortActive || false,
+
     // knowledge
     knowledge: serializeKnowledge(),
 
     // portal
     portalCores: Array.from(playerStats.portalCores),
 
+    meta: metaState,
+
     // Missões
     quests: serializeQuests(),
 
-    // dungeons (estado persistente de baús, inimigos mortos, jaulas)
+    progression: serializeProgression(),
+
+    // dungeons
     dungeons: serializeDungeons(),
 
     // Horário do dia (persistente)
@@ -232,6 +257,7 @@ export const battle = {
   fadingEnemies: [],
   tooltipSkill: null,
   tooltipPos: null,
+  _escortActive: false,
 };
 
 if (savedData.equip) {
@@ -245,6 +271,17 @@ export function addGold(amount) {
 
 if (savedData.quests) {
   loadQuests(savedData.quests);
+}
+
+// Só restaura a companion se a quest de escolta ainda estiver ativa.
+// (Se o jogador salvou no meio da escolta, ela volta. Se a quest já
+//  foi concluída ou nunca foi ativada, não restaura nada.)
+if (savedData._escortActive && isQuestActive('story_herbalist_escort')) {
+  playerStats._escortActive = true;
+  playerStats._escortPos = { x: player.x - 20, y: player.y };
+} else {
+  playerStats._escortActive = false;
+  playerStats._escortPos = null;
 }
 
 // Registra os getters pro quests.js (evita import cycle)
@@ -263,11 +300,9 @@ export function setDungeonRoom(room) {
 }
 
 // Verifica se o jogador subiu de nível. Retorna true se subiu.
-// Pode chamar quantas vezes quiser — se não passou do limite, retorna false.
 export function checkLevelUp() {
   if (playerStats.xp < playerStats.xpToNextLevel) return false;
 
-  // Sobe de nível (pode ser mais de um de uma vez, se o XP for enorme)
   while (playerStats.xp >= playerStats.xpToNextLevel) {
     playerStats.xp -= playerStats.xpToNextLevel;
     playerStats.level++;
@@ -276,7 +311,6 @@ export function checkLevelUp() {
     playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
   }
   return true;
-  sfx('levelup');
 }
 
 export let transitionCooldown = 0;

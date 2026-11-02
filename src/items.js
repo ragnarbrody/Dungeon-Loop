@@ -784,6 +784,17 @@ export const ITEMS_DB = {
     stackable: false,           // não empilha
     icon: 'letter_to_elder',
   },
+  herb_herbalist: {
+    id: 'herb_herbalist',
+    kind: 'quest',
+    name: 'Erva Rara',
+    description: 'Uma erva de folhas prateadas. A Herbalista saberá o que fazer.',
+    price: 0, sellPrice: 0,
+    rarity: 'rare',
+    stackable: true,
+    stackCap: 5,
+    icon: 'herb_herbalist',
+  },
 };
 
 // Compat: exporta o mesmo shape que os consumidores antigos esperam.

@@ -1,16 +1,16 @@
 // ============================================================
-// AUDIO CONTEXT — singleton do AudioContext.
+// AUDIO CONTEXT â singleton do AudioContext.
 //
-// Navegadores modernos BLOQUEIAM áudio até o primeiro gesto do
-// usuário (click, keydown, touchstart). Então:
-//   - Criamos o AudioContext só no primeiro gesto.
-//   - Até lá, getCtx() retorna null e todo mundo (sfx, music)
+// Navegadores modernos BLOQUEIAM Ã¡udio atÃ© o primeiro gesto do
+// usuÃ¡rio (click, keydown, touchstart). EntÃ£o:
+//   - Criamos o AudioContext sÃ³ no primeiro gesto.
+//   - AtÃ© lÃ¡, getCtx() retorna null e todo mundo (sfx, music)
 //     faz no-op silencioso.
 // ============================================================
 
 let ctx = null;
 let masterGain = null;
-let musicBus = null;   // tudo de música passa por aqui
+let musicBus = null;   // tudo de mÃºsica passa por aqui
 let sfxBus = null;     // tudo de SFX passa por aqui
 let initialized = false;
 const listeners = [];
@@ -38,8 +38,8 @@ function unlock() {
     initialized = true;
 
     // Alguns navegadores criam o contexto em estado "suspended" mesmo
-    // após um gesto. Forçar o resume aqui garante que o áudio toca
-    // no PRIMEIRO clique, não no segundo.
+    // apÃ³s um gesto. ForÃ§ar o resume aqui garante que o Ã¡udio toca
+    // no PRIMEIRO clique, nÃ£o no segundo.
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
@@ -48,13 +48,13 @@ function unlock() {
       try { fn(); } catch (e) { console.warn('[audio] listener error', e); }
     }
   } catch (e) {
-    console.warn('[audio] AudioContext não pôde ser criado.', e);
+    console.warn('[audio] AudioContext nÃ£o pÃ´de ser criado.', e);
   }
 }
 
 // Registra o unlock em todos os gestos comuns.
-// { once: true } pra não ficar escutando pra sempre — depois que
-// desbloqueou, não precisa mais.
+// { once: true } pra nÃ£o ficar escutando pra sempre â depois que
+// desbloqueou, nÃ£o precisa mais.
 if (typeof window !== 'undefined') {
   const opts = { once: true, passive: true };
   window.addEventListener('pointerdown', unlock, opts);
@@ -68,8 +68,8 @@ export function getMusicBus()  { return musicBus; }
 export function getSfxBus()    { return sfxBus; }
 export function isInitialized(){ return initialized; }
 
-// Pra quem precisa reagir ao "áudio destravou".
-// Se já destravou, chama na hora.
+// Pra quem precisa reagir ao "Ã¡udio destravou".
+// Se jÃ¡ destravou, chama na hora.
 export function onAudioReady(fn) {
   if (initialized) { try { fn(); } catch (e) {} return () => {}; }
   listeners.push(fn);

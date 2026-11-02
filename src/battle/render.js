@@ -8,6 +8,7 @@ import { enemyScreenPos, effectiveSkillCost, estimateSkillDamage, getVisualTarge
 import { CLASSES } from '../classes.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { drawIconOnCanvas } from '../sprites/icons.js';
+import { NPC_SPRITES } from '../sprites/npcs.js';
 
 export function renderBattleInner() {
   const grd = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
@@ -121,7 +122,7 @@ export function renderBattleInner() {
     let statusText = '';
     let statusColor = '#fff';
     if (e.scarabBuff && e.scarabBuff.turns > 0) {
-      statusText = `🐞+${e.scarabBuff.def}DEF`;   // ou só "SCARAB"
+      statusText = `+${e.scarabBuff.def}DEF`;
       statusColor = '#c9a24d';
     } else if (e.huntersMark) {
       statusText = 'MARK';
@@ -161,6 +162,20 @@ export function renderBattleInner() {
     }
   });
 
+  // Companion (Herbalista) — escondida atrás do jogador
+  if (battle._escortActive) {
+    const sprite = NPC_SPRITES.herbalist.idle[0];
+    const cx = CANVAS_W * 0.18;
+    const cy = CANVAS_H * 0.78;
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(sprite, cx - 32, cy - 32, 64, 64);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#aaa';
+    ctx.font = '10px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('...se escondeu atrás de você', cx, cy + 8);
+  }
+
   // Jogador
   const basePx = CANVAS_W * 0.25;
   const py = CANVAS_H * 0.72;
@@ -194,7 +209,7 @@ export function renderBattleInner() {
     ctx.font = 'bold 11px "Courier New", monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(`☠ PSN ${playerStats.poisoned.turns}t (-${playerStats.poisoned.dmg}/t)`, 30, 76);
+    ctx.fillText(`PSN ${playerStats.poisoned.turns}t (-${playerStats.poisoned.dmg}/t)`, 30, 76);
   }
 
   // indicador de sangramento
@@ -204,7 +219,7 @@ export function renderBattleInner() {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     const yBleed = playerStats.poisoned ? 90 : 76;
-    ctx.fillText(`🩸 SNG ${playerStats.bleeding.turns}t (-${playerStats.bleeding.dmg}/t)`, 30, yBleed);
+    ctx.fillText(`SNG ${playerStats.bleeding.turns}t (-${playerStats.bleeding.dmg}/t)`, 30, yBleed);
   }
 
   // Indicador de alvo (canto superior direito)
@@ -247,7 +262,6 @@ export function renderBattleInner() {
 
   ctx.fillStyle = 'rgba(0,0,0,0.75)';
   ctx.fillRect(20, msgY, CANVAS_W - 40, msgH);
-  // Bordinha dourada sutil pra destacar (opcional, mas ajuda a "marcar" a mudança de lugar)
   ctx.strokeStyle = '#c9a24d';
   ctx.lineWidth = 1;
   ctx.strokeRect(20.5, msgY + 0.5, CANVAS_W - 40 - 1, msgH - 1);
@@ -746,13 +760,7 @@ function wrapText(text, cx, startY, maxWidth, lineHeight) {
   return y + lineHeight;
 }
 
-/**
- * Desenha texto com quebra de linha, respeitando um número MÁXIMO de linhas.
- * Se não couber em maxLines, a última linha termina com "…".
- * Retorna o número de linhas desenhadas (útil pra debug).
- */
 function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFontSize = 9) {
-  // 1) Quebra em palavras normalmente
   const words = text.split(' ');
   const lines = [];
   let line = '';
@@ -768,7 +776,6 @@ function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFo
   }
   if (line) lines.push(line);
 
-  // 2) Se excedeu, corta e adiciona "…" na última
   if (lines.length > maxLines) {
     lines.length = maxLines;
     let last = lines[maxLines - 1];
@@ -778,8 +785,6 @@ function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFo
     lines[maxLines - 1] = last.trimEnd() + '…';
   }
 
-  // 3) Se ainda assim "transbordar" da altura total, reduz 1px e tenta de novo
-  // (raro, mas cobre descrições absurdas)
   let y = startY;
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], cx, y);
@@ -788,23 +793,11 @@ function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFo
   return lines.length;
 }
 
-/**
- * Desenha o ícone ⓘ no canto do botão de skill.
- * Se `battle.tooltipSkill === skill`, o ícone fica destacado.
- * Clicar no ⓘ alterna o tooltip (a lógica de clique está em input.js).
- *
- * A hitbox (área clicável) é MAIOR que o ícone visual (12px), para
- * facilitar o clique em telas pequenas / alta densidade. A hitbox é
- * limitada ao espaço do botão da skill, então não vaza para o vizinho.
- */
 function drawInfoIcon(x, y, skill, canUse) {
   const isActive = battle.tooltipSkill === skill;
-  const size = 12;                          // tamanho VISUAL
-  const hitSize = Math.min(22, size + 8);   // área clicável (maior, pra facilitar)
+  const size = 12;
+  const hitSize = Math.min(22, size + 8);
 
-  // Registra a área clicável CENTRADA no ícone visual.
-  // Como x = botãoX + bW - 18, a hitbox de 20px começa em
-  // botãoX + bW - 22 e termina em botãoX + bW - 2 — dentro do botão.
   battle.buttons.push({
     x: x + size / 2 - hitSize / 2,
     y: y + size / 2 - hitSize / 2,
@@ -815,18 +808,15 @@ function drawInfoIcon(x, y, skill, canUse) {
     _isInfoIcon: true,
   });
 
-  // Círculo (12x12)
   ctx.fillStyle = isActive ? '#c9a24d' : (canUse ? '#2a2a3e' : '#1a1a24');
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Borda
   ctx.strokeStyle = isActive ? '#f0d27a' : (canUse ? '#8ad8ff' : '#444');
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // "i"
   ctx.fillStyle = isActive ? '#1a1a2e' : (canUse ? '#8ad8ff' : '#444');
   ctx.font = 'bold 10px "Courier New", monospace';
   ctx.textAlign = 'center';
@@ -834,33 +824,24 @@ function drawInfoIcon(x, y, skill, canUse) {
   ctx.fillText('i', x + size / 2, y + size / 2 + 1);
 }
 
-/**
- * Desenha o popup com a descrição completa da skill.
- * Chamado no fim do renderBattle (por cima de tudo, exceto os botões).
- */
 function drawSkillTooltip() {
   if (!battle.tooltipSkill) return;
 
   const sk = battle.tooltipSkill;
   const cost = effectiveSkillCost(sk);
 
-  // Dimensões do popup
   const tooltipW = 280;
   const tooltipH = 90;
 
-  // Posição: perto do ⓘ, mas sempre dentro da tela
   let tx = battle.tooltipPos ? battle.tooltipPos.x : CANVAS_W / 2 - tooltipW / 2;
   let ty = battle.tooltipPos ? battle.tooltipPos.y : CANVAS_H / 2 - tooltipH / 2;
 
-  // Ajusta pra não sair da tela
   tx = Math.max(10, Math.min(tx, CANVAS_W - tooltipW - 10));
   ty = Math.max(10, Math.min(ty, CANVAS_H - tooltipH - 10));
 
-  // Fundo
   ctx.fillStyle = 'rgba(15, 15, 26, 0.97)';
   ctx.fillRect(tx, ty, tooltipW, tooltipH);
 
-  // Borda dupla (dourada + sombra)
   ctx.strokeStyle = '#000';
   ctx.lineWidth = 4;
   ctx.strokeRect(tx, ty, tooltipW, tooltipH);
@@ -868,20 +849,17 @@ function drawSkillTooltip() {
   ctx.lineWidth = 2;
   ctx.strokeRect(tx + 1, ty + 1, tooltipW - 2, tooltipH - 2);
 
-  // Título
   ctx.fillStyle = '#feca57';
   ctx.font = 'bold 14px "Courier New", monospace';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(sk.name, tx + 12, ty + 22);
 
-  // Custo (à direita do título)
   ctx.fillStyle = '#8ad8ff';
   ctx.font = '11px "Courier New", monospace';
   ctx.textAlign = 'right';
   ctx.fillText(`${cost} MP`, tx + tooltipW - 12, ty + 22);
 
-  // Linha divisória
   ctx.strokeStyle = '#444';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -889,34 +867,23 @@ function drawSkillTooltip() {
   ctx.lineTo(tx + tooltipW - 10, ty + 30);
   ctx.stroke();
 
-  // Descrição (com wrap)
   ctx.fillStyle = '#ddd';
   ctx.font = '11px "Courier New", monospace';
   ctx.textAlign = 'left';
   wrapText(sk.desc, tx + 12, ty + 48, tooltipW - 24, 14);
 }
 
-/**
- * Desenha o nome da skill (com número) num botão, quebrando em até 2 linhas.
- * Se ainda não couber em 2 linhas, trunca com "…" na segunda.
- * Usa o `maxWidth` do botão (menos o padding lateral).
- *
- * Importante: NÃO usa `wrapText` porque queremos controlar exatamente o número
- * de linhas e o alinhamento centralizado.
- */
 function drawSkillName(label, cx, startY, maxWidth, fontSize, canUse) {
   ctx.fillStyle = canUse ? '#eee' : '#555';
   ctx.font = `bold ${fontSize}px "Courier New", monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 
-  // Tenta colocar tudo numa linha
   if (ctx.measureText(label).width <= maxWidth) {
     ctx.fillText(label, cx, startY);
     return 1;
   }
 
-  // Quebra em 2 linhas: acha a última palavra que ainda cabe na 1ª linha
   const words = label.split(' ');
   let line1 = '';
   let splitIdx = 0;
@@ -934,7 +901,6 @@ function drawSkillName(label, cx, startY, maxWidth, fontSize, canUse) {
   ctx.fillText(line1, cx, startY);
 
   if (line2) {
-    // Se a segunda linha ainda não couber, trunca com "…"
     let display2 = line2;
     if (ctx.measureText(display2).width > maxWidth) {
       while (display2.length > 0 && ctx.measureText(display2 + '…').width > maxWidth) {

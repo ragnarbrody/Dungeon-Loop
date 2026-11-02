@@ -326,6 +326,7 @@ function createCity(gx, gy) {
     { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 4,  signTy: 24 }, // porta em tx:6
     { id: 'jeweler',     name: 'Joalheiro',   tx: 21, ty: 21, w: 5, h: 3, signTx: 21, signTy: 24 }, // porta em tx:23
     { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 13, signTy: 25 }, // porta em tx:15
+    { id: 'bank', name: 'Banco de Aethel', tx: 13, ty: 5, w: 5, h: 3, signTx: 13, signTy: 8 },
   ];
 
   for (const obj of cityObjects) {
@@ -703,6 +704,46 @@ export function createRoom(gx, gy) {
     });
   }
 
+  // ---- Sala especial: Herbalista coletando ervas (quest) ----
+  if (gx === -5 && gy === -2 && isQuestActive('story_herbalist_escort')) {
+    const mid = Math.floor(GRID_SIZE / 2);
+
+    // Herbalista parada no centro
+    const hTx = mid;
+    const hTy = mid;
+    reserved.add(`${hTx},${hTy}`);
+    interactables.push({
+      tx: hTx, ty: hTy,
+      kind: 'herbalist_escort',
+      title: 'Herbalista',
+      id: 'herbalist_escort_talk',
+    });
+
+    // 3 ervas em cantos diferentes
+    const herbSpots = [
+      [5, 8],                       // topo esquerdo, 2 tiles abaixo do HUD
+      [GRID_SIZE - 6, 6],           // topo direito
+      [mid, GRID_SIZE - 6],         // base central (longe das portas)
+    ];
+    for (let i = 0; i < herbSpots.length; i++) {
+      const [tx, ty] = herbSpots[i];
+      // Se caiu em cima de uma árvore/pedra, limpa o tile pra a erva aparecer.
+      if (map[ty]?.[tx] === T.TREE || map[ty]?.[tx] === T.WALL) {
+        map[ty][tx] = T.FLOOR;
+      }
+      // Garante que o tile é FLOOR antes de colocar a erva
+      if (map[ty]?.[tx] === T.FLOOR) {
+        reserved.add(`${tx},${ty}`);
+        interactables.push({
+          tx, ty,
+          kind: 'herb',
+          title: 'Erva Rara',
+          id: `herb_${i + 1}`,
+        });
+      }
+    }
+  }
+
   // ---- Caverna procedural (pós-quest 5.2) ----
   // Aparece em ~8% das salas do anel externo (Campos), longe de Aethel.
   // NÃO aparece na sala da caverna da quest (-2,8), nem perto da cidade.
@@ -842,7 +883,7 @@ export function clearCave() {
 // Retorna a sala de entrada da dungeon.
 export function createDungeonInstance(instanceId, seed, opts = {}) {
   const isProcedural = opts.procedural === true;
-  const depth = isProcedural ? 4 + (seed % 2) : 3;  // 4 ou 5 salas
+  const depth = isProcedural ? 3 + (seed % 2) : 3;  // 3 ou 4 salas
   const dungeon = {
     id: instanceId,
     seed,

@@ -1,13 +1,13 @@
 import { ENEMIES } from './enemies-data.js';
 
 // ============================================================
-// Escalonamento e geração de grupos.
+// Escalonamento e geraÃ§Ã£o de grupos.
 // ============================================================
 
 // ---- Balanceamento aplicado ----
 // scale 0.12 (era 0.2): crescimento mais suave de ATK/HP.
 // xp   0.8  (era 0.5): XP recompensa proporcionalmente mais
-//                     para não virar grind quando o ATK cai.
+//                     para nÃ£o virar grind quando o ATK cai.
 const SCALE_PER_LEVEL = 0.12;
 const XP_SCALE_MUL    = 0.8;
 
@@ -49,7 +49,7 @@ export function buildEnemyGroup(chosenId, playerLevel, pool = null) {
   const template = ENEMIES[chosenId];
   const isMiniboss = template && template.isMiniboss;
 
-  // Quantidade: 1..3 baseado no nível (miniboss sempre 1)
+  // Quantidade: 1..3 baseado no nÃ­vel (miniboss sempre 1)
   let count = 1;
   if (!isMiniboss && playerLevel >= 2) {
     const chance2 = Math.min(0.5, 0.15 + playerLevel * 0.03);

@@ -339,6 +339,9 @@ export function renderExplore() {
     }
   }
 
+  drawHerbalistEscort(currentRoom);
+  drawHerbs(currentRoom);
+
   // ---------- PROMPT DE INTERAÇÃO ----------
   if (playerStats._nearInteractable) {
     const it = playerStats._nearInteractable;
@@ -370,6 +373,22 @@ export function renderExplore() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, cx, cy - h / 2 + 1);
+  }
+
+  // Companion (Herbalista) — desenha atrás do jogador
+  if (playerStats._escortActive && playerStats._escortPos && isQuestActive('story_herbalist_escort')) {
+    const c = playerStats._escortPos;
+    const frame = NPC_SPRITES.herbalist.idle[0];
+    const scale = (player.size + 4) / 32;   // ← mesma escala do player
+    const w = 32 * scale;
+    const h = 32 * scale;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(
+      frame,
+      c.x - w / 2, c.y - h / 2,
+      w, h
+    );
+    ctx.globalAlpha = 1;
   }
 
   // ---------- JOGADOR ----------
@@ -789,6 +808,22 @@ function renderCity(room) {
     ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
+  // Companion (Herbalista) — desenha atrás do jogador
+  if (playerStats._escortActive && playerStats._escortPos && isQuestActive('story_herbalist_escort')) {
+    const c = playerStats._escortPos;
+    const frame = NPC_SPRITES.herbalist.idle[0];
+    const scale = (player.size + 4) / 32;   // ← mesma escala do player
+    const w = 32 * scale;
+    const h = 32 * scale;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(
+      frame,
+      c.x - w / 2, c.y - h / 2,
+      w, h
+    );
+    ctx.globalAlpha = 1;
+  }
+
   // ---------- JOGADOR ----------
   const composed = composeFrame(player.facing, player.step);
   const scale = (player.size + 4) / 32;
@@ -984,6 +1019,13 @@ function drawBannerIcon(objId, cx, cy) {
       rect(-1,  2, 2, 1, '#5a3a24');  // linha "texto" 3
       break;
     }
+    case 'bank': {
+      rect(-2, -3, 4, 1, '#c9a24d');
+      rect(-3, -2, 6, 4, '#feca57');
+      rect(-2,  2, 4, 1, '#c9a24d');
+      rect(-1, -1, 2, 2, '#c9a24d');
+      break;
+    }
     default: {
       rect(-1, -1, 2, 2, '#c9a24d');
     }
@@ -1023,6 +1065,7 @@ function drawBannerNextToDoor(obj) {
     herbalist:   '#2a6b2a',
     jeweler:     '#6a2a8a',
     quest_giver: '#c9a24d',
+    bank:        '#e8e0d0',
   };
   const bannerColor = bannerColors[obj.id] || '#8a1a1a';
 
@@ -1070,7 +1113,8 @@ function drawBannerNextToDoor(obj) {
   // ------------------------------------------------------------
   // Borda dourada (também ondula, seguindo o mesmo offsets)
   // ------------------------------------------------------------
-  ctx.strokeStyle = '#c9a24d';
+  const borderColor = obj.id === 'bank' ? '#8a6a2a' : '#c9a24d';
+  ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
   // lado esquerdo de cima pra baixo
@@ -1104,7 +1148,7 @@ function drawBannerNextToDoor(obj) {
   ctx.fill();
 
   // Borda dourada do V
-  ctx.strokeStyle = '#c9a24d';
+  ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(leftX + 0.5, by + bannerH + 0.5);
@@ -1343,7 +1387,12 @@ function renderInterior(room) {
 
   // NPC
   const npc = room.npc;
-  if (npc) {
+  // Se a Herbalista saiu pra colher ervas (quest ativa), não desenha
+  // ela na loja — o sprite dela está "no mundo", na sala -5,-2.
+  const herbalistIsOut =
+    npc && npc.buildingId === 'herbalist' && isQuestActive('story_herbalist_escort');
+
+  if (npc && !herbalistIsOut) {
     const npcSprites = NPC_SPRITES[npc.id] || NPC_SPRITES.herbalist;
     const frame = npcSprites.idle[0];
     const nx = offX + npc.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
@@ -1355,7 +1404,7 @@ function renderInterior(room) {
 
   // Prompt de interação (tanto herbalista quanto ancião)
   const it = playerStats._nearInteractable;
-  if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'blacksmith_quest'  || it.kind === 'elder')) {
+  if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'blacksmith_quest'  || it.kind === 'elder' || it.kind === 'banker')) {
     const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
     const cy = offY + it.ty * TILE_SIZE - 16;
 
@@ -1366,6 +1415,8 @@ function renderInterior(room) {
       text = 'Conversar: Herbalista [E]';
     } else if (it.kind === 'blacksmith_quest') {
       text = 'Conversar: Ferreiro [E]';
+    } else if (it.kind === 'banker') {
+      text = 'Abrir Banco [E]';
     } else {
       text = 'Abrir loja [E]';
     }
@@ -1441,6 +1492,115 @@ function drawLostBackpack(px, py) {
   ctx.beginPath();
   ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// ============================================================
+// ERVAS (quest da Herbalista)
+// Desenha cada interactable `kind: 'herb'` que ainda existe na
+// sala (o input.js remove do `room.interactables` ao coletar).
+// Sprite desenhado "por cima" do tile, com glow pulsante pra
+// chamar atenção.
+// ============================================================
+function drawHerbs(room) {
+  if (!room || !room.interactables) return;
+  if (!isQuestActive('story_herbalist_escort')) return;
+  if (!playerStats._escortActive) return;  // só depois de falar com ela
+
+  const now = performance.now() / 500;
+  const pulse = 0.4 + Math.sin(now) * 0.2;
+
+  for (const it of room.interactables) {
+    if (it.kind !== 'herb') continue;
+    const px = it.tx * TILE_SIZE;
+    const py = it.ty * TILE_SIZE;
+    const cx = px + TILE_SIZE / 2;
+    const cy = py + TILE_SIZE / 2;
+
+    // Sombra no chão
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(cx, py + TILE_SIZE - 3, 7, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glow verde pulsante atrás (chama atenção)
+    const grd = ctx.createRadialGradient(cx, cy, 1, cx, cy, 14);
+    grd.addColorStop(0, `rgba(120, 220, 140, ${pulse * 0.5})`);
+    grd.addColorStop(1, 'rgba(120, 220, 140, 0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+
+    // Caule (fino, verde escuro)
+    ctx.fillStyle = '#3a6b2a';
+    ctx.fillRect(cx - 1, cy - 2, 2, 8);
+
+    // 3 folhas (silhueta de "erva")
+    // Folha esquerda
+    ctx.fillStyle = '#6fbd63';
+    ctx.beginPath();
+    ctx.moveTo(cx - 1, cy + 1);
+    ctx.lineTo(cx - 6, cy - 2);
+    ctx.lineTo(cx - 1, cy + 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Folha direita
+    ctx.fillStyle = '#8ad88a';
+    ctx.beginPath();
+    ctx.moveTo(cx + 1, cy);
+    ctx.lineTo(cx + 6, cy - 3);
+    ctx.lineTo(cx + 1, cy + 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Folha central (a mais alta)
+    ctx.fillStyle = '#a8e8a8';
+    ctx.beginPath();
+    ctx.moveTo(cx - 2, cy);
+    ctx.lineTo(cx, cy - 8);
+    ctx.lineTo(cx + 2, cy);
+    ctx.closePath();
+    ctx.fill();
+
+    // Brilho no topo da folha central
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.fillRect(cx - 1, cy - 7, 1, 2);
+  }
+}
+
+// ============================================================
+// HERBALISTA (parada na sala -5,-2, antes de virar companion)
+// Desenhada só enquanto a quest está ativa E o jogador ainda
+// não falou com ela. Depois disso, ela vira companion e é
+// desenhada atrás do jogador pelo bloco de companion.
+// ============================================================
+function drawHerbalistEscort(room) {
+  if (!room || !room.interactables) return;
+  if (!isQuestActive('story_herbalist_escort')) return;
+  if (playerStats._escortActive) return; // já virou companion
+
+  const it = room.interactables.find(x => x.kind === 'herbalist_escort');
+  if (!it) return;
+
+  const px = it.tx * TILE_SIZE;
+  const py = it.ty * TILE_SIZE;
+
+  // Sombra
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 10, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sprite da Herbalista (mesmo frame idle da loja)
+  const sprites = NPC_SPRITES.herbalist;
+  const frame = sprites.idle[0];
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(
+    frame,
+    px + TILE_SIZE / 2 - 16,
+    py + TILE_SIZE - 30,
+    32, 32
+  );
+  ctx.globalAlpha = 1;
 }
 
 // ============================================================

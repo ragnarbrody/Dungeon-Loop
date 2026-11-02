@@ -10,10 +10,10 @@ import { startBattle } from '../battle/battle.js';
 import { keys } from '../ui/input.js';
 import { clearLeaves } from './leaves.js';
 import { findNearbyInteractable } from '../world/interactables.js';
-import { revealRoom } from '../world/knowledge.js';
+import { revealRoom, removeMarker } from '../world/knowledge.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
 import { showToast } from '../ui/toast.js';
-import { consumeCaveCollapseNotice } from '../quests.js';
+import { consumeCaveCollapseNotice, isQuestActive, advanceObjective } from '../quests.js';
 import { openDialogue } from '../ui/dialogue.js';
 
 let walkTimer = 0;
@@ -137,6 +137,10 @@ function checkDoorTransition() {
     
   // Spawna o jogador passando o mapa da nova sala
   spawnAt(d.opposite, newRoom);
+  // Depois de setCurrentRoom(newRoom) e spawnAt:
+  if (playerStats._escortActive && playerStats._escortPos) {
+    playerStats._escortPos = { x: player.x - 20, y: player.y };
+  }
   setTransitionCooldown(30);
 }
 
@@ -230,6 +234,34 @@ function leaveDungeon() {
 }
 
 export function updatePlayer(dt) {
+  // ---- Chegada em Aethel com a Herbalista (escolta) ----
+  // Quando o jogador entra em (0,0) carregando a companion, o objetivo
+  // `escort_home` avança sozinho. Ela some (porque a quest fica "pronta"),
+  // e o jogador só precisa ir ao Ancião entregar.
+  if (
+    currentRoom &&
+    currentRoom.isCity &&
+    currentRoom.gx === 0 && currentRoom.gy === 0 &&
+    playerStats._escortActive &&
+    isQuestActive('story_herbalist_escort')
+  ) {
+    const arrived = playerStats._escortArrived;
+    if (!arrived) {
+      playerStats._escortArrived = true;
+      advanceObjective('story_herbalist_escort', 'escort_home', 1);
+      removeMarker('marker_herbalist_escort');
+      saveGame();
+      showToast({
+        itemId: 'questlog',
+        title: 'Escolta concluída',
+        subtitle: 'A Herbalista voltou a Aethel. Fale com o Ancião.',
+        color: '#6fbd63',
+      });
+      // Desativa a companion visualmente (ela "entra" na cidade)
+      playerStats._escortActive = false;
+      playerStats._escortPos = null;
+    }
+  }
   // decai a imunidade de fuga
   for (const [enemy, _] of player.fleeImmune) {
   const ptx = Math.floor(player.x / TILE_SIZE);
@@ -309,6 +341,24 @@ export function updatePlayer(dt) {
         startBattle({ enemyId: e.id, mapEnemy: e });
         break;
       }
+    }
+  }
+
+  // Companion (Herbalista) segue o jogador
+  if (playerStats._escortActive && playerStats._escortPos) {
+    const c = playerStats._escortPos;
+    const dx = player.x - c.x;
+    const dy = player.y - c.y;
+    const dist = Math.hypot(dx, dy);
+
+    // Anti-frustração: se ficar muito longe, teleporta pra trás do jogador
+    if (dist > 200) {
+      c.x = player.x - 20;
+      c.y = player.y;
+    } else if (dist > 18) {
+      const speed = 2.0; // um pouco mais lento que o player
+      c.x += (dx / dist) * speed;
+      c.y += (dy / dist) * speed;
     }
   }
 

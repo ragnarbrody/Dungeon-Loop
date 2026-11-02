@@ -1,27 +1,27 @@
 // src/core/timeofday.js
 // ============================================================
-// DIA/NOITE — estado de tempo do jogo, puramente visual.
+// DIA/NOITE â estado de tempo do jogo, puramente visual.
 //
 // Cada "hora" do jogo = TIME_PER_HOUR segundos reais.
 // O ciclo completo dura 24 * TIME_PER_HOUR segundos.
 //
 // Fases (em horas):
-//   06h–11h  → manhã
-//   11h–16h  → tarde
-//   16h–19h  → entardecer
-//   19h–06h  → noite
+//   06hâ11h  â manhÃ£
+//   11hâ16h  â tarde
+//   16hâ19h  â entardecer
+//   19hâ06h  â noite
 //
-// A "fase" é apenas um rótulo. O render usa `darkness` (0..1),
-// `warmth` (0..1) e as cores via interpolação suave — então não
-// há "pulo" entre fases.
+// A "fase" Ã© apenas um rÃ³tulo. O render usa `darkness` (0..1),
+// `warmth` (0..1) e as cores via interpolaÃ§Ã£o suave â entÃ£o nÃ£o
+// hÃ¡ "pulo" entre fases.
 // ============================================================
 
 // Quanto tempo real (em segundos) dura 1 hora do jogo.
 // 24 * 45s = 18 min por dia completo.
 export const TIME_PER_HOUR = 45;
 
-let timeOfDay = 8;          // horas (começa às 8h da manhã)
-let transitionBoost = 1;    // multiplicador temporário (fade-in ao carregar)
+let timeOfDay = 8;          // horas (comeÃ§a Ã s 8h da manhÃ£)
+let transitionBoost = 1;    // multiplicador temporÃ¡rio (fade-in ao carregar)
 let fadeTimer = 0;
 
 // ---------- Paletas por fase ----------
@@ -34,13 +34,13 @@ const PHASES = {
   night:     { darkness: 0.72, overlay: [30, 45, 90],    warmth: 0.0 },
 };
 
-// hora → aparência. Entre dois keyframes interpola com smoothstep.
+// hora â aparÃªncia. Entre dois keyframes interpola com smoothstep.
 const KEYFRAMES = [
   { h: 0,  ...PHASES.night },
   { h: 5,  ...PHASES.night },                                              // madrugada
   { h: 6,  darkness: 0.30, overlay: [255, 170, 110], warmth: 0.30 },       // amanhecer
   { h: 7,  ...PHASES.morning },
-  { h: 16, ...PHASES.afternoon },                                          // dia claro até as 16h
+  { h: 16, ...PHASES.afternoon },                                          // dia claro atÃ© as 16h
   { h: 18, ...PHASES.dusk },
   { h: 20, ...PHASES.night },
   { h: 24, ...PHASES.night },
@@ -72,7 +72,7 @@ function samplePhases(hour) {
   };
 }
 
-// ---------- API pública ----------
+// ---------- API pÃºblica ----------
 
 export function tickTime(dt) {
   // 1 hora de jogo = TIME_PER_HOUR segundos reais
@@ -91,7 +91,7 @@ export function getTimeOfDay() {
 
 export function getTimeState() {
   const sampled = samplePhases(timeOfDay);
-  // Aplica o boost de fade-in (primeiros segundos após carregar)
+  // Aplica o boost de fade-in (primeiros segundos apÃ³s carregar)
   const darkness = sampled.darkness * transitionBoost;
   return {
     hour: timeOfDay,
@@ -126,7 +126,7 @@ function formatHour(h) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-// Serialização pro save (opcional — se quiser persistir o horário)
+// SerializaÃ§Ã£o pro save (opcional â se quiser persistir o horÃ¡rio)
 export function serializeTime() {
   return { timeOfDay };
 }
@@ -141,7 +141,7 @@ if (typeof window !== 'undefined') {
   window.__time = {
     set: (h) => setTimeOfDay(h),
     get: () => getTimeState(),
-    // atalhos pra testar rápido as fases
+    // atalhos pra testar rÃ¡pido as fases
     manha:      () => setTimeOfDay(8),
     tarde:      () => setTimeOfDay(14),
     entardecer: () => setTimeOfDay(17),

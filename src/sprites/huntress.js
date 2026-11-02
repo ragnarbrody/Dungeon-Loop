@@ -1,5 +1,5 @@
 // src/sprites/huntress.js
-// Caçadora: capuz verde-escuro pontudo, cabelo loiro saindo por baixo,
+// Caï¿½adora: capuz verde-escuro pontudo, cabelo loiro saindo por baixo,
 // manto curto, botas de couro, aljava nas costas.
 export function makeHuntressFrames() {
   const S = 32;
@@ -37,12 +37,12 @@ export function makeHuntressFrames() {
     function bodyFront() {
       pxGround(10, 30, 12, 1, 'rgba(0,0,0,0.25)');   // sombra
 
-      // Manto curto (capa de caçadora) nas costas/ombros
+      // Manto curto (capa de caï¿½adora) nas costas/ombros
       px(8, 14, 16, 4, pal.cloak);
       px(8, 14, 16, 1, pal.cloakSh);
       px(8, 17, 16, 1, pal.cloakSh);
 
-      // Túnica (corpo)
+      // Tï¿½nica (corpo)
       px(9, 18, 14, 6, pal.tunic);
       px(9, 18, 14, 1, pal.tunicHi);
       px(9, 23, 14, 1, pal.tunicSh);
@@ -50,20 +50,20 @@ export function makeHuntressFrames() {
       // Cinto
       px(9, 22, 14, 1, pal.belt);
 
-      // Pernas (calça + bota)
+      // Pernas (calï¿½a + bota)
       pxGround(11, 24 + legL, 4, 4, pal.cloakSh);
       pxGround(17, 24 + legR, 4, 4, pal.cloakSh);
       pxGround(11, 28 + legL, 4, 2, pal.boot);
       pxGround(17, 28 + legR, 4, 2, pal.boot);
 
-      // Braços
+      // Braï¿½os
       px(7, 18, 2, 6, pal.tunicSh);
       px(23, 18, 2, 6, pal.tunicSh);
       px(7, 24, 2, 1, pal.skinSh);
       px(23, 24, 2, 1, pal.skinSh);
 
       // ---- CABELO LOIRO (saindo por baixo do capuz, nas laterais) ----
-      // Mechas laterais caindo até a altura do ombro
+      // Mechas laterais caindo atï¿½ a altura do ombro
       px(10, 10, 2, 4, pal.hair);
       px(20, 10, 2, 4, pal.hair);
       px(10, 13, 2, 1, pal.hairSh);       // sombra na ponta esq
@@ -72,28 +72,28 @@ export function makeHuntressFrames() {
       px(10, 10, 1, 2, pal.hairHi);
       px(21, 10, 1, 2, pal.hairHi);
 
-      // Cabeça (rosto, agora 8x6 ? menos "testudo")
+      // Cabeï¿½a (rosto, agora 8x6 ? menos "testudo")
       px(12, 8, 8, 6, pal.skin);
       px(12, 13, 8, 1, pal.skinSh);       // sombra do queixo
 
       // ---- CAPUZ (2 camadas de ponta, mais baixo e proporcional) ----
-      // Ponta do capuz (topo mais alto, puxado pra trás)
+      // Ponta do capuz (topo mais alto, puxado pra trï¿½s)
       px(13, 2, 6, 1, pal.hoodHi);        // pontinha superior
       px(12, 3, 8, 1, pal.hood);          // topo
       // Corpo do capuz cobrindo a testa (2px)
       px(11, 4, 10, 2, pal.hood);
       px(11, 4, 10, 1, pal.hoodSh);       // sombra no vinco
-      // Aba do capuz caindo atrás (esq e dir) ? mais curta
+      // Aba do capuz caindo atrï¿½s (esq e dir) ? mais curta
       px(11, 6, 1, 3, pal.hood);          // aba esquerda
       px(20, 6, 1, 3, pal.hood);          // aba direita
       px(11, 8, 1, 1, pal.hoodSh);        // sombra da ponta esq
       px(20, 8, 1, 1, pal.hoodSh);        // sombra da ponta dir
       // "Bico" do capuz (ponta que pende sobre a testa)
       px(14, 5, 4, 1, pal.hoodSh);
-      // Testa visível (rosto exposto entre o capuz e os olhos)
+      // Testa visï¿½vel (rosto exposto entre o capuz e os olhos)
       px(13, 6, 6, 1, pal.skin);
 
-      // Olhos (mais próximos, combinando com rosto menor)
+      // Olhos (mais prï¿½ximos, combinando com rosto menor)
       px(14, 9, 1, 1, pal.eye);
       px(17, 9, 1, 1, pal.eye);
 
@@ -101,7 +101,7 @@ export function makeHuntressFrames() {
       px(13, 11, 1, 1, pal.hoodSh);
       px(18, 11, 1, 1, pal.hoodSh);
 
-      // Aljava aparecendo atrás do ombro direito (2 flechas)
+      // Aljava aparecendo atrï¿½s do ombro direito (2 flechas)
       px(22, 15, 2, 1, pal.quiver);
       px(23, 14, 1, 1, pal.quiverSh);
       px(22, 13, 1, 1, pal.arrow);
@@ -116,11 +116,11 @@ export function makeHuntressFrames() {
     function bodyBack() {
       pxGround(10, 30, 12, 1, 'rgba(0,0,0,0.25)');
 
-      // Manto cobre quase tudo (caçadora de costas = capa + capuz)
+      // Manto cobre quase tudo (caï¿½adora de costas = capa + capuz)
       px(8, 14, 16, 4, pal.cloak);
       px(8, 14, 16, 1, pal.cloakSh);
 
-      // Túnica
+      // Tï¿½nica
       px(9, 18, 14, 6, pal.tunic);
       px(9, 18, 14, 1, pal.tunicHi);
       px(9, 22, 14, 1, pal.belt);
@@ -147,8 +147,8 @@ export function makeHuntressFrames() {
       px(20, 8, 1, 3, pal.arrow);
       px(20, 7, 1, 1, pal.feather);
 
-      // ---- CABELO LOIRO (saindo por baixo do capuz, atrás) ----
-      // Mechas visíveis na nuca, mais compridas
+      // ---- CABELO LOIRO (saindo por baixo do capuz, atrï¿½s) ----
+      // Mechas visï¿½veis na nuca, mais compridas
       px(11, 11, 10, 2, pal.hair);
       px(11, 12, 10, 1, pal.hairSh);      // sombra da base
       px(11, 11, 2, 1, pal.hairHi);       // brilho esq
@@ -160,12 +160,12 @@ export function makeHuntressFrames() {
       px(11, 2, 10, 1, pal.hoodHi);       // ponta do capuz
       px(12, 1, 8, 1, pal.hoodHi);        // pontinha superior
       px(10, 10, 12, 1, pal.hoodSh);      // base do capuz (sombra)
-      // Vinco do capuz (dá a impressão de tecido)
+      // Vinco do capuz (dï¿½ a impressï¿½o de tecido)
       px(15, 3, 1, 7, pal.hoodSh);
     }
 
     // ============================================================
-    // PERFIL (virado pra DIREITA ? será espelhado pra esquerda)
+    // PERFIL (virado pra DIREITA ? serï¿½ espelhado pra esquerda)
     // ============================================================
     function bodySide() {
       pxGround(11, 30, 10, 1, 'rgba(0,0,0,0.25)');
@@ -174,7 +174,7 @@ export function makeHuntressFrames() {
       px(10, 14, 12, 4, pal.cloak);
       px(10, 14, 12, 1, pal.cloakSh);
 
-      // Túnica
+      // Tï¿½nica
       px(11, 18, 10, 6, pal.tunic);
       px(11, 18, 10, 1, pal.tunicHi);
       px(12, 22, 8, 1, pal.belt);
@@ -185,33 +185,33 @@ export function makeHuntressFrames() {
       pxGround(13, 28 + legL, 4, 2, pal.boot);
       pxGround(17, 28 + legR, 4, 2, pal.boot);
 
-      // Braço
+      // Braï¿½o
       px(19, 18, 2, 6, pal.tunicSh);
       px(19, 24, 2, 1, pal.skinSh);
 
-      // ---- CABELO LOIRO (caindo atrás da cabeça, visível no perfil) ----
-      px(13, 9, 2, 5, pal.hair);          // mecha atrás
+      // ---- CABELO LOIRO (caindo atrï¿½s da cabeï¿½a, visï¿½vel no perfil) ----
+      px(13, 9, 2, 5, pal.hair);          // mecha atrï¿½s
       px(13, 13, 2, 1, pal.hairSh);       // sombra na ponta
       px(13, 9, 1, 3, pal.hairHi);        // brilho
 
-      // Cabeça de perfil (rosto pra direita) ? 6px de largura, mais enxuto
+      // Cabeï¿½a de perfil (rosto pra direita) ? 6px de largura, mais enxuto
       px(15, 8, 6, 6, pal.skin);
       px(15, 13, 6, 1, pal.skinSh);       // sombra do queixo
 
-      // ---- CAPUZ DE PERFIL (topo pontudo puxado pra trás, bico na frente) ----
-      // Ponta do capuz (puxada pra trás ? fica à esquerda no perfil)
+      // ---- CAPUZ DE PERFIL (topo pontudo puxado pra trï¿½s, bico na frente) ----
+      // Ponta do capuz (puxada pra trï¿½s ? fica ï¿½ esquerda no perfil)
       px(12, 1, 7, 1, pal.hoodHi);
       px(12, 2, 10, 1, pal.hoodHi);
       px(12, 3, 11, 2, pal.hood);          // topo reto
-      // Testa coberta (só 1 linha)
+      // Testa coberta (sï¿½ 1 linha)
       px(12, 5, 11, 1, pal.hood);
-      // Nuca grossa atrás (parte de trás do capuz, mais larga)
+      // Nuca grossa atrï¿½s (parte de trï¿½s do capuz, mais larga)
       px(12, 6, 3, 4, pal.hood);
       px(12, 9, 3, 1, pal.hoodSh);         // sombra da nuca
       // "Bico" do capuz na frente (ponta que pende sobre a testa)
       px(22, 5, 2, 1, pal.hoodSh);
       px(23, 4, 1, 1, pal.hoodSh);
-      // Testa visível (rosto exposto)
+      // Testa visï¿½vel (rosto exposto)
       px(16, 6, 6, 1, pal.skin);
 
       // Olho
@@ -220,7 +220,7 @@ export function makeHuntressFrames() {
       // Marca de guerra
       px(20, 11, 1, 1, pal.hoodSh);
 
-      // Aljava aparecendo atrás (1 flecha visível no perfil)
+      // Aljava aparecendo atrï¿½s (1 flecha visï¿½vel no perfil)
       px(14, 12, 2, 1, pal.quiver);
       px(13, 11, 1, 1, pal.arrow);
       px(13, 10, 1, 1, pal.feather);

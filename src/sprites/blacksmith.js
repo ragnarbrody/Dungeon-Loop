@@ -1,6 +1,6 @@
 // src/sprites/blacksmith.js
 // Ferreiro: homem forte, barba ruiva, avental de couro, martelo apoiado.
-// 2 frames idle. Vista frontal (ele fica parado atrás de uma bigorna).
+// 2 frames idle. Vista frontal (ele fica parado atrï¿½s de uma bigorna).
 export function makeBlacksmithFrames() {
   const S = 32;
   const frames = { idle: [] };
@@ -35,7 +35,7 @@ export function makeBlacksmithFrames() {
     pxGround(11, 28, 4, 2, pal.boot);
     pxGround(17, 28, 4, 2, pal.boot);
 
-    // Túnica
+    // Tï¿½nica
     px(9, 14, 14, 10, pal.tunic);
     px(9, 14, 14, 1, '#8a6a5a');
     px(9, 22, 14, 1, pal.tunicSh);
@@ -48,22 +48,22 @@ export function makeBlacksmithFrames() {
     px(13, 19, 6, 3, pal.apronSh);
     px(13, 19, 6, 1, pal.apronHi);
 
-    // Braços (mais grossos, à mostra)
-    px(6, 15, 4, 8, pal.skin);       // braço esquerdo (pele)
-    px(22, 15, 4, 8, pal.skin);      // braço direito
+    // Braï¿½os (mais grossos, ï¿½ mostra)
+    px(6, 15, 4, 8, pal.skin);       // braï¿½o esquerdo (pele)
+    px(22, 15, 4, 8, pal.skin);      // braï¿½o direito
     px(6, 15, 4, 3, pal.tunicSh);    // manga curta esq
     px(22, 15, 4, 3, pal.tunicSh);   // manga curta dir
-    px(6, 22, 4, 2, pal.skinSh);     // mão esq
-    px(22, 22, 4, 2, pal.skinSh);    // mão dir
+    px(6, 22, 4, 2, pal.skinSh);     // mï¿½o esq
+    px(22, 22, 4, 2, pal.skinSh);    // mï¿½o dir
 
     // Cinto com fivela dourada
     px(9, 23, 14, 1, pal.belt);
     px(15, 23, 2, 1, pal.buckle);
 
-    // Pescoço
+    // Pescoï¿½o
     px(14, 12, 4, 2, pal.skinSh);
 
-    // Cabeça / rosto
+    // Cabeï¿½a / rosto
     px(12, 5, 8, 8, pal.skin);
     px(12, 12, 8, 1, pal.skinSh);
 
@@ -73,25 +73,25 @@ export function makeBlacksmithFrames() {
     px(10, 6, 2, 3, pal.hair);
     px(20, 6, 2, 3, pal.hair);
 
-    // Barba ruiva cheia (cobre o queixo e desce até o peito)
+    // Barba ruiva cheia (cobre o queixo e desce atï¿½ o peito)
     px(12, 10, 8, 4, pal.hair);
     px(13, 14, 6, 2, pal.hair);
     px(13, 16, 6, 1, pal.hairSh);
     px(13, 10, 6, 1, pal.hairHi);
 
-    // Olhos (pequenos, sérios)
+    // Olhos (pequenos, sï¿½rios)
     px(14, 8, 1, 1, pal.eye);
     px(18, 8, 1, 1, pal.eye);
 
-    // Sobrancelhas ruivas (dão expressão determinada)
+    // Sobrancelhas ruivas (dï¿½o expressï¿½o determinada)
     px(13, 7, 2, 1, pal.hairSh);
     px(18, 7, 2, 1, pal.hairSh);
 
-    // Martelo apoiado no ombro direito (detalhe do ofício)
-    // Cabo na vertical, cabeça no topo
+    // Martelo apoiado no ombro direito (detalhe do ofï¿½cio)
+    // Cabo na vertical, cabeï¿½a no topo
     px(24, 10, 2, 10, pal.hammer);
     px(25, 10, 1, 10, pal.apronSh);
-    // Cabeça do martelo (horizontal)
+    // Cabeï¿½a do martelo (horizontal)
     px(22, 8, 6, 3, pal.hammerHead);
     px(22, 8, 6, 1, pal.hammerHeadHi);
     px(22, 10, 6, 1, pal.apronSh);

@@ -1,27 +1,27 @@
 // ============================================================
-// SAVE — camada única de persistência.
+// SAVE â camada Ãºnica de persistÃªncia.
 //
 // Responsabilidades:
-//   - Ler o localStorage e devolver um objeto SEGURO (já migrado
-//     e validado), ou null se não houver save.
+//   - Ler o localStorage e devolver um objeto SEGURO (jÃ¡ migrado
+//     e validado), ou null se nÃ£o houver save.
 //   - Escrever o estado atual no localStorage.
-//   - Migrar saves antigos pra versão atual.
+//   - Migrar saves antigos pra versÃ£o atual.
 //   - Resetar pro "estado inicial" (usado por Novo Jogo).
 //
 // Regras:
 //   - NUNCA ler localStorage fora daqui (exceto debug).
-//   - Toda migração é pura: recebe `data`, devolve `data` novo.
-//   - Se o save corromper, é melhor "voltar pro menu" do que
+//   - Toda migraÃ§Ã£o Ã© pura: recebe `data`, devolve `data` novo.
+//   - Se o save corromper, Ã© melhor "voltar pro menu" do que
 //     crashar o jogo.
 // ============================================================
 
 const SAVE_KEY = 'dungeonLoop_save';
 
-// Sempre que adicionar uma migração, sobe esse número e adiciona
+// Sempre que adicionar uma migraÃ§Ã£o, sobe esse nÃºmero e adiciona
 // uma entrada em MIGRATIONS.
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 7;
 
-// ---------- Helpers de validação ----------
+// ---------- Helpers de validaÃ§Ã£o ----------
 function isObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
@@ -38,17 +38,17 @@ function asBool(v, fallback = false) {
   return typeof v === 'boolean' ? v : fallback;
 }
 
-// ---------- Migrações ----------
-// Cada migração recebe o `data` na versão `from` e devolve o `data`
-// na versão `from + 1`. O pipeline roda em ordem, sempre subindo.
+// ---------- MigraÃ§Ãµes ----------
+// Cada migraÃ§Ã£o recebe o `data` na versÃ£o `from` e devolve o `data`
+// na versÃ£o `from + 1`. O pipeline roda em ordem, sempre subindo.
 //
-// Regra de ouro: migração NUNCA apaga dado do jogador. Só adiciona
+// Regra de ouro: migraÃ§Ã£o NUNCA apaga dado do jogador. SÃ³ adiciona
 // campos com defaults seguros.
 const MIGRATIONS = {
   // v1 -> v2
-  // O "v1" original não tinha `version`, `knowledge`, `portalCores`
+  // O "v1" original nÃ£o tinha `version`, `knowledge`, `portalCores`
   // como Set serializado, `itemPage`, `stackCap`-aware inventory, etc.
-  // Esta migração normaliza tudo pro formato que `state.js` espera.
+  // Esta migraÃ§Ã£o normaliza tudo pro formato que `state.js` espera.
   1: (data) => {
     // knowledge: default vazio (o `state.js` revela a sala inicial depois)
     if (!isObject(data.knowledge)) {
@@ -61,7 +61,7 @@ const MIGRATIONS = {
     // portalCores: sempre array
     if (!Array.isArray(data.portalCores)) data.portalCores = [];
 
-    // inventory: cada item precisa ter id + qty numérica
+    // inventory: cada item precisa ter id + qty numÃ©rica
     if (!Array.isArray(data.inventory)) {
       data.inventory = [{ id: 'potion_weak', qty: 2 }];
     } else {
@@ -104,7 +104,7 @@ const MIGRATIONS = {
     // visited: sempre array
     if (!Array.isArray(data.visited)) data.visited = ['0,0'];
 
-    // defaults numéricos que podem faltar
+    // defaults numÃ©ricos que podem faltar
     data.level          = Math.max(1, Math.floor(asNumber(data.level, 1)));
     data.xp             = Math.max(0, asNumber(data.xp, 0));
     data.xpToNextLevel  = Math.max(1, Math.floor(asNumber(data.xpToNextLevel, 50)));
@@ -116,7 +116,7 @@ const MIGRATIONS = {
     return data;
   },
 
-  // O "v2" não tinha `quests`. Adiciona o shape default.
+  // O "v2" nÃ£o tinha `quests`. Adiciona o shape default.
   2: (data) => {
     if (!isObject(data.quests)) {
       data.quests = {
@@ -140,17 +140,67 @@ const MIGRATIONS = {
   // v3 -> v4: adiciona `timeOfDay` (hora do jogo 0..24)
   3: (data) => {
     if (typeof data.timeOfDay !== 'number' || !Number.isFinite(data.timeOfDay)) {
-      data.timeOfDay = 8; // começa de manhã
+      data.timeOfDay = 8; // comeÃ§a de manhÃ£
     }
     // Normaliza pro range [0, 24)
     data.timeOfDay = ((data.timeOfDay % 24) + 24) % 24;
     return data;
   },
   // v4 -> v5: adiciona `dungeons` (estado persistente das cavernas)
-  // e `openedChests` (Set serializado de baús abertos).
+  // e `openedChests` (Set serializado de baÃºs abertos).
   4: (data) => {
     if (!isObject(data.dungeons)) data.dungeons = {};
     if (!Array.isArray(data.openedChests)) data.openedChests = [];
+    return data;
+  },
+  // v5 -> v6: marcos de nível (checkpoint de morte)
+  5: (data) => {
+    const prog = isObject(data.progression) ? data.progression : {};
+    if (!isObject(prog.milestones)) prog.milestones = {};
+    const step = Math.floor(asNumber(data.level, 1) / 5) * 5;
+    // save antigo: marco aproximado com os stats atuais (só p/ não perder o checkpoint)
+    if (step >= 5 && isObject(data.stats) && !prog.milestones[step]) {
+      prog.milestones[step] = { level: step, ...data.stats, _baseMp: asNumber(data._baseMp, 5) };
+    }
+    data.progression = prog;
+    return data;
+  },
+  // v6 -> v7: `meta` (cofre, mortes) sai do localStorage separado
+  // e vira parte do save. Migração one-shot: se o save atual não tem
+  // `meta` mas existe `dungeonLoop_meta` no localStorage, copia e apaga.
+  6: (data) => {
+    if (!isObject(data.meta)) {
+      let migrated = null;
+      try {
+        const raw = localStorage.getItem('dungeonLoop_meta');
+        if (raw) {
+          const m = JSON.parse(raw);
+          if (isObject(m) && isObject(m.vault)) migrated = m;
+        }
+      } catch (_) { /* ignora */ }
+
+      if (migrated) {
+        const v = migrated.vault;
+        const slots = Math.min(8, Math.max(4, Math.floor(Number(v.slots) || 4)));
+        const items = Array.from({ length: slots }, (_, i) => {
+          const it = v.items?.[i];
+          return it && typeof it.id === 'string' && it.qty > 0
+            ? { id: it.id, qty: Math.floor(it.qty) }
+            : null;
+        });
+        data.meta = {
+          deaths: Math.max(0, Math.floor(Number(migrated.deaths) || 0)),
+          vault: {
+            gold: Math.max(0, Math.floor(Number(v.gold) || 0)),
+            slots,
+            items,
+          },
+        };
+        try { localStorage.removeItem('dungeonLoop_meta'); } catch (_) {}
+      } else {
+        data.meta = { deaths: 0, vault: { gold: 0, slots: 4, items: [null, null, null, null] } };
+      }
+    }
     return data;
   },
 };
@@ -159,7 +209,7 @@ const MIGRATIONS = {
 export function getDefaultSave() {
   return {
     version: SAVE_VERSION,
-    // progressão
+    // progressÃ£o
     level: 1,
     xp: 0,
     xpToNextLevel: 50,
@@ -171,7 +221,7 @@ export function getDefaultSave() {
     classId: null,
     stats: { str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0 },
     _baseMp: 5,
-    // inventário e equipamento
+    // inventÃ¡rio e equipamento
     inventory: [],
     equip: { rightHand: 'sword', leftHand: null },
     // mundo
@@ -189,6 +239,10 @@ export function getDefaultSave() {
     dungeons: {},
     openedChests: [],
 
+    meta: {
+      deaths: 0,
+      vault: { gold: 0, slots: 4, items: [null, null, null, null] },
+    },
     quests: {
         active: null,
         progress: {},
@@ -199,18 +253,18 @@ export function getDefaultSave() {
   };
 }
 
-// ---------- Migração ----------
+// ---------- MigraÃ§Ã£o ----------
 function applyMigrations(data) {
   let v = asNumber(data.version, 1);
 
-  // Enquanto houver migração pra próxima versão, aplica.
+  // Enquanto houver migraÃ§Ã£o pra prÃ³xima versÃ£o, aplica.
   while (v < SAVE_VERSION) {
     const m = MIGRATIONS[v];
     if (!m) {
-      // Sem caminho de migração — não dá pra garantir consistência.
-      // Melhor "perder" o save do que corromper. Mas como só temos
-      // a v1→v2, isso não acontece.
-      console.warn(`[save] sem migração de v${v} pra v${v + 1}.`);
+      // Sem caminho de migraÃ§Ã£o â nÃ£o dÃ¡ pra garantir consistÃªncia.
+      // Melhor "perder" o save do que corromper. Mas como sÃ³ temos
+      // a v1âv2, isso nÃ£o acontece.
+      console.warn(`[save] sem migraÃ§Ã£o de v${v} pra v${v + 1}.`);
       break;
     }
     data = m(data) || data;
@@ -218,24 +272,24 @@ function applyMigrations(data) {
     data.version = v;
   }
 
-  // Garante que o `version` do final está certo
+  // Garante que o `version` do final estÃ¡ certo
   data.version = SAVE_VERSION;
   return data;
 }
 
-// ---------- API pública ----------
+// ---------- API pÃºblica ----------
 /**
- * Lê o save. Retorna `null` se não houver, se estiver corrompido,
- * ou se o JSON.parse falhar. NUNCA lança.
+ * LÃª o save. Retorna `null` se nÃ£o houver, se estiver corrompido,
+ * ou se o JSON.parse falhar. NUNCA lanÃ§a.
  *
- * O objeto retornado já está migrado e validado.
+ * O objeto retornado jÃ¡ estÃ¡ migrado e validado.
  */
 export function loadSave() {
   let raw;
   try {
     raw = localStorage.getItem(SAVE_KEY);
   } catch (e) {
-    console.warn('[save] localStorage indisponível.', e);
+    console.warn('[save] localStorage indisponÃ­vel.', e);
     return null;
   }
   if (!raw) return null;
@@ -249,11 +303,11 @@ export function loadSave() {
   }
 
   if (!isObject(data)) {
-    console.warn('[save] save não é um objeto, ignorando.');
+    console.warn('[save] save nÃ£o Ã© um objeto, ignorando.');
     return null;
   }
 
-  // Se não tinha version, é o "v1 original"
+  // Se nÃ£o tinha version, Ã© o "v1 original"
   if (data.version === undefined) {
     data.version = 1;
   }
@@ -263,15 +317,15 @@ export function loadSave() {
 
 /**
  * Escreve o estado atual no localStorage. Retorna `true` se deu certo.
- * NUNCA lança.
+ * NUNCA lanÃ§a.
  */
 export function writeSave(data) {
   if (!isObject(data)) {
-    console.warn('[save] tentativa de salvar objeto inválido.');
+    console.warn('[save] tentativa de salvar objeto invÃ¡lido.');
     return false;
   }
   try {
-    // Marca sempre a versão atual
+    // Marca sempre a versÃ£o atual
     data.version = SAVE_VERSION;
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     return true;
@@ -290,7 +344,7 @@ export function clearSave() {
 }
 
 /**
- * Útil pra debug no console:
+ * Ãtil pra debug no console:
  *   __saveInfo()
  * devolve { version, classId, level, gx, gy }.
  */
@@ -306,7 +360,7 @@ export function getSaveInfo() {
   };
 }
 
-// Expõe no console pra debug rápido
+// ExpÃµe no console pra debug rÃ¡pido
 if (typeof window !== 'undefined') {
   window.__saveInfo = getSaveInfo;
   window.__clearSave = clearSave;

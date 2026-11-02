@@ -33,7 +33,7 @@ export function makeHerbalistFrames() {
     pxGround(11, 28, 4, 2, pal.boot);
     pxGround(17, 28, 4, 2, pal.boot);
 
-    // Túnica
+    // Tï¿½nica
     px(9, 14, 14, 10, pal.tunic);
     px(9, 14, 14, 1, '#5a7b4a');
     px(9, 22, 14, 1, pal.tunicSh);
@@ -43,13 +43,13 @@ export function makeHerbalistFrames() {
     px(11, 15, 10, 1, '#f0e8d0');
     px(11, 23, 10, 1, pal.apronSh);
 
-    // Braços
+    // Braï¿½os
     px(7, 15, 3, 8, pal.tunicSh);
     px(22, 15, 3, 8, pal.tunicSh);
     px(7, 22, 3, 2, pal.skinSh);
     px(22, 22, 3, 2, pal.skinSh);
 
-    // Pescoço
+    // Pescoï¿½o
     px(14, 12, 4, 2, pal.skinSh);
 
     // Rosto

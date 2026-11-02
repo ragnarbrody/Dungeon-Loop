@@ -1,7 +1,7 @@
 // ============================================================
-// Helpers compartilhados: alvo, animação, texto flutuante.
-// Nada de regra de jogo aqui — só utilidades de "apresentação"
-// que várias partes da batalha usam.
+// Helpers compartilhados: alvo, animaÃ§Ã£o, texto flutuante.
+// Nada de regra de jogo aqui â sÃ³ utilidades de "apresentaÃ§Ã£o"
+// que vÃ¡rias partes da batalha usam.
 // ============================================================
 import { battle } from '../core/state.js';
 import { CANVAS_W, CANVAS_H } from '../core/canvas.js';
@@ -78,7 +78,7 @@ export function tryDodge(enemy) {
   return false;
 }
 
-// ---- Animação ----
+// ---- AnimaÃ§Ã£o ----
 export function flashEnemyAt(enemy, type = 'white') {
   const idx = battle.enemies.indexOf(enemy);
   battle.anim.flashEnemy = 0.3;

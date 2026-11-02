@@ -30,13 +30,18 @@ export function getInteractables(room) {
       // abre loja (shop_keep)
       const SHOP_BUILDINGS = new Set(['herbalist', 'blacksmith', 'armorer']);
       if (SHOP_BUILDINGS.has(npc.buildingId)) {
-        list.push({
-          tx: npc.tx, ty: npc.ty,
-          kind: 'shop_keep',
-          buildingId: npc.buildingId,
-          title: NPC_LABEL[npc.buildingId] || 'Lojista',
-          text: '...',
-        });
+        // Herbalista sai da loja durante a quest
+        if (npc.buildingId === 'herbalist' && isQuestActive('story_herbalist_escort')) {
+          // Não adiciona shop_keep
+        } else {
+          list.push({
+            tx: npc.tx, ty: npc.ty,
+            kind: 'shop_keep',
+            buildingId: npc.buildingId,
+            title: NPC_LABEL[npc.buildingId] || 'Lojista',
+            text: '...',
+          });
+        }
       }
 
       // Herbalista: se tem quest ativa que é entregue a ela, oferece o diálogo
@@ -70,6 +75,10 @@ export function getInteractables(room) {
           kind: 'elder',
           title: 'Ancião de Aethel',
         });
+      }
+
+      if (npc.buildingId === 'bank') {
+        list.push({ tx: npc.tx, ty: npc.ty, kind: 'banker', title: 'Banqueiro' });
       }
     }
     return list;
@@ -110,6 +119,18 @@ export function getInteractables(room) {
         if (room._chestOpened) continue;
         // (a checagem do miniboss foi removida — o prompt deve aparecer sempre,
         //  e o input.js decide se abre ou mostra "trancado")
+      }
+
+      if (it.kind === 'herbalist_escort') {
+        // Só aparece se a quest está ativa E ainda não foi "falada"
+        if (!isQuestActive('story_herbalist_escort')) continue;
+        // Se o jogador já falou com ela (hasEscortStarted), some (ela virou companion)
+        if (playerStats._escortActive) continue;
+      }
+      if (it.kind === 'herb') {
+        // Só aparece se a quest está ativa E o jogador já falou com a herbalista
+        if (!isQuestActive('story_herbalist_escort')) continue;
+        if (!playerStats._escortActive) continue; // ela ainda não pediu ajuda
       }
       list.push({ ...it });
     }
@@ -154,17 +175,26 @@ export function getInteractables(room) {
 }
 
 function signTextFor(id) {
+  // Placa da Herbalista: muda o texto enquanto ela está fora (escolta).
+  if (id === 'herbalist') {
+    if (isQuestActive('story_herbalist_escort')) {
+      return 'Herbalista. A loja está fechada. A Herbalista saiu para colher ervas e não voltou ainda.';
+    }
+    return 'Herbalista. Vende poções e ervas medicinais. Dizem que ela também prepara remédios raros.';
+  }
+
   const texts = {
     blacksmith:
       'Ferreiro. Compra e vende armas. Também forja equipamentos especiais para quem trouxer os materiais certos.',
     armorer:
       'Armeiro. Compra e vende escudos, peitorais, botas e capacetes. Também aceita materiais em troca de ouro.',
-    herbalist:
-      'Herbalista. Vende poções e ervas medicinais. Dizem que ela também prepara remédios raros.',
     jeweler:
       'Joalheiro. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro. [EM BREVE]',
     quest_giver:
       'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes.',
+    bank:
+      'Banco de Aethel. Guarde ouro e itens aqui antes de partir. ' +
+      'O que está no cofre, a Fratura não leva. Slots adicionais à venda.',
   };
   return texts[id] || 'Uma placa desgastada. Não dá pra ler direito.';
 }
@@ -199,6 +229,9 @@ export function findNearbyInteractable(room) {
     building_entrance: 0,
     shop_keep:         0,
     elder:             0,
+    banker:            0,
+    herbalist_escort:  0,
+    herb:              1,
     cave_entrance:     1,
     caged_villager:    1,
     lost_backpack:     1,
@@ -213,7 +246,7 @@ export function findNearbyInteractable(room) {
 
   // NPCs atrás de balcão precisam de alcance 2 (o balcão ocupa 1 tile).
   const BEHIND_COUNTER = new Set([
-    'shop_keep', 'elder', 'herbalist_quest', 'blacksmith_quest',
+    'shop_keep', 'elder', 'herbalist_quest', 'blacksmith_quest', 'banker',
   ]);
 
   for (const it of list) {

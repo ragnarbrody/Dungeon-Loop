@@ -12,7 +12,7 @@ export function talkToCagedVillager() {
 
   if (!captorDefeated) {
     openDialogue({
-      title: 'Aldeão',
+      title: 'Corin',
       text:
         'Dentro da jaula, um homem de roupas rasgadas ergue o rosto. Parece aliviado e apavorado ao mesmo tempo.\n\n' +
         '— Você é de Aethel? Então o Ancião não me esqueceu... Mas agora não, não posso sair com aquilo aqui. ' +
@@ -24,7 +24,7 @@ export function talkToCagedVillager() {
   openDialogue({
     title: 'Jaula',
     text:
-      'Com o Sargento caído, o molho de chaves em seu cinto está ao alcance. Através das barras, o aldeão te olha sem ousar acreditar.',
+      'Com o Sargento caído, o molho de chaves em seu cinto está ao alcance. Através das barras, Corin te olha sem ousar acreditar.',
     actions: [{ label: 'Abrir a jaula', action: freeVillager }],
   });
 }
@@ -43,9 +43,9 @@ function freeVillager() {
   if (r.gold) parts.push(`+${r.gold} ouro`);
 
   openDialogue({
-    title: 'Aldeão',
+    title: 'Corin',
     text:
-      'A fechadura cede. O aldeão sai devagar, esfregando os pulsos marcados pela corda, e olha o corpo do Sargento.\n\n' +
+      'A fechadura cede. Corin sai devagar, esfregando os pulsos marcados pela corda, e olha o corpo do Sargento.\n\n' +
       '— Você limpou a caverna inteira? Aquele bruto me arrastou desde a estrada. Eu só queria entregar o pergaminho... ' +
       'Obrigado, Andarilho. De verdade.\n\n' +
       '— Como os inimigos foram todos derrotados, eu consigo voltar sozinho para Aethel, conheço o caminho. ' +

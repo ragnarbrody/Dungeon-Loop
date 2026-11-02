@@ -1,5 +1,5 @@
 // ============================================================
-// AUDIO — fachada. O resto do jogo só importa daqui.
+// AUDIO â fachada. O resto do jogo sÃ³ importa daqui.
 // ============================================================
 export { sfx } from './sfx.js';
 export { setMusicMode } from './music.js';

@@ -1220,6 +1220,51 @@ export const ICONS = {
     p(12, 13, 1, 2, gold);
   }),
 
+  herb_herbalist: makeIcon((g) => {
+    const p = px(g);
+    // Erva rara: 3 folhas prateadas saindo de um caule fino
+    const stem   = '#5a7a4a';   // caule verde
+    const stemSh = '#3a5a2a';
+    const leaf   = '#a8d8c0';   // folha prateada-esverdeada
+    const leafHi = '#e8f6f0';   // brilho
+    const leafSh = '#6a9a8a';   // sombra
+    const glow   = 'rgba(168, 216, 192, 0.35)';
+
+    // Glow sutil atrás (chama atenção no inventário)
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(10, 10, 8, 0, Math.PI * 2);
+    g.fill();
+
+    // Caule central (vertical, base)
+    p(9, 12, 2, 6, stem);
+    p(10, 12, 1, 6, stemSh);
+
+    // Folha esquerda (sobe pra esquerda)
+    p(5, 8, 4, 1, leaf);
+    p(5, 9, 3, 1, leafSh);
+    p(5, 8, 2, 1, leafHi);
+    p(6, 7, 2, 1, leaf);
+    p(6, 6, 1, 1, leafHi);
+
+    // Folha direita (sobe pra direita)
+    p(11, 7, 4, 1, leaf);
+    p(12, 8, 3, 1, leafSh);
+    p(13, 7, 1, 1, leafHi);
+    p(12, 6, 2, 1, leaf);
+    p(12, 5, 1, 1, leafHi);
+
+    // Folha central (a mais alta)
+    p(9, 4, 2, 4, leaf);
+    p(10, 4, 1, 4, leafSh);
+    p(9, 4, 1, 1, leafHi);
+    p(9, 3, 1, 1, leafHi);
+
+    // Pequenos "frutos" prateados (2 pontinhos brilhantes)
+    p(7, 10, 1, 1, '#e8f6ff');
+    p(12, 10, 1, 1, '#e8f6ff');
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

@@ -1,17 +1,17 @@
 // ============================================================
-// Dados-base dos inimigos. Puro "data" — sem lógica.
+// Dados-base dos inimigos. Puro "data" â sem lÃ³gica.
 // Para adicionar um inimigo novo, basta adicionar uma entrada
-// aqui. As habilidades especiais são tratadas em
+// aqui. As habilidades especiais sÃ£o tratadas em
 // `enemy-abilities.js` (mais abaixo).
 //
 // Campos opcionais por inimigo:
-//   chargeChance / chargeMul  → ataque carregado
-//   poisonChance              → aplica veneno ao acertar
-//   bleedChance               → aplica sangramento ao acertar
-//   dodgeChance               → chance de esquivar
-//   defPen                    → ignora X% da def do jogador (0..1)
-//   isMiniboss                → não gera grupo, sempre 1
-//   isBuffer                  → buffa aliados (escaravelho)
+//   chargeChance / chargeMul  â ataque carregado
+//   poisonChance              â aplica veneno ao acertar
+//   bleedChance               â aplica sangramento ao acertar
+//   dodgeChance               â chance de esquivar
+//   defPen                    â ignora X% da def do jogador (0..1)
+//   isMiniboss                â nÃ£o gera grupo, sempre 1
+//   isBuffer                  â buffa aliados (escaravelho)
 //   buffChance/buffDef/buffAtk/buffDuration
 // ============================================================
 
@@ -34,7 +34,7 @@ export const ENEMIES = {
     chargeMul: 2.0,
   },
   scorpion: {
-    name: 'Escorpião',
+    name: 'EscorpiÃ£o',
     hp: 20, maxHp: 20, atk: 5, def: 0, xp: 22,
     goldMin: 2, goldMax: 8,
     poisonChance: 0.35,
@@ -46,7 +46,7 @@ export const ENEMIES = {
     dodgeChance: 0.35,
   },
   mummy: {
-    name: 'Múmia',
+    name: 'MÃºmia',
     hp: 28, maxHp: 28, atk: 9, def: 3, xp: 40,
     goldMin: 6, goldMax: 20,
     chargeChance: 0.5,

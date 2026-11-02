@@ -1,5 +1,5 @@
 import { canvas } from '../core/canvas.js';
-import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame, currentRoom, startGX, startGY } from '../core/state.js';
+import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame, currentRoom, startGX, startGY, player } from '../core/state.js';
 import { playerAction } from '../battle/battle.js';
 import { renderInventory } from './inventory.js';
 import { CLASSES } from '../classes.js';
@@ -20,14 +20,15 @@ import { talkToHerbalist } from './herbalistdialog.js';
 import { talkToBlacksmith } from './blacksmithdialog.js';
 import { sfx } from '../audio/audio.js';
 import { openAudioMenu, closeAudioMenu, isAudioMenuOpen } from './audiomenu.js';
-import { isQuestActive } from '../quests.js';
+import { isQuestActive, advanceObjective, getProgress } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { showToast } from './toast.js';
 import { talkToCagedVillager } from './villagerrescue.js';
 import { addMarker, revealMarker, getMarker } from '../world/knowledge.js';
+import { openVault, closeVault, isVaultOpen } from './vault.js';
 
-const CHEST_GOLD_MIN = 40;
-const CHEST_GOLD_MAX = 100;
+const CHEST_GOLD_MIN = 30;
+const CHEST_GOLD_MAX = 70;
 
 export const keys = {};
 
@@ -157,6 +158,8 @@ export function installInput() {
       return;
     }
 
+    if (isVaultOpen()) { if (k === 'escape') closeVault(); return; }
+
     // ---- Quest log aberto: só ESC/Q fecha ----
     if (gameState === STATE.QUEST_LOG) {
       if (k === 'escape' || k === 'q') {
@@ -179,7 +182,7 @@ export function installInput() {
     // ---- Painel de áudio: ESC abre/fecha (fora de combate e de loja) ----
     if (k === 'escape' && gameState !== STATE.BATTLE
         && !isShopOpen() && !isDialogueOpen() && !isWorldMapOpen()
-        && !isQuestLogOpen() && !isAudioMenuOpen()
+        && !isQuestLogOpen() && !isAudioMenuOpen() && !isVaultOpen()
         && gameState !== STATE.INVENTORY) {
       openAudioMenu();
       return;
@@ -224,12 +227,20 @@ export function installInput() {
           talkToBlacksmith();
         } else if (it.kind === 'shop_keep') {
           openShop(it.buildingId);
+        } else if (it.kind === 'banker') {
+          openVault();
         } else if (it.kind === 'cave_entrance') {
           const hasTorchEquipped = playerEquip.leftHand === 'torch';
 
           // Caverna PROCEDURAL (pós-quest): sempre exige tocha, mas não exige quest ativa
           if (it.procedural) {
-            if (!hasTorchEquipped) {
+            if (playerStats._escortActive) {
+              openDialogue({
+                title: 'Caverna',
+                text: 'A Herbalista não pode entrar aí, é muito perigoso. Leve-a de volta a Aethel primeiro.',
+              });
+              return;
+            } else if (!hasTorchEquipped) {
               showToast({
                 itemId: 'torch',
                 title: 'Tocha necessária',
@@ -342,7 +353,57 @@ export function installInput() {
             title: 'Baú',
             text: `Você abre o baú.\n\nDentro, ${gold} de ouro e ${dropStr}.`,
           });
+        } else if (it.kind === 'herbalist_escort') {
+          // Só chega aqui na PRIMEIRA interação (ela ainda não é companion).
+          // A "segunda interação" (dizer pra voltar) foi removida: o objetivo
+          // `escort_home` completa sozinho ao chegar em Aethel.
+          playerStats._escortActive = true;
+          playerStats._escortPos = { x: player.x - 20, y: player.y };
+          advanceObjective('story_herbalist_escort', 'talk_herbalist', 1);
+          saveGame();
+          openDialogue({
+              title: 'Herbalista',
+              text:
+                'Ah, você veio! Que alívio.\n\n' +
+                'Eu vim buscar ervas raras — elas só crescem aqui, e só nesta época. ' +
+                'Mas o caminho de volta é perigoso demais para eu fazer sozinha.\n\n' +
+                'Me ajude a colher as três que faltam. Elas estão espalhadas por aqui. ' +
+                'Depois, podemos voltar à Aethel.',
+          });
+        } else if (it.kind === 'herb') {
+          // Remove a erva do mapa SEMPRE que o jogador interage com ela.
+          // (O `it` que chega aqui é uma CÓPIA criada por `{ ...it }` no
+          //  interactables.js, então não dá pra comparar por referência.
+          //  Filtra pelo `id` único que o `rooms.js` setou: herb_1, herb_2, herb_3.)
+          const herbId = it.id;
+          currentRoom.interactables = currentRoom.interactables.filter(
+            x => !(x.kind === 'herb' && x.id === herbId)
+          );
+
+          // Tenta dar o item pro inventário.
+          const added = addItemToInventory(playerStats.inventory, 'herb_herbalist', 1);
+
+          if (added > 0) {
+            saveGame();
+            sfx('chest');
+            showToast({
+              itemId: 'herb_herbalist',
+              title: 'Erva Rara',
+              subtitle: `+1 (${getProgress('story_herbalist_escort', 'collect_herbs')}/3)`,
+              color: '#6fbd63',
+            });
+          } else {
+            // Inventário cheio (ou já tem as 3): a erva some mesmo assim,
+            // pra não ficar no chão pra sempre.
+            showToast({
+              itemId: 'herb_herbalist',
+              title: 'Inventário cheio',
+              subtitle: 'Você já tem ervas suficientes.',
+              color: '#ff6b6b',
+            });
+          }
         }
+
         for (let kk in keys) keys[kk] = false;
       }
       return;

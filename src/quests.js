@@ -102,11 +102,11 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_slimes'],       // paralela com rat_tails
     description:
-      'Um aldeão saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu? Vou marcar a localização no seu mapa',
+      'Um aldeão, Corin, saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu? Vou marcar a localização no seu mapa',
     objectives: [
       {
         id: 'visit_last_seen',
-        text: 'O último local onde o aldeão foi visto está marcado no seu mapa (M). Vá até lá',
+        text: 'O último local onde o Corin foi visto está marcado no seu mapa (M). Vá até lá',
         target: 1,
         type: 'visit',
         filter: { gx: -2, gy: -4 },
@@ -174,7 +174,7 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_forge_materials'],   // encadeia com a 4
     description:
-      'O pergaminho que você trouxe tem uma mensagem escondida atrás. O aldeão desaparecido diz que está sendo arrastado para uma caverna ao sul. As cavernas são escuras — você vai precisar de uma tocha para entrar. O Ferreiro vende.',
+      'O pergaminho que você trouxe tem uma mensagem escondida atrás. Corin diz que está sendo arrastado para uma caverna ao sul. As cavernas são escuras — você vai precisar de uma tocha para entrar. O Ferreiro vende.',
     objectives: [
       {
         id: 'collect_torch',
@@ -201,12 +201,46 @@ export const QUEST_DB = {
         target: 1, type: 'visit', filter: { gx: -2, gy: 8 } },
       { id: 'clear_cave', text: 'Derrote o que sequestrou o aldeão',
         target: 1, type: 'dungeon_clear', filter: 'cave_quest_5_2' },
-      { id: 'free_villager', text: 'Resgate o aldeão',
+      { id: 'free_villager', text: 'Resgate Corin',
         target: 1, type: 'interact' },
     ],
     rewards: { xp: 100, gold: 50 },
-    next: null,
+    next: 'story_herbalist_escort',
   },
+  story_herbalist_escort: {
+    id: 'story_herbalist_escort',
+    type: 'story',
+    chapter: 'fields',
+    title: 'As Ervas da Herbalista',
+    giver: 'elder',
+    prereq: ['story_cave'],
+    description:
+      'A Herbalista saiu para colher ervas raras e não voltou. O Ancião está preocupado. Encontre-a onde ela avisou que ia, ajude-a a colher as ervas e traga-a de volta.',
+    objectives: [
+      {
+        id: 'find_herbalist',
+        text: 'Encontre a Herbalista (marcada no mapa)',
+        target: 1, type: 'visit', filter: { gx: -5, gy: -2 },
+      },
+      {
+        id: 'talk_herbalist',
+        text: 'Fale com a Herbalista',
+        target: 1, type: 'interact', filter: 'herbalist_escort_talk',
+      },
+      {
+        id: 'collect_herbs',
+        text: 'Colete as 3 ervas raras',
+        target: 3, type: 'collect', filter: 'herb_herbalist',
+      },
+      {
+        id: 'escort_home',
+        text: 'Escolte a Herbalista de volta a Aethel',
+        target: 1, type: 'escort_arrive', filter: { gx: 0, gy: 0 },
+      },
+    ],
+    rewards: { xp: 80, gold: 40, items: [{ id: 'potion_medium', qty: 2 }] },
+    next: 'story_guardian_prep',
+  }
 
 };
 
@@ -284,7 +318,7 @@ export function activateQuest(id) {
       type: 'quest',
       gx: -2,
       gy: -4,
-      title: 'Último local do aldeão',
+      title: 'Último local de Corin',
       revealed: true,
     });
     _revealMarker('marker_lost_traveler');
@@ -302,6 +336,20 @@ export function activateQuest(id) {
     // Limpa o cache da sala para ela ser regenerada com a caverna
     import('./world/rooms.js').then(mod => {
       mod.roomCache.delete('-2,8');
+    }).catch(console.error);
+  } else if (id === 'story_herbalist_escort') {
+    _addMarker({
+      id: 'marker_herbalist_escort',
+      type: 'quest',
+      gx: -5,
+      gy: -2,
+      title: 'Herbalista',
+      revealed: true,
+    });
+    _revealMarker('marker_herbalist_escort');
+    // Limpa o cache da sala pra ela ser regenerada com a Herbalista
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('-5,-2');
     }).catch(console.error);
   }
 
@@ -453,6 +501,16 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     import('./world/rooms.js').then(mod => mod.clearCave()).catch(console.error);
   }
 
+  if (q.id === 'story_herbalist_escort') {
+    _removeMarker('marker_herbalist_escort');
+    playerStats._escortActive = false;
+    playerStats._escortPos = null;
+    // Força o cache da sala -5,-2 a ser limpo, pra ela não reaparecer
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('-5,-2');
+    }).catch(console.error);
+  }
+
   // ---- 3) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
@@ -504,13 +562,15 @@ export function loadQuests(data) {
   state.caveCollapseLoreSeen = !!data.caveCollapseLoreSeen;
 }
 
-export function resetQuests() {
+export function resetQuests({ keepIntroLore = false } = {}) {
   state.active = null;
   state.progress = {};
   state.completed.clear();
   state.tracked = null;
-  state.elderIntroSeen = false;
-  state.caveCollapseLoreSeen = false;
+  if (!keepIntroLore) {
+    state.elderIntroSeen = false;
+    state.caveCollapseLoreSeen = false;
+  }
   _pendingCaveCollapse = false;
 }
 
@@ -535,4 +595,26 @@ export function getTurnInNpc(q) {
 
 export function areProceduralCavesUnlocked() {
   return state.completed.has('story_cave');
+}
+
+const chapterOf = (q) => q?.chapter ?? 'fields';   // sem tag = Campos
+
+export function getQuestsByChapter(chapterId) {
+  return Object.values(QUEST_DB).filter(q => chapterOf(q) === chapterId);
+}
+
+// Morte com checkpoint: mant�m s� o que pertence a cap�tulos conclu�dos.
+export function pruneQuestsToChapters(keepChapterIds) {
+  const keep = new Set(keepChapterIds);
+  const kept = (id) => keep.has(chapterOf(QUEST_DB[id]));
+  state.completed = new Set([...state.completed].filter(kept));
+  for (const id of Object.keys(state.progress)) if (!kept(id)) delete state.progress[id];
+  if (state.active && !kept(state.active)) state.active = null;
+  if (state.tracked && !kept(state.tracked)) state.tracked = null;
+  _pendingCaveCollapse = false;
+}
+
+export function debugCompleteChapter(chapterId) {
+  for (const q of getQuestsByChapter(chapterId)) state.completed.add(q.id);
+  state.active = null; state.tracked = null;
 }

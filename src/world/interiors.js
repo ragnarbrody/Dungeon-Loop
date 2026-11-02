@@ -10,6 +10,7 @@ const NPC_FOR_BUILDING = {
   quest_giver: 'elder',
   blacksmith: 'blacksmith',
   armorer: 'armorer',
+  bank: 'banker',
 };
 
 export function createInterior(buildingId, gx, gy) {
@@ -60,6 +61,7 @@ export function createInterior(buildingId, gx, gy) {
     : buildingId === 'blacksmith'  ? 'Ferreiro'
     : buildingId === 'armorer'    ? 'Armeiro' 
     : buildingId === 'herbalist'  ? 'Herbalista'
+    : buildingId === 'bank' ? 'Banco de Aethel'
     : 'Interior',
     nameCoords: `${gx}, ${gy}`,
     isInterior: true,

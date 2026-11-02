@@ -41,6 +41,7 @@ export function startBattle(opts = {}) {
     flashPlayerType: 'white', flashEnemyIndex: -1, flashEnemyType: 'red',
   };
   battle.floatingTexts = [];
+  battle._escortActive = !!playerStats._escortActive;
   battle.mapEnemy = mapEnemy || null;
   battle.targetIndex = 0;
   battle.enemyTurnIndex = 0;
@@ -123,6 +124,7 @@ export function endBattle(escaped) {
   battle.goldEarned = 0;
   battle.dropEarned = [];
   battle._shadowDodged = 0;
+  battle._escortActive = false;
 
   if (typeof encounter !== 'undefined' && encounter) {
     encounter.cooldownPx = escaped ? 600 : 800;
