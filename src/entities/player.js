@@ -13,7 +13,7 @@ import { findNearbyInteractable } from '../world/interactables.js';
 import { revealRoom, removeMarker } from '../world/knowledge.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
 import { showToast } from '../ui/toast.js';
-import { consumeCaveCollapseNotice, isQuestActive, advanceObjective } from '../quests.js';
+import { consumeCaveCollapseNotice, isQuestActive, advanceObjective, markBannerQuestViolent } from '../quests.js';
 import { openDialogue } from '../ui/dialogue.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { getTimeOfDay, getTimeState } from '../core/timeofday.js';
@@ -236,6 +236,129 @@ function leaveDungeon() {
   }
 }
 
+// ============================================================
+// ACAMPAMENTO DOS GOBLINS (quest story_banner)
+// ============================================================
+
+// Atualiza a posição do goblin de ronda (vaivém em linha reta A ↔ B).
+function updatePatrol(e, dt) {
+  if (!e.patrol || e.defeated || e.asleep) return;
+  const p = e.patrol;
+  const dx = p.bx - p.ax;
+  const dy = p.by - p.ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.01) return;
+
+  // Avança `t` no intervalo [0, 1]
+  p.t += (p.dir * p.speed * dt) / len;
+
+  if (p.t >= 1) { p.t = 1; p.dir = -1; }
+  else if (p.t <= 0) { p.t = 0; p.dir = 1; }
+
+  // Atualiza posição
+  const nx = p.ax + dx * p.t;
+  const ny = p.ay + dy * p.t;
+  // Atualiza `facing` baseado na direção do movimento
+  const moveX = dx * p.dir;
+  const moveY = dy * p.dir;
+  if (Math.abs(moveX) > Math.abs(moveY)) {
+    e.facing = moveX >= 0 ? 'right' : 'left';
+  } else {
+    e.facing = moveY >= 0 ? 'down' : 'up';
+  }
+
+  e.tx = nx;    // agora é fracionário (usado pra desenhar)
+  e.ty = ny;
+}
+
+// Verifica se o jogador está dentro do cone de visão do goblin.
+function isPlayerInCone(e) {
+  if (e.defeated || e.asleep || !e.cone) return false;
+
+  // Direção base do `facing`
+  const dirVec = {
+    up:    { x: 0,  y: -1 },
+    down:  { x: 0,  y: 1  },
+    left:  { x: -1, y: 0  },
+    right: { x: 1,  y: 0  },
+  }[e.facing] || { x: 0, y: 1 };
+
+  // Vetor do goblin até o jogador (em tiles)
+  const ptx = player.x / TILE_SIZE;
+  const pty = player.y / TILE_SIZE;
+  const dx = ptx - e.tx;
+  const dy = pty - e.ty;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist > e.cone.range) return false;
+  if (dist < 0.3) return true;   // muito perto: sempre detecta
+
+  // Ângulo entre o facing e o vetor até o jogador
+  const dot = (dirVec.x * dx + dirVec.y * dy) / dist;
+  const cosHalf = Math.cos((e.cone.angle / 2) * Math.PI / 180);
+  if (dot < cosHalf) return false;
+
+  // Linha de visão: bloqueada por tendas
+  if (currentRoom.tents) {
+    for (const t of currentRoom.tents) {
+      // A tenda ocupa [tx, tx+w) x [ty, ty+h)
+      // Checa se o segmento (goblin → jogador) passa por dentro do retângulo
+      if (segmentIntersectsRect(
+        e.tx, e.ty, ptx, pty,
+        t.tx, t.ty, t.tx + t.w, t.ty + t.h
+      )) return false;
+    }
+  }
+
+  return true;
+}
+
+// Algoritmo de interseção segmento × AABB (retângulo alinhado aos eixos).
+function segmentIntersectsRect(x1, y1, x2, y2, rx1, ry1, rx2, ry2) {
+  // Se qualquer ponta do segmento está dentro do retângulo, intersecta.
+  const inside = (x, y) => x >= rx1 && x <= rx2 && y >= ry1 && y <= ry2;
+  if (inside(x1, y1) || inside(x2, y2)) return true;
+
+  // Senão, testa cada aresta do retângulo.
+  const edges = [
+    [rx1, ry1, rx2, ry1],
+    [rx2, ry1, rx2, ry2],
+    [rx2, ry2, rx1, ry2],
+    [rx1, ry2, rx1, ry1],
+  ];
+  for (const [ex1, ey1, ex2, ey2] of edges) {
+    if (segmentsIntersect(x1, y1, x2, y2, ex1, ey1, ex2, ey2)) return true;
+  }
+  return false;
+}
+
+function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const d = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+  if (Math.abs(d) < 1e-9) return false;
+  const t = ((x3 - x1) * (y4 - y3) - (y3 - y1) * (x4 - x3)) / d;
+  const u = ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) / d;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+// Verifica todos os goblins da sala. Se algum vê o jogador, avança e
+// inicia combate (com noFlee).
+function checkGoblinVision() {
+  if (!currentRoom || !currentRoom.enemies) return;
+  if (!isQuestActive('story_banner')) return;   // só durante a quest
+
+  for (const e of currentRoom.enemies) {
+    if (e.defeated || e.asleep) continue;
+    if (!e.questGoblin) continue;
+    if (player.fleeImmune.has(e)) continue;
+
+    if (isPlayerInCone(e)) {
+      // Inicia combate com noFlee
+      startBattle({ enemyId: e.id, mapEnemy: e, noFlee: true });
+      return;
+    }
+  }
+}
+
 export function updatePlayer(dt) {
   // Níveis baixos têm mais "paz" (menos encontros)
   const lvl = playerStats.level;
@@ -268,6 +391,24 @@ export function updatePlayer(dt) {
       // Desativa a companion visualmente (ela "entra" na cidade)
       playerStats._escortActive = false;
       playerStats._escortPos = null;
+    }
+  }
+
+  // ---- Acampamento dos goblins (quest story_banner) ----
+  if (currentRoom && currentRoom.isFixed && currentRoom.enemies) {
+    // Atualiza posição da ronda
+    for (const e of currentRoom.enemies) {
+      if (e.patrol) updatePatrol(e, dt);
+    }
+  }
+
+  // ---- Acampamento: goblins dormem à noite ----
+  if (currentRoom && currentRoom.isFixed && currentRoom.enemies) {
+    const time = getTimeState();
+    const isNight = time.label === 'Noite';
+    for (const e of currentRoom.enemies) {
+      if (!e.questGoblin || e.defeated) continue;
+      e.asleep = isNight;
     }
   }
 
@@ -319,7 +460,13 @@ export function updatePlayer(dt) {
 
   // ---- encontro aleatório ----
   // (não roda na cidade)
-  if (currentRoom && !currentRoom.isCity && !currentRoom.isInterior && !currentRoom.isDungeon) {
+  if (
+    currentRoom &&
+    !currentRoom.isCity &&
+    !currentRoom.isInterior &&
+    !currentRoom.isDungeon &&
+    !currentRoom.isFixed
+  ) {
     const movedDist = Math.hypot(player.x - oldX, player.y - oldY);
     if (movedDist > 0.01) {
       if (encounter.cooldownPx > 0) {
@@ -370,7 +517,7 @@ export function updatePlayer(dt) {
     const pty = Math.floor(player.y / TILE_SIZE);
     for (const e of currentRoom.enemies) {
       if (e.defeated) continue;
-      // Pula inimigos que o jogador acabou de fugir
+      if (e.asleep) continue;   // dormindo não colide
       if (player.fleeImmune.has(e)) continue;
       if (e.tx === ptx && e.ty === pty) {
         startBattle({ enemyId: e.id, mapEnemy: e });
@@ -397,6 +544,8 @@ export function updatePlayer(dt) {
     }
   }
 
+  // Verifica se algum goblin viu o jogador
+  checkGoblinVision();
   // Não roda em combate (o loop nem chama updatePlayer em combate).
   playerStats._nearInteractable = findNearbyInteractable(currentRoom);
 }

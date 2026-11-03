@@ -284,6 +284,194 @@ export function isCity(gx, gy) {
   return CITY_COORDS.has(`${gx},${gy}`);
 }
 
+// ============================================================
+// ACAMPAMENTO DOS GOBLINS — sala fixa da quest story_banner
+//
+// Layout:
+//   - 2 tendas (T.TREE com sprite próprio no explore.js)
+//   - 1 fogueira no centro (com floorTorch, acesa à noite)
+//   - Estandarte ao lado da fogueira (interactable)
+//   - 4 goblins:
+//       * sentinela da entrada (perto da porta oeste, ~4 tiles
+//         pra dentro, olhando pra fora)
+//       * ronda A ↔ B (vaivém em linha reta)
+//       * 2 guardas do estandarte (olhando pro estandarte)
+//
+// NÃO tem encontros aleatórios (isFixed = true).
+// NÃO tem inimigos procedurais do bioma.
+// ============================================================
+function createBannerCamp(gx, gy) {
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.FLOOR);
+    map.push(row);
+  }
+
+  // Bordas
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  const mid = Math.floor(GRID_SIZE / 2);
+  const doors = ['left', 'top'];
+  for (let y = mid - 1; y <= mid + 1; y++) map[y][0] = T.DOOR;
+  for (let x = mid - 1; x <= mid + 1; x++) map[0][x] = T.DOOR;
+
+  // ---- Tendas (T.TREE, sprite de tenda) ----
+  // Mais próximas da fogueira (mid, mid+1)
+  const tent1 = { tx: mid - 3, ty: mid - 3, w: 2, h: 2 };   // 9..10
+  const tent2 = { tx: mid + 2, ty: mid - 3, w: 2, h: 2 };   // 17..18
+  for (const t of [tent1, tent2]) {
+    for (let y = t.ty; y < t.ty + t.h; y++) {
+      for (let x = t.tx; x < t.tx + t.w; x++) {
+        map[y][x] = T.TREE;
+      }
+    }
+  }
+
+  // ---- Fogueira (floorTorch) ----
+  const floorTorch = { tx: mid, ty: mid + 1 };
+
+  // ---- Estandarte (afastado da fogueira, 2 tiles à direita) ----
+  const banner = { tx: mid + 3, ty: mid + 1 };
+
+  // ---- Árvores decorativas (fora da área do acampamento) ----
+  // Coloca 8-10 árvores em volta, sem atrapalhar o layout.
+  const treeCandidates = [
+    // Cantos superiores (longe das tendas)
+    [2, 2], [3, 2], [2, 3],
+    [GRID_SIZE - 3, 2], [GRID_SIZE - 4, 2], [GRID_SIZE - 3, 3],
+    // Cantos inferiores
+    [2, GRID_SIZE - 3], [3, GRID_SIZE - 3], [2, GRID_SIZE - 4],
+    [GRID_SIZE - 3, GRID_SIZE - 3], [GRID_SIZE - 4, GRID_SIZE - 3],
+    // Laterais (longe das portas)
+    [2, mid - 4], [2, mid + 4],
+    [GRID_SIZE - 3, mid - 4], [GRID_SIZE - 3, mid + 4],
+  ];
+  // Filtra os que colidem com tendas/fogueira/banner/portas/goblins
+  const isOccupied = (tx, ty) => {
+    // Tendas
+    for (const t of [tent1, tent2]) {
+      if (tx >= t.tx - 1 && tx <= t.tx + t.w && ty >= t.ty - 1 && ty <= t.ty + t.h) return true;
+    }
+    // Fogueira
+    if (Math.abs(tx - floorTorch.tx) <= 2 && Math.abs(ty - floorTorch.ty) <= 2) return true;
+    // Banner
+    if (Math.abs(tx - banner.tx) <= 1 && Math.abs(ty - banner.ty) <= 1) return true;
+    // Portas
+    if (tx <= 1 && ty >= mid - 2 && ty <= mid + 2) return true;   // porta oeste
+    if (ty <= 1 && tx >= mid - 2 && tx <= mid + 2) return true;   // porta norte
+    // Centro (jogador spawna em tx=3, mid)
+    if (Math.hypot(tx - 3, ty - mid) < 3) return true;
+    return false;
+  };
+  for (const [tx, ty] of treeCandidates) {
+    if (isOccupied(tx, ty)) continue;
+    map[ty][tx] = T.TREE;
+  }
+
+  // ---- Goblins ----
+  const enemies = [
+    // Sentinela: mais pra baixo (3 tiles abaixo do mid) e olhando PRA BAIXO.
+    // Fica longe da entrada oeste, mas ainda cobre o corredor central.
+    {
+      id: 'goblin',
+      tx: 6, ty: mid + 3,
+      facing: 'down',
+      defeated: false,
+      role: 'sentinel',
+      questGoblin: true,
+      cone: { angle: 90, range: 5 },
+    },
+    // Ronda: A ↔ B no eixo do meio (ty: mid), entre tx 10 e 14.
+    {
+      id: 'goblin',
+      tx: mid - 2, ty: mid - 5,
+      facing: 'right',
+      defeated: false,
+      role: 'patrol',
+      questGoblin: true,
+      cone: { angle: 90, range: 4 },
+      patrol: {
+        ax: mid - 4, ay: mid - 5,
+        bx: mid + 4, by: mid - 5,
+        t: 0,
+        dir: 1,
+        speed: 0.6,
+      },
+    },
+    // Guarda do estandarte (esquerda): mais afastado do banner (mid+3, mid+1)
+    {
+      id: 'goblin',
+      tx: mid - 2, ty: mid + 1,
+      facing: 'right',
+      defeated: false,
+      role: 'banner_guard',
+      questGoblin: true,
+      cone: { angle: 90, range: 4 },
+    },
+    // Guarda do estandarte (direita): mais afastado (mid+5)
+    {
+      id: 'goblin',
+      tx: mid + 5, ty: mid + 1,
+      facing: 'left',
+      defeated: false,
+      role: 'banner_guard',
+      questGoblin: true,
+      cone: { angle: 90, range: 4 },
+    },
+  ];
+
+  // Reserved
+  const reserved = new Set();
+  for (const e of enemies) reserved.add(`${e.tx},${e.ty}`);
+  reserved.add(`${floorTorch.tx},${floorTorch.ty}`);
+  reserved.add(`${banner.tx},${banner.ty}`);
+  // Área de spawn (entrada oeste)
+  for (let dx = 1; dx <= 4; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      reserved.add(`${dx},${mid + dy}`);
+    }
+  }
+  // Tendas
+  for (const t of [tent1, tent2]) {
+    for (let y = t.ty; y < t.ty + t.h; y++) {
+      for (let x = t.tx; x < t.tx + t.w; x++) {
+        reserved.add(`${x},${y}`);
+      }
+    }
+  }
+
+  return {
+    gx, gy,
+    map,
+    doors,
+    biomeId: 'fields',
+    name: 'Acampamento dos Goblin',
+    nameCoords: `${gx}, ${gy}`,
+    reserved,
+    enemies,
+    hasTrees: true,    // ← permite renderizar árvores
+    isFixed: true,
+    interactables: [
+      {
+        tx: banner.tx,
+        ty: banner.ty,
+        kind: 'banner',
+        title: 'Estandarte de Aethel',
+        id: 'banner_aethel_camp',
+      },
+    ],
+    floorTorch,
+    bannerPos: { tx: banner.tx, ty: banner.ty },
+    tents: [tent1, tent2],
+  };
+}
+
 function createCity(gx, gy) {
   const map = [];
   for (let y = 0; y < GRID_SIZE; y++) {
@@ -496,6 +684,10 @@ export function createRoom(gx, gy) {
   // Cidade? Retorna sala fixa.
   if (isCity(gx, gy)) {
     return createCity(gx, gy);
+  }
+  // Acampamento dos goblins (quest story_banner)
+  if (gx === 4 && gy === 6) {
+    return createBannerCamp(gx, gy);
   }
   const rng = makeRng(seedFrom(gx + worldSeed, gy));
   const map = [];

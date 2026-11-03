@@ -29,9 +29,12 @@ export function drawMapEnemies(room) {
     const sprites = ENEMY_SPRITES[e.id];
     if (!sprites) continue;
 
-    const frame = sprites.idle[
-      Math.floor(now / 500) % sprites.idle.length
-    ];
+    let frame;
+    if (e.asleep && sprites.sleep) {
+      frame = sprites.sleep[0];
+    } else {
+      frame = sprites.idle[Math.floor(now / 500) % sprites.idle.length];
+    }
 
     const dx = e.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
     const dy = e.ty * TILE_SIZE + TILE_SIZE - 30;

@@ -361,6 +361,37 @@ export function installInput() {
             title: 'Baú',
             text: `Você abre o baú.\n\nDentro, ${gold} de ouro e ${dropStr}.`,
           });
+        } else if (it.kind === 'banner') {
+          const added = addItemToInventory(playerStats.inventory, 'banner_aethel', 1);
+          if (added > 0) {
+            // Remove o interactable da sala em memória
+            currentRoom.interactables = currentRoom.interactables.filter(
+              x => x.kind !== 'banner'
+            );
+            saveGame();
+            sfx('chest');
+            showToast({
+              itemId: 'banner_aethel',
+              title: 'Estandarte de Aethel',
+              subtitle: '+1',
+              color: '#feca57',
+            });
+            openDialogue({
+              title: 'Estandarte de Aethel',
+              text:
+                'Você pega o estandarte. O pano está sujo de fumaça e ' +
+                'rasgado nas bordas, mas o brasão de Aethel ainda é visível.\n\n' +
+                'Os goblins não parecem notar. (ou não se importam.)\n\n' +
+                'Melhor voltar pro Ancião antes que algo mude.',
+            });
+          } else {
+            showToast({
+              itemId: 'banner_aethel',
+              title: 'Inventário cheio',
+              subtitle: 'Libere espaço antes de pegar o estandarte.',
+              color: '#ff6b6b',
+            });
+          }
         } else if (it.kind === 'herbalist_escort') {
           // Só chega aqui na PRIMEIRA interação (ela ainda não é companion).
           // A "segunda interação" (dizer pra voltar) foi removida: o objetivo
@@ -417,7 +448,7 @@ export function installInput() {
               color: '#ff6b6b',
             });
           }
-        }
+        } 
 
         for (let kk in keys) keys[kk] = false;
       }

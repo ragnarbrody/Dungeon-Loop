@@ -1291,6 +1291,26 @@ export const ICONS = {
     p(12, 10, 1, 1, '#e8f6ff');
   }),
 
+  banner_aethel: makeIcon((g) => {
+    const p = px(g);
+    // Mastro
+    p(3, 2, 1, 12, '#5a3a1a');
+    // Pano (vermelho escuro de Aethel)
+    p(4, 2, 8, 7, '#9b1c1c');
+    // Borda dourada
+    p(4, 2, 8, 1, '#c9a24d');
+    p(4, 8, 8, 1, '#c9a24d');
+    p(4, 2, 1, 7, '#c9a24d');
+    p(11, 2, 1, 7, '#c9a24d');
+    // Emblema central (símbolo dourado)
+    p(7, 4, 2, 3, '#feca57');
+    p(6, 5, 4, 1, '#feca57');
+    // Ponta do mastro (dourada)
+    p(3, 1, 1, 1, '#feca57');
+    // Sombra do pano (lado direito)
+    p(10, 3, 1, 5, 'rgba(0,0,0,0.25)');
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

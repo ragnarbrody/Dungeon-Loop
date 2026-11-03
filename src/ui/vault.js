@@ -4,6 +4,7 @@ import { getIcon } from '../sprites/icons.js';
 import { showToast } from './toast.js';
 import { getVault, depositGold, withdrawGold, depositItem, withdrawItem,
          buyVaultSlot, nextSlotPrice, GOLD_DEPOSIT_FEE } from '../core/meta.js';
+import { pickVaultGreeting } from './shopgreetings.js';
 
 const CSS = `
 #vault-screen{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72)}
@@ -19,6 +20,7 @@ const CSS = `
 .vault-info{flex:1;min-width:0}.vault-empty{color:#6a6a80}.vault-note{color:#9a9ab0;font-size:11px}
 .vault-section{margin:10px 0 4px;color:#c9a24d}
 .vault-gold-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.vault-greeting{text-align:center;color:#c9a24d;font-style:italic;margin:0 0 6px;line-height:1.4}
 .vault-close{display:block;margin:12px auto 0}`;
 
 let c = null;
@@ -30,7 +32,9 @@ function ensure() {
   c = document.createElement('div');
   c.id = 'vault-screen'; c.className = 'hidden';
   c.innerHTML = `<div class="vault-box">
-    <h2>Banco de Aethel</h2><div class="vault-sub"></div>
+    <h2>Banco de Aethel</h2>
+    <div class="vault-greeting"></div>
+    <div class="vault-sub"></div>
     <div class="vault-tabs">
       <button class="vault-tab" data-tab="gold">Ouro</button>
       <button class="vault-tab" data-tab="items">Itens</button>
@@ -43,7 +47,13 @@ function ensure() {
   return c;
 }
 
-export function openVault() { ensure().classList.remove('hidden'); tab = 'gold'; render(); }
+export function openVault() {
+  ensure().classList.remove('hidden');
+  tab = 'gold';
+  // Saudação sorteada SÓ na abertura
+  c.querySelector('.vault-greeting').textContent = pickVaultGreeting();
+  render();
+}
 export function closeVault() { c?.classList.add('hidden'); }
 export function isVaultOpen() { return !!c && !c.classList.contains('hidden'); }
 

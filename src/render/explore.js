@@ -15,6 +15,8 @@ import { getTrackedQuest, getProgress, isQuestReadyToComplete,
 import { playerEquip } from '../sprites/equipment.js';
 import { getTimeState, getTimeOfDay } from '../core/timeofday.js';
 import { applyLighting, applyDayNight, torchLight, nightFactor } from './lighting.js';
+import { campfireFrames } from '../sprites/campfire.js';
+import { tentFrames } from '../sprites/tent.js';
 
 export function renderExplore() {
   if (!currentRoom) return;
@@ -299,9 +301,22 @@ export function renderExplore() {
     }
   } else if (biome.trees) {
     // Árvores
+    // Pula tiles que pertencem a tendas (quest story_banner)
+    const tentTiles = new Set();
+    if (currentRoom.tents) {
+      for (const t of currentRoom.tents) {
+        for (let ty2 = t.ty; ty2 < t.ty + t.h; ty2++) {
+          for (let tx2 = t.tx; tx2 < t.tx + t.w; tx2++) {
+            tentTiles.add(`${tx2},${ty2}`);
+          }
+        }
+      }
+    }
+
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.TREE) continue;
+        if (tentTiles.has(`${x},${y}`)) continue;   // ← NOVO
         const frame = treeFrames[Math.floor(performance.now() / 450 + (x + y)) % 2];
         const dx = x * TILE_SIZE + TILE_SIZE / 2 - treeFrames[0].width / 2;
         const dy = y * TILE_SIZE + TILE_SIZE - treeFrames[0].height;
@@ -323,8 +338,34 @@ export function renderExplore() {
     }
   }
 
+  // ---- Acampamento dos goblins (quest story_banner) ----
+  if (currentRoom.isFixed && currentRoom.tents) {
+    // Tendas: desenha por cima do T.TREE, mas só nos tiles das tendas
+    for (const t of currentRoom.tents) {
+      const tx = t.tx * TILE_SIZE;
+      const ty = t.ty * TILE_SIZE;
+      // A tenda ocupa 2x2 tiles; desenha 1 sprite de 40x40 no canto
+      ctx.drawImage(tentFrames[0], tx, ty, TILE_SIZE * 2, TILE_SIZE * 2);
+    }
+
+    // Fogueira: usa o floorTorch, mas com sprite próprio
+    if (currentRoom.floorTorch) {
+      drawCampfire(currentRoom.floorTorch);
+    }
+
+    // Estandarte: só desenha se ainda existir o interactable
+    if (currentRoom.bannerPos) {
+      const hasBanner = (currentRoom.interactables || [])
+        .some(it => it.kind === 'banner');
+      if (hasBanner) {
+        drawBannerInCamp(currentRoom.bannerPos);
+      }
+    }
+  }
+
   drawCage(currentRoom);
   drawTreasureChest(currentRoom);
+  drawGoblinCones(currentRoom);
   drawMapEnemies(currentRoom);
 
   if (currentRoom.interactables) {
@@ -415,8 +456,35 @@ export function renderExplore() {
     }
     applyLighting({ color: [0, 0, 0], alpha: 0.95, lights });
   } else {
+    const lights = [];
+
+    // Tocha do jogador (se equipada e for noite/entardecer)
     const torch = torchLight(player.x, player.y);
-    applyDayNight(torch ? [torch] : [], player);
+    if (torch) lights.push(torch);
+
+    // ---- Fogueira do acampamento (quest story_banner) ----
+    // Só ilumina quando está acesa (noite) e a sala é o acampamento.
+    if (
+      currentRoom.isFixed &&
+      currentRoom.floorTorch &&
+      getTimeState().darkness > 0.15
+    ) {
+      const ft = currentRoom.floorTorch;
+      // Centro da fogueira (o sprite ocupa 2×2 a partir de ft.tx/ft.ty)
+      const cx = ft.tx * TILE_SIZE + TILE_SIZE;   // +1 tile = centro do 2×2
+      const cy = ft.ty * TILE_SIZE + TILE_SIZE;
+      lights.push({
+        x: cx, y: cy,
+        radius: 140,        // raio grande pra iluminar a área
+        strength: 0.95,     // quase remove toda a escuridão
+        inner: 0.15,
+        color: [255, 170, 80],
+        warm: 0.35,
+        flicker: true,      // mesma animação da tocha (dá vida)
+      });
+    }
+
+    applyDayNight(lights, player);
   }
 
   drawFloorTorch(currentRoom);
@@ -1719,6 +1787,7 @@ function drawCage(room) {
 function drawFloorTorch(room) {
   const t = room.floorTorch;
   if (!t) return;
+  if (room.isFixed) return;
 
   const px = t.tx * TILE_SIZE;
   const py = t.ty * TILE_SIZE;
@@ -1775,6 +1844,72 @@ function drawFloorTorch(room) {
   ctx.fill();
 }
 
+// ============================================================
+// ACAMPAMENTO — Fogueira (sprite próprio, acesa/apagada)
+// ============================================================
+function drawCampfire(pos) {
+  if (!pos) return;
+  const px = pos.tx * TILE_SIZE;
+  const py = pos.ty * TILE_SIZE;
+  const isNight = getTimeState().darkness > 0.15;
+
+  if (isNight) {
+    const frame = campfireFrames.on[Math.floor(performance.now() / 300) % 2];
+    // Desenha em 2×2 tiles (40×40), a partir do canto sup-esq do pos.tx/ty
+    ctx.drawImage(frame, px, py, TILE_SIZE * 2, TILE_SIZE * 2);
+  } else {
+    ctx.drawImage(campfireFrames.off[0], px, py, TILE_SIZE * 2, TILE_SIZE * 2);
+  }
+}
+
+// ============================================================
+// ACAMPAMENTO — Estandarte de Aethel (no chão, perto da fogueira)
+// ============================================================
+function drawBannerInCamp(pos) {
+  if (!pos) return;
+  const px = pos.tx * TILE_SIZE;
+  const py = pos.ty * TILE_SIZE;
+  const cx = px + TILE_SIZE / 2;
+  const cy = py + TILE_SIZE / 2;
+
+  const t = performance.now() / 1000;
+
+  // Sombra no chão
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, py + TILE_SIZE - 2, 8, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Glow dourado (chama atenção)
+  const pulse = 0.4 + Math.sin(t * 1.5) * 0.2;
+  const grd = ctx.createRadialGradient(cx, cy, 1, cx, cy, 16);
+  grd.addColorStop(0, `rgba(254, 202, 87, ${pulse * 0.4})`);
+  grd.addColorStop(1, 'rgba(254, 202, 87, 0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(cx - 16, cy - 16, 32, 32);
+
+  // Mastro
+  ctx.fillStyle = '#5a3a1a';
+  ctx.fillRect(cx - 1, cy - 10, 2, 14);
+  // Ponta dourada
+  ctx.fillStyle = '#feca57';
+  ctx.fillRect(cx - 1, cy - 11, 2, 1);
+
+  // Pano (vermelho com borda dourada, ondulando levemente)
+  const sway = Math.sin(t * 2) * 1;
+  const bx = cx - 6 + sway;
+  const by = cy - 8;
+  ctx.fillStyle = '#9b1c1c';
+  ctx.fillRect(bx, by, 8, 6);
+  // Borda dourada
+  ctx.fillStyle = '#c9a24d';
+  ctx.fillRect(bx, by, 8, 1);
+  ctx.fillRect(bx, by + 5, 8, 1);
+  // Emblema
+  ctx.fillStyle = '#feca57';
+  ctx.fillRect(bx + 3, by + 2, 2, 2);
+}
+
 function drawTreasureChest(room) {
   const c = room.treasureChest;
   if (!c) return;
@@ -1814,4 +1949,59 @@ function drawTreasureChest(room) {
   ctx.beginPath();
   ctx.arc(x + s / 2, y + s - 6, 10, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// ============================================================
+// ACAMPAMENTO — Cones de visão dos goblins
+// Gradiente vermelho bem fraco, com fade na borda.
+// Some à noite (goblins dormem).
+// ============================================================
+function drawGoblinCones(room) {
+  if (!room || !room.enemies) return;
+  const time = getTimeState();
+  if (time.label === 'Noite') return;   // dormindo, sem cone
+
+  for (const e of room.enemies) {
+    if (e.defeated || e.asleep || !e.cone || !e.questGoblin) continue;
+
+    const dirVec = {
+      up:    { x: 0,  y: -1 },
+      down:  { x: 0,  y: 1  },
+      left:  { x: -1, y: 0  },
+      right: { x: 1,  y: 0  },
+    }[e.facing] || { x: 0, y: 1 };
+
+    const cx = e.tx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = e.ty * TILE_SIZE + TILE_SIZE / 2;
+    const rangePx = e.cone.range * TILE_SIZE;
+    const halfAngle = (e.cone.angle / 2) * Math.PI / 180;
+
+    // Ângulo central do cone (em radianos)
+    const baseAngle = Math.atan2(dirVec.y, dirVec.x);
+
+    // Gradiente radial: mais forte no centro, some na borda
+    const grd = ctx.createRadialGradient(cx, cy, 4, cx, cy, rangePx);
+    grd.addColorStop(0,   'rgba(255, 60, 60, 0.18)');
+    grd.addColorStop(0.6, 'rgba(255, 60, 60, 0.08)');
+    grd.addColorStop(1,   'rgba(255, 60, 60, 0)');
+    ctx.fillStyle = grd;
+
+    // Desenha o setor (fatia de pizza) do cone
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, rangePx, baseAngle - halfAngle, baseAngle + halfAngle);
+    ctx.closePath();
+    ctx.fill();
+
+    // Linha sutil no meio (mostra a direção)
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(
+      cx + Math.cos(baseAngle) * rangePx * 0.9,
+      cy + Math.sin(baseAngle) * rangePx * 0.9
+    );
+    ctx.stroke();
+  }
 }

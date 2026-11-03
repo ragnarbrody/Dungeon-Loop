@@ -252,6 +252,7 @@ export const battle = {
   targetIndex: 0,
   enemyTurnIndex: 0,
   activeEnemyIndex: -1,
+  noFlee: false,
   mapEnemy: null,
   log: [],
   anim: {

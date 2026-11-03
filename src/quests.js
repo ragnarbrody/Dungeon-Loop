@@ -58,6 +58,7 @@ export const QUEST_DB = {
   story_slimes: {
     id: 'story_slimes',
     type: 'story',
+    chapter: 'fields',
     title: 'Limpeza nos Arredores',
     giver: 'elder',
     description:
@@ -77,6 +78,7 @@ export const QUEST_DB = {
   story_rat_tails: {
     id: 'story_rat_tails',
     type: 'story',
+    chapter: 'fields',
     title: 'Caudas para a Herbalista',
     giver: 'elder',            // quem OFERECE é o Ancião
     turnInNpc: 'herbalist',    // mas quem RECEBE é a herbalista
@@ -98,6 +100,7 @@ export const QUEST_DB = {
   story_lost_traveler: {
     id: 'story_lost_traveler',
     type: 'story',
+    chapter: 'fields',
     title: 'O Pergaminho Perdido',
     giver: 'elder',
     prereq: ['story_slimes'],       // paralela com rat_tails
@@ -125,6 +128,7 @@ export const QUEST_DB = {
   story_forge_materials: {
     id: 'story_forge_materials',
     type: 'story',
+    chapter: 'fields',
     title: 'Materiais para o Caldeirão',
     giver: 'elder',              // o Ancião OFERECE
     turnInNpc: 'blacksmith',     // o FERREIRO recebe
@@ -170,6 +174,7 @@ export const QUEST_DB = {
   story_torch: {
     id: 'story_torch',
     type: 'story',
+    chapter: 'fields',
     title: 'Uma Luz na Escuridão',
     giver: 'elder',
     prereq: ['story_forge_materials'],   // encadeia com a 4
@@ -191,6 +196,7 @@ export const QUEST_DB = {
   story_cave: {
     id: 'story_cave',
     type: 'story',
+    chapter: 'fields',
     title: 'A Caverna ao Sul',
     giver: 'elder',
     prereq: ['story_torch'],
@@ -240,7 +246,41 @@ export const QUEST_DB = {
     ],
     rewards: { xp: 80, gold: 40, items: [{ id: 'potion_medium', qty: 2 }] },
     next: 'story_guardian_prep',
-  }
+  },
+  story_banner: {
+    id: 'story_banner',
+    type: 'story',
+    chapter: 'fields',
+    title: 'O Estandarte de Aethel',
+    giver: 'elder',
+    prereq: ['story_herbalist_escort'],
+    description:
+      'O estandarte de Aethel foi levado por um grupo de goblins que se ' +
+      'abrigou num acampamento a sudeste. Sem ele, os moradores perdem ' +
+      'um pouco da proteção que o símbolo carrega. Recupere-o — mas ' +
+      'saiba que os goblins não são invasores. São refugiados. ' +
+      'Dizem que a região fica silenciosa depois das 20h. ' +
+      'Talvez seja a hora certa de agir. ' +
+      'Vou marcar a posição do acampamento no seu mapa.',
+    objectives: [
+      {
+        id: 'collect_banner',
+        text: 'Recupere o Estandarte de Aethel (Marcado no mapa)',
+        target: 1,
+        type: 'collect',
+        filter: 'banner_aethel',
+      },
+    ],
+    rewards: {
+      xp: 70,
+      gold: 100,     // ← recompensa "boa"; o elderdialog troca se violento
+      items: [
+        { id: 'potion_strong', qty: 1 },
+        { id: 'potion_mana_medium', qty: 1 },
+      ],
+    },
+    next: null,
+  },
 
 };
 
@@ -251,6 +291,8 @@ const state = {
   completed: new Set(),    // ids concluídos
   tracked: null,           // id da quest sendo rastreada no HUD
   elderIntroSeen: false,   // já viu o diálogo de lore?
+  caveCollapseLoreSeen: false,
+  bannerQuestViolent: false,
 };
 
 // ---------- API ----------
@@ -350,6 +392,23 @@ export function activateQuest(id) {
     // Limpa o cache da sala pra ela ser regenerada com a Herbalista
     import('./world/rooms.js').then(mod => {
       mod.roomCache.delete('-5,-2');
+    }).catch(console.error);
+  } else if (id === 'story_banner') {
+    _addMarker({
+      id: 'marker_banner_camp',
+      type: 'quest',
+      gx: 4,
+      gy: 6,
+      title: 'Acampamento dos Goblin',
+      revealed: true,
+    });
+    _revealMarker('marker_banner_camp');
+
+    // Limpa o cache da sala pra ela ser regenerada com o acampamento
+    // (caso o jogador tenha passado por lá antes de aceitar a quest,
+    //  a sala foi gerada como procedural normal — precisa regenerar)
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('4,6');
     }).catch(console.error);
   }
 
@@ -515,6 +574,16 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     }).catch(console.error);
   }
 
+  if (q.id === 'story_banner') {
+    _removeMarker('marker_banner_camp');
+    // Limpa o cache da sala pra o acampamento sumir (o jogador
+    // já pegou o estandarte; a sala pode voltar a ser procedural
+    // normal na próxima visita — mas com o estandarte fora, os
+    // goblins ficam "órfãos". Melhor deixar a sala lá, só sem
+    // o banner. O cache não precisa ser limpo.
+    // (O `input.js` já removeu o interactable da sala em memória.)
+  }
+
   // ---- 3) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
@@ -524,13 +593,37 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   const rewards = q.rewards || {};
   if (rewards.xp) {
     playerStats.xp += rewards.xp;
-    }
+  }
   if (rewards.gold) playerStats.gold += rewards.gold;
   if (rewards.items && addItemToInventoryFn) {
     for (const it of rewards.items) {
       addItemToInventoryFn(playerStats.inventory, it.id, it.qty);
     }
   }
+
+  // ---- 5) Toast de recompensa (mostra o que o jogador ganhou) ----
+  // Import dinâmico pra evitar ciclo (quests ↔ toast ↔ state).
+  import('../src/ui/toast.js').then(mod => {
+    const linhas = [];
+    if (rewards.xp)   linhas.push(`+${rewards.xp} XP`);
+    if (rewards.gold) linhas.push(`+${rewards.gold} ouro`);
+    if (rewards.items) {
+      for (const it of rewards.items) {
+        const info = ITEMS_DB[it.id];
+        const nome = info ? info.name : it.id;
+        linhas.push(`+${it.qty} ${nome}`);
+      }
+    }
+    if (linhas.length > 0) {
+      mod.showToast({
+        itemId: 'questlog',
+        title: q.title,
+        subtitle: linhas.join(' · '),
+        color: '#feca57',
+        duration: 5000,   // 5s, mais tempo que o padrão (3s) pra ler
+      });
+    }
+  }).catch(console.error);
 
   return q;
 }
@@ -540,6 +633,15 @@ export function hasSeenCaveCollapseLore() {
 }
 export function markCaveCollapseLoreSeen() {
   state.caveCollapseLoreSeen = true;
+}
+
+export function isBannerQuestViolent() {
+  return state.bannerQuestViolent === true;
+}
+
+export function markBannerQuestViolent() {
+  if (state.bannerQuestViolent) return;
+  state.bannerQuestViolent = true;
 }
 
 // ---------- Serialização ----------
@@ -552,6 +654,7 @@ export function serializeQuests() {
     elderIntroSeen: state.elderIntroSeen,
     pendingCaveCollapse: _pendingCaveCollapse,
     caveCollapseLoreSeen: state.caveCollapseLoreSeen === true,
+    bannerQuestViolent: state.bannerQuestViolent === true,
   };
 }
 
@@ -564,6 +667,7 @@ export function loadQuests(data) {
   state.elderIntroSeen = !!data.elderIntroSeen;
   _pendingCaveCollapse = !!data.pendingCaveCollapse;
   state.caveCollapseLoreSeen = !!data.caveCollapseLoreSeen;
+  state.bannerQuestViolent = !!data.bannerQuestViolent;
 }
 
 export function resetQuests({ keepIntroLore = false } = {}) {
@@ -576,6 +680,7 @@ export function resetQuests({ keepIntroLore = false } = {}) {
     state.caveCollapseLoreSeen = false;
   }
   _pendingCaveCollapse = false;
+  state.bannerQuestViolent = false;
 }
 
 // Retorna a lista (ordenada por id) de quests concluídas com dados completos.

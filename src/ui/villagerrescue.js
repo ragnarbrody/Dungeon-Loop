@@ -51,7 +51,6 @@ function freeVillager() {
       '— Como os inimigos foram todos derrotados, eu consigo voltar sozinho para Aethel, conheço o caminho. ' +
       'Vá na frente e avise o Ancião que eu estou vivo — ele precisa saber que você cumpriu a palavra dele. ' +
       'Eu chego logo atrás.\n\n' +
-      `✔ Missão concluída: ${quest.title}` +
-      (parts.length ? `\n${parts.join(' · ')}` : ''),
+      `✔ Missão concluída: ${quest.title}`,
   });
 }

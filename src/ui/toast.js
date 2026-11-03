@@ -1,7 +1,7 @@
 // src/ui/toast.js
 import { getIcon } from '../sprites/icons.js';
 
-const TOAST_MS = 2200;
+const DEFAULT_DURATION = 2200;
 
 let container = null;
 
@@ -32,8 +32,9 @@ function ensureContainer() {
  * @param {string} opts.title       ? nome do item (ex: 'Poção Fraca')
  * @param {string} [opts.subtitle]  ? ex: '+7 HP' / '+3 Força (3 turnos)'
  * @param {string} [opts.color]     ? cor do subtítulo
+ * @param {number} [opts.duration]  ? tempo em ms (default: 2200)
  */
-export function showToast({ itemId, title, subtitle, color = '#8ad8ff' }) {
+export function showToast({ itemId, title, subtitle, color = '#8ad8ff', duration = DEFAULT_DURATION }) {
   const root = ensureContainer();
 
   const toast = document.createElement('div');
@@ -88,5 +89,5 @@ export function showToast({ itemId, title, subtitle, color = '#8ad8ff' }) {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(8px)';
     setTimeout(() => toast.remove(), 250);
-  }, TOAST_MS);
+  }, duration);
 }

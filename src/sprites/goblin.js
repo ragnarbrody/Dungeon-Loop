@@ -62,6 +62,67 @@ export function makeGoblinFrames() {
   frames.idle[1]   = drawFrame('idle', 1);
   frames.attack[0] = drawFrame('attack', 0);
 
+  // ---- Frame dormindo (deitado, de lado, com "Zzz" acima) ----
+  frames.sleep = [];
+  (function makeSleepFrame() {
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const px = (x, y, w, h, color) => {
+      g.fillStyle = color;
+      g.fillRect(x, y, w, h);
+    };
+
+    const skin    = '#5a8a3a';
+    const skinSh  = '#3f6528';
+    const skinHi  = '#7aa85a';
+    const cloth   = '#6b4a2b';
+    const clothSh = '#4a3018';
+
+    // Sombra no chão (elipse "deitada")
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.beginPath();
+    g.ellipse(16, 26, 12, 3, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // Corpo deitado (horizontal, na parte de baixo do tile)
+    // Tronco
+    px(8, 20, 14, 6, cloth);
+    px(8, 25, 14, 1, clothSh);
+    // Peito/costelas
+    px(9, 21, 12, 1, clothSh);
+    // Braço dobrado embaixo da cabeça
+    px(7, 22, 4, 3, skin);
+
+    // Cabeça (de lado, apoiada no braço)
+    px(20, 18, 8, 7, skin);
+    px(20, 24, 8, 1, skinSh);
+    // Orelha
+    px(27, 19, 2, 3, skin);
+    // Olho fechado (linha horizontal)
+    px(24, 21, 2, 1, '#1a1a0e');
+    // Nariz
+    px(26, 23, 1, 1, skinSh);
+
+    // Pernas dobradas (uma em cima da outra, "encolhido")
+    px(6, 23, 5, 3, cloth);
+    px(6, 25, 5, 1, clothSh);
+
+    // "Zzz" flutuando acima
+    g.fillStyle = '#e8e8f0';
+    g.font = 'bold 5px "Courier New", monospace';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('z', 22, 12);
+    g.font = 'bold 6px "Courier New", monospace';
+    g.fillText('Z', 26, 8);
+    g.font = 'bold 7px "Courier New", monospace';
+    g.fillText('Z', 30, 4);
+
+    frames.sleep.push(c);
+  })();
+
   return frames;
 }
 

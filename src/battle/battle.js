@@ -152,6 +152,12 @@ export function playerAction(action) {
 
   // ---- Fugir ----
   if (action === 'flee') {
+    if (battle.noFlee) {
+      battle.message = 'Não há para onde fugir.';
+      sfx('miss');
+      endPlayerTurn();
+      return;
+    }
     const fleeChance = Math.min(0.90, 0.40 + effStat('agi') * 0.03);
     if (Math.random() < fleeChance) {
       battle.message = 'Você fugiu do combate!';

@@ -773,28 +773,6 @@ export const ITEMS_DB = {
     icon: 'nucleo_bruto',
   },
 
-  letter_to_elder: {
-    id: 'letter_to_elder',
-    kind: 'quest',              // fica impossível de vender/usar
-    name: 'Pergaminho Selado',
-    description: 'Um pergaminho selado com o brasão de Aethel. O Ancião vai querer ver isso.',
-    price: 0,
-    sellPrice: 0,               // não vendável
-    rarity: 'rare',             // destaca no inventário
-    stackable: false,           // não empilha
-    icon: 'letter_to_elder',
-  },
-  herb_herbalist: {
-    id: 'herb_herbalist',
-    kind: 'quest',
-    name: 'Erva Rara',
-    description: 'Uma erva de folhas prateadas. A Herbalista saberá o que fazer.',
-    price: 0, sellPrice: 0,
-    rarity: 'rare',
-    stackable: true,
-    stackCap: 5,
-    icon: 'herb_herbalist',
-  },
   shadowstep_boots: {
     id: 'shadowstep_boots',
     type: 'armor',
@@ -820,6 +798,44 @@ export const ITEMS_DB = {
       duskMultiplier: 0.35,   // 35% da chance normal ao entardecer
       nightMultiplier: 0.5,  // 50% da chance normal à noite
     },
+  },
+
+  // ITENS DE MISSÃO 
+
+  letter_to_elder: {
+    id: 'letter_to_elder',
+    kind: 'quest',              // fica impossível de vender/usar
+    name: 'Pergaminho Selado',
+    description: 'Um pergaminho selado com o brasão de Aethel. O Ancião vai querer ver isso.',
+    price: 0,
+    sellPrice: 0,               // não vendável
+    rarity: 'rare',             // destaca no inventário
+    stackable: false,           // não empilha
+    icon: 'letter_to_elder',
+  },
+  herb_herbalist: {
+    id: 'herb_herbalist',
+    kind: 'quest',
+    name: 'Erva Rara',
+    description: 'Uma erva de folhas prateadas. A Herbalista saberá o que fazer.',
+    price: 0, sellPrice: 0,
+    rarity: 'rare',
+    stackable: true,
+    stackCap: 5,
+    icon: 'herb_herbalist',
+  },
+  banner_aethel: {
+    id: 'banner_aethel',
+    kind: 'quest',
+    name: 'Estandarte de Aethel',
+    description:
+      'O estandarte da cidade. Rasgado nas bordas, manchado de fumaça, mas ainda inteiro. ' +
+      'O Ancião vai querer de volta.',
+    price: 0,
+    sellPrice: 0,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'banner_aethel',
   },
 };
 

@@ -6,9 +6,9 @@ import {
   getAvailableQuests, getActiveQuest, isQuestReadyToComplete,
   activateQuest, completeActiveQuest,
   getTurnInNpc, isQuestCompleted, isQuestActive, areProceduralCavesUnlocked, hasSeenCaveCollapseLore,
-  markCaveCollapseLoreSeen
+  markCaveCollapseLoreSeen, isBannerQuestViolent
 } from '../quests.js';
-import { addItemToInventory } from '../items.js';
+import { addItemToInventory, removeItem  } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
 import { addMarker, revealMarker } from '../world/knowledge.js';
 
@@ -166,6 +166,83 @@ export function offerQuests() {
     return;
   }
 
+  // ---- Entrega da story_banner: final depende do flag violento ----
+  if (
+    active &&
+    active.id === 'story_banner' &&
+    isQuestReadyToComplete(active.id)
+  ) {
+    const violent = isBannerQuestViolent();
+
+    if (violent) {
+      openDialogue({
+        title: 'Ancião de Aethel',
+        text:
+          `${greeting()}. O estandarte voltou!\n\n` +
+          `Mas eu sinto o peso do que você fez, ${vocative()}.\n\n` +
+          `Os aventureiros me avisaram que a região fica silenciosa depois ` +
+          `das 20h. Os goblins descansam como qualquer criatura. Você ` +
+          `escolheu ir de dia, escolheu enfrentá-los, e escolheu matá-los.\n\n` +
+          `Eles não eram maus. Eram assustados. A Fratura os expulsou de ` +
+          `algum canto, e eles se agarraram ao primeiro bolsão que acharam. ` +
+          `O estandarte era a única coisa que parecia segura.\n\n` +
+          `Você fez o que precisava. Mas eu esperava mais.`,
+        actions: [
+          {
+            label: 'Receber recompensa',
+            action: () => {
+              // Recompensa "ruim": sobrescreve o que a quest daria
+              const q = getActiveQuest();
+              // aplica manualmente o gold e remove os itens bônus
+              if (q) {
+                // Marca como concluída SEM chamar completeActiveQuest
+                // (que daria 100 + poções). Vamos simular a entrega.
+                completeActiveQuest(playerStats, addItemToInventory);
+                // Corrige o ouro: completeActiveQuest já somou 100.
+                // Subtrai 70 e tira as poções.
+                playerStats.gold -= 70;
+                // Remove as poções bônus que completeActiveQuest adicionou
+                removeItem(playerStats.inventory, 'potion_strong', 1);
+                removeItem(playerStats.inventory, 'potion_mana_medium', 1);
+                // Dá 30 de ouro (a diferença)
+                playerStats.gold += 30;
+              }
+              saveGame();
+              closeDialogue();
+              checkLevelUp();
+              offerQuests();
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    // Final bom: deixa o fluxo padrão (mas com uma fala mais pessoal)
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()}. O estandarte voltou!\n\n` +
+        `E voltou sem sangue derramado. Isso é mais raro do que parece, ${vocative()}.\n\n` +
+        `Os aventureiros tinham razão, então. Depois das 20h, os goblins ` +
+        `descansam como qualquer criatura. Você soube esperar.\n\n` +
+        `Aethel respira um pouco melhor por isso.`,
+      actions: [
+        {
+          label: 'Receber recompensa',
+          action: () => {
+            completeActiveQuest(playerStats, addItemToInventory);
+            saveGame();
+            closeDialogue();
+            checkLevelUp();
+            offerQuests();
+          },
+        },
+      ],
+    });
+    return;
+  }
+
   // ---- Se tem quest ativa e pronta pra entregar AO ANCIÃO: entrega ----
   if (active && isQuestReadyToComplete(active.id)) {
     const q = active;
@@ -200,6 +277,8 @@ export function offerQuests() {
     });
     return;
   }
+
+
 
   // ---- Sem quest ativa: oferece as disponíveis ----
   const available = getAvailableQuests();

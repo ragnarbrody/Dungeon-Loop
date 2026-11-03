@@ -14,7 +14,7 @@ import { hud, updateHud } from '../ui/hud.js';
 import { CANVAS_W, CANVAS_H } from '../core/canvas.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { getBiomeEnemies } from '../world/biomes.js';
-import { notifyEnemyKilled, notifyDungeonEnemyKilled } from '../quests.js';
+import { notifyEnemyKilled, notifyDungeonEnemyKilled, markBannerQuestViolent } from '../quests.js';
 import { rollDrops, formatDrop } from '../drops.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
 import { buildEnemyGroup } from './enemy-spawn.js';
@@ -29,12 +29,13 @@ export function startBattle(opts = {}) {
   // Cidade é safezone — nunca entra em combate
   if (currentRoom && currentRoom.isCity) return;
 
-  const { enemyId, mapEnemy, biomeGX, biomeGY } = opts;
+  const { enemyId, mapEnemy, biomeGX, biomeGY, noFlee } = opts;
 
   setGameState(STATE.BATTLE);
   battle.active = true;
   battle.turn = 'player';
   battle.turnTimer = 0;
+  battle.noFlee = !!noFlee;
   battle.anim = {
     shake: 0, flashPlayer: 0, flashEnemy: 0,
     lungePlayer: 0, lungeEnemy: 0,
@@ -107,6 +108,7 @@ export function endBattle(escaped) {
   battle.enemies = [];
   battle.targetIndex = 0;
   battle.enemyTurnIndex = 0;
+  battle.noFlee = false;
   battle.activeEnemyIndex = -1;
   battle.anim = {
     shake: 0,
@@ -173,6 +175,10 @@ export function clearDeadEnemies() {
     notifyEnemyKilled(e.id);
     if (currentRoom?.isDungeon) {
       notifyDungeonEnemyKilled(currentRoom.dungeonId, e.id);
+    }
+    // ---- Flag violento da story_banner ----
+    if (battle.mapEnemy && battle.mapEnemy.questGoblin) {
+      markBannerQuestViolent();
     }
     battle.fadingEnemies.push({
       ref: e,

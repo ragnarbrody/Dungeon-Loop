@@ -132,6 +132,12 @@ export function getInteractables(room) {
         if (!playerStats._escortActive) continue;
         if (playerStats._collectedHerbs?.has(it.id)) continue; 
       }
+
+      if (it.kind === 'banner') {
+        // Só aparece se a quest está ativa E o jogador ainda não tem o item
+        if (!isQuestActive('story_banner')) continue;
+        if (playerStats.inventory.some(i => i.id === 'banner_aethel')) continue;
+      }
       list.push({ ...it });
     }
   }

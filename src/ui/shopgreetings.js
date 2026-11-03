@@ -87,6 +87,60 @@ export const SHOP_GREETINGS = {
   ],
 };
 
+// ============================================================
+// SAUDAÇÕES DO BANQUEIRO (Cofre de Aethel)
+// ============================================================
+// Personalidade: formal, cauteloso, um pouco solene. Fala do
+// Cofre como "memória" e do Andarilho como alguém que "escolhe
+// o que lembrar". Não usa gíria. Trata o ouro com respeito.
+export const VAULT_GREETINGS = [
+  // ---- Abertura / transação ----
+  () => `${greeting()} O Cofre está aberto. O que deseja guardar?`,
+  () => `${greeting()} Ouro ou item? O Cofre aceita os dois.`,
+  () => `${greeting()} Poucos voltam pra guardar. Menos ainda voltam pra retirar.`,
+  () => `${greeting()} O que você deixa aqui, a Fratura não leva.`,
+  () => `${greeting()} Diga o que quer guardar. Eu registro.`,
+
+  // ---- Sobre a natureza do Cofre (lore) ----
+  () => `${greeting()} Este cofre é mais antigo que Aethel. A Fratura não o toca.`,
+  () => `${greeting()} O que está aqui dentro é memória. A Fratura respeita memória.`,
+  () => `${greeting()} O Cofre não guarda tudo. Só o que você escolhe lembrar.`,
+  () => `${greeting()} Cada Slot é uma decisão. Escolha com cuidado.`,
+
+  // ---- Reconhecimento do Andarilho ----
+  () => `${greeting()} Voltou ${agree('inteiro', 'inteira')}. O Cofre agradece.`,
+  () => `${greeting()} Não é todo dia que vejo ${agree('um', 'uma')} ${agree('Andarilho', 'Andarilhas')} por aqui.`,
+  () => `${greeting()} Os outros viajantes não voltam. Você volta. O Cofre nota.`,
+  () => `${greeting()} O Cofre lembra de você. Eu também.`,
+
+  // ---- Aviso / cautela ----
+  () => `${greeting()} Guarde o que não pode perder. O resto, a Fratura apaga.`,
+  () => `${greeting()} Se for pra um bioma novo, pense no que leva. O Cofre fica.`,
+  () => `${greeting()} Slot novo custa ouro. Ouro some. Slot fica.`,
+  () => `${greeting()} Não guarde o que precisa usar agora. Guarde o que não pode perder.`,
+];
+
+// Guarda o índice da última fala sorteada do banqueiro.
+let lastVaultGreeting = -1;
+
+export function pickVaultGreeting() {
+  const pool = VAULT_GREETINGS;
+  if (pool.length === 0) return `${greeting()} Em que posso ajudar?`;
+  if (pool.length === 1) return pool[0]();
+
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * pool.length);
+  } while (idx === lastVaultGreeting);
+
+  lastVaultGreeting = idx;
+  return pool[idx]();
+}
+
+export function resetVaultGreetingCache() {
+  lastVaultGreeting = -1;
+}
+
 // Fallback se a loja não tiver pool definido.
 const FALLBACK = [() => `${greeting()} Em que posso ajudar?`];
 

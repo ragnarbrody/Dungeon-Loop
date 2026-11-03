@@ -23,6 +23,7 @@ import { tickTime, startDayCycle } from './timeofday.js';
 import { playerEquip, resetEquipment } from '../sprites/equipment.js';
 import { resolveDeath, showDeathSummary } from './death.js';
 import { STARTER_ITEMS, captureMilestoneIfNeeded, resetProgression } from './progression.js';
+import { resetVaultGreetingCache, resetShopGreetings } from '../ui/shopgreetings.js';
 
 
 let lastDeath = null;
@@ -132,6 +133,7 @@ function resetMetaState() {
   metaState.vault.gold = 0;
   metaState.vault.slots = 3;
   metaState.vault.items = [null, null, null];
+  resetVaultGreetingCache();
 }
 
 function requestNewGame() {
@@ -156,6 +158,7 @@ function requestNewGame() {
       resetProgression();
       resetMetaState();
       resetCamera();
+      resetShopGreetings();
       setWorldSeed(Math.floor(Math.random() * 1e9));
 
       // ---- 2) Reseta playerStats pro default de forma segura ----
@@ -276,6 +279,7 @@ function restartRunKeepingVault() {
       resetQuests({ keepIntroLore: true });
       resetProgression();
       resetCamera();
+      resetShopGreetings()
       setWorldSeed(Math.floor(Math.random() * 1e9));
 
       // restaura o cofre do backup (defensivo)
