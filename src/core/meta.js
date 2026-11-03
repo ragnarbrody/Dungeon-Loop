@@ -14,12 +14,26 @@
 import { ITEMS_DB, addItemToInventory } from '../items.js';
 import { metaState, saveGame } from './state.js';
 
-export const VAULT_BASE_SLOTS = 4;
+export const VAULT_BASE_SLOTS = 3;
 export const VAULT_MAX_SLOTS = 8;
-export const VAULT_SLOT_PRICES = [500, 500, 500, 500];
+export const VAULT_FIRST_SLOT_PRICE = 500;
+export const VAULT_SLOT_PRICE_STEP = 250; 
 export const GOLD_DEPOSIT_FEE = 0;
 
 export const getVault = () => metaState.vault;
+
+/**
+ * Preço do PRÓXIMO slot a ser comprado.
+ * `slotsOwned` = quantos slots o jogador tem AGORA.
+ *
+ * Se `slotsOwned >= VAULT_MAX_SLOTS`, retorna `null` (não há próximo).
+ */
+export function nextSlotPrice() {
+  const slotsOwned = metaState.vault.slots;
+  if (slotsOwned >= VAULT_MAX_SLOTS) return null;
+  const bought = slotsOwned - VAULT_BASE_SLOTS;   // 0 no 1º slot
+  return VAULT_FIRST_SLOT_PRICE + bought * VAULT_SLOT_PRICE_STEP;
+}
 
 // Não há mais "saveMeta" separado — qualquer mudança no cofre
 // precisa persistir no save inteiro (senão o jogador pode
@@ -50,9 +64,6 @@ export function withdrawGold(ps, amount) {
 }
 
 // ---------- Slots ----------
-export function nextSlotPrice() {
-  return VAULT_SLOT_PRICES[metaState.vault.slots - VAULT_BASE_SLOTS] ?? null;
-}
 export function buyVaultSlot(ps) {
   const price = nextSlotPrice();
   if (price == null) return { ok: false, reason: 'max' };

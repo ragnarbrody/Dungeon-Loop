@@ -27,7 +27,7 @@
 
 //import { removeMarker } from '../src/world/knowledge.js';
 //import { checkLevelUp } from './core/state.js';
-import { countItem } from './items.js';
+import { countItem, ITEMS_DB } from './items.js';
 
 let _removeMarker = () => {};
 let _addMarker = () => {};
@@ -474,9 +474,12 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
   for (const obj of q.objectives) {
     if (obj.type !== 'collect') continue;
     if (!obj.filter) continue;
-    if (obj.consume === false) continue;   // ← NOVO: não consome
+    if (obj.consume === false) continue;
 
-    let toRemove = obj.target;
+    const info = ITEMS_DB[obj.filter];
+    const isQuestItem = info && info.kind === 'quest';
+
+    let toRemove = isQuestItem ? Infinity : obj.target;
     const inv = playerStats.inventory;
     for (let i = inv.length - 1; i >= 0 && toRemove > 0; i--) {
       if (inv[i].id !== obj.filter) continue;
@@ -505,6 +508,7 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     _removeMarker('marker_herbalist_escort');
     playerStats._escortActive = false;
     playerStats._escortPos = null;
+    playerStats._collectedHerbs?.clear();
     // Força o cache da sala -5,-2 a ser limpo, pra ela não reaparecer
     import('./world/rooms.js').then(mod => {
       mod.roomCache.delete('-5,-2');

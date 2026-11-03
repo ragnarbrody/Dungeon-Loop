@@ -71,7 +71,7 @@ export const metaState = {
   deaths: Math.max(0, Math.floor(Number(_savedMeta.deaths) || 0)),
   vault: (() => {
     const v = _savedMeta.vault || {};
-    const slots = Math.min(8, Math.max(4, Math.floor(Number(v.slots) || 4)));
+    const slots = Math.min(8, Math.max(3, Math.floor(Number(v.slots) || 3)));
     const items = Array.from({ length: slots }, (_, i) => {
       const it = v.items?.[i];
       return it && typeof it.id === 'string' && it.qty > 0
@@ -117,6 +117,7 @@ export const playerStats = {
   gold: savedData.gold ?? 0,
   _escortActive: false,
   _escortPos: null,
+  _collectedHerbs: new Set(savedData._collectedHerbs ?? []),
   portalCores: new Set(savedData.portalCores ?? []),
 };
 
@@ -158,8 +159,14 @@ export function buildSaveData() {
     // inventário / equipamento
     inventory: playerStats.inventory,
     equip: {
-      rightHand: playerEquip.rightHand,
-      leftHand:  playerEquip.leftHand,
+      rightHand: playerEquip.rightHand ?? null,
+      leftHand:  playerEquip.leftHand  ?? null,
+      helmet:    playerEquip.helmet    ?? null,
+      armor:     playerEquip.armor     ?? null,
+      boots:     playerEquip.boots     ?? null,
+      amulet:    playerEquip.amulet    ?? null,
+      ring1:     playerEquip.ring1     ?? null,
+      ring2:     playerEquip.ring2     ?? null,
     },
 
     // mundo
@@ -172,6 +179,7 @@ export function buildSaveData() {
 
     // escolta (companion)
     _escortActive: playerStats._escortActive || false,
+    _collectedHerbs: Array.from(playerStats._collectedHerbs),
 
     // knowledge
     knowledge: serializeKnowledge(),
@@ -226,7 +234,13 @@ export function setCurrentRoom(r) {
 export const visitedRooms = new Set(savedData.visited || ['0,0']);
 export function markRoomVisited(gx, gy) { visitedRooms.add(`${gx},${gy}`); }
 
-export const encounter = { chancePerPixel: 0.0007, cooldownPx: 400, walkedSinceLast: 0 };
+export const encounter = {
+  chancePerPixel: 0.0007,
+  cooldownPx: 600,
+  walkedSinceLast: 0,
+  // Fator de "paz" pra níveis baixos: 1.0 = normal, 0.5 = metade
+  levelPeaceFactor: 1.0,
+};
 
 export const battle = {
   active: false,
@@ -260,11 +274,13 @@ export const battle = {
   _escortActive: false,
 };
 
+// equipamento é null — se o save diz "sem bota", tem que ficar sem bota.
 if (savedData.equip) {
-  playerEquip.rightHand = savedData.equip.rightHand ?? playerEquip.rightHand;
-  playerEquip.leftHand  = savedData.equip.leftHand  ?? playerEquip.leftHand;
+  const slots = ['rightHand', 'leftHand', 'helmet', 'armor', 'boots', 'amulet', 'ring1', 'ring2'];
+  for (const s of slots) {
+    playerEquip[s] = savedData.equip[s] ?? null;
+  }
 }
-
 export function addGold(amount) {
   playerStats.gold = Math.max(0, playerStats.gold + amount);
 }

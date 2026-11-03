@@ -15,6 +15,9 @@ import { sfx, setMusicMode } from '../audio/audio.js';
 import { showToast } from '../ui/toast.js';
 import { consumeCaveCollapseNotice, isQuestActive, advanceObjective } from '../quests.js';
 import { openDialogue } from '../ui/dialogue.js';
+import { playerEquip } from '../sprites/equipment.js';
+import { getTimeOfDay, getTimeState } from '../core/timeofday.js';
+import { ITEMS_DB } from '../items.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -234,6 +237,11 @@ function leaveDungeon() {
 }
 
 export function updatePlayer(dt) {
+  // Níveis baixos têm mais "paz" (menos encontros)
+  const lvl = playerStats.level;
+  const peace = lvl <= 2 ? 0.4 : lvl <= 4 ? 0.65 : lvl <= 6 ? 0.85 : 1.0;
+  const effectiveChance = encounter.chancePerPixel * peace;
+
   // ---- Chegada em Aethel com a Herbalista (escolta) ----
   // Quando o jogador entra em (0,0) carregando a companion, o objetivo
   // `escort_home` avança sozinho. Ela some (porque a quest fica "pronta"),
@@ -262,14 +270,15 @@ export function updatePlayer(dt) {
       playerStats._escortPos = null;
     }
   }
+
   // decai a imunidade de fuga
   for (const [enemy, _] of player.fleeImmune) {
-  const ptx = Math.floor(player.x / TILE_SIZE);
-  const pty = Math.floor(player.y / TILE_SIZE);
-  if (enemy.tx !== ptx || enemy.ty !== pty) {
-    player.fleeImmune.delete(enemy);
+    const ptx = Math.floor(player.x / TILE_SIZE);
+    const pty = Math.floor(player.y / TILE_SIZE);
+    if (enemy.tx !== ptx || enemy.ty !== pty) {
+      player.fleeImmune.delete(enemy);
+    }
   }
-}
 
   let dx = 0, dy = 0;
   if (keys['arrowleft']  || keys['a']) dx -= 1;
@@ -316,12 +325,38 @@ export function updatePlayer(dt) {
       if (encounter.cooldownPx > 0) {
         encounter.cooldownPx -= movedDist;
       } else {
+        // ---- Fator "paz" por nível (problema 1) ----
+        const lvl = playerStats.level;
+        const levelPeace = lvl <= 2 ? 0.4 : lvl <= 4 ? 0.65 : lvl <= 6 ? 0.85 : 1.0;
+
+        // ---- Fator "botas silenciosas" (problema 3) ----
+        let bootsMultiplier = 1.0;
+        const bootsItem = ITEMS_DB[playerEquip.boots];
+        if (bootsItem?.antiEncounter) {
+          const ae = bootsItem.antiEncounter;
+          const time = getTimeState();
+          if (time.label === 'Manhã' || time.label === 'Tarde') {
+            bootsMultiplier = ae.dayMultiplier;      // 0
+          } else if (time.label === 'Entardecer') {
+            bootsMultiplier = ae.duskMultiplier;     // 0.35
+          } else if (time.label === 'Noite') {
+            bootsMultiplier = ae.nightMultiplier;    // 0.5
+          }
+        }
+
+        const effectiveChance = encounter.chancePerPixel * levelPeace * bootsMultiplier;
+
         encounter.walkedSinceLast += movedDist;
         if (encounter.walkedSinceLast > 200) {
-          if (Math.random() < encounter.chancePerPixel * 200) {
+          if (bootsMultiplier === 0) {
+            // Bota ativa de dia: nem rola o dado, mas reseta o contador
+            encounter.walkedSinceLast = 0;
+          } else if (Math.random() < effectiveChance * 200) {
             startBattle({ biomeGX: currentRoom.gx, biomeGY: currentRoom.gy });
+            encounter.walkedSinceLast = 0;
+          } else {
+            encounter.walkedSinceLast = 0;
           }
-          encounter.walkedSinceLast = 0;
         }
       }
     }

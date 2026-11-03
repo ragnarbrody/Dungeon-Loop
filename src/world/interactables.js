@@ -128,9 +128,9 @@ export function getInteractables(room) {
         if (playerStats._escortActive) continue;
       }
       if (it.kind === 'herb') {
-        // Só aparece se a quest está ativa E o jogador já falou com a herbalista
         if (!isQuestActive('story_herbalist_escort')) continue;
-        if (!playerStats._escortActive) continue; // ela ainda não pediu ajuda
+        if (!playerStats._escortActive) continue;
+        if (playerStats._collectedHerbs?.has(it.id)) continue; 
       }
       list.push({ ...it });
     }

@@ -19,7 +19,7 @@ export function resolveDeath() {
     gold: playerStats.gold,
     items: playerStats.inventory.reduce((n, i) => n + i.qty, 0),
   };
-  const plan = planDeath(levelBefore);
+  const plan = planDeath();
   registerDeath();
 
   // ---- perdas comuns: ouro, mochila, equipamento, efeitos, companion ----
@@ -158,7 +158,7 @@ export function showDeathSummary(r) {
     lines.push(`Nível ${r.levelBefore} → ${r.levelAfter}.`);
     lines.push(`Seu progresso em ${r.chapters.map(c => CHAPTER_NAMES[c] || c).join(' e ')} foi mantido.`);
   } else {
-    lines.push(r.reason === 'level' ? 'Você avançou rápido demais e o mundo não te reconhece.' : 'A jornada recomeça dos Campos.');
+    lines.push('A jornada recomeça dos Campos.');
     lines.push('O que estava no cofre continua lá.');
   }
   lines.push(`A salvo no cofre: ${v.gold} ouro e ${used} slot(s) de itens.`);

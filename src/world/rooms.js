@@ -2,7 +2,8 @@ import { GRID_SIZE, SPAWN_MARGIN, TILE_SIZE } from '../core/canvas.js';
 import { makeRng, seedFrom } from '../core/rng.js';
 import { T, DIRS } from './tiles.js';
 import { BIOMES, pickBiome } from './biomes.js';
-import { worldSeed, setCurrentRoom, markRoomVisited, saveGame, currentRoom, player, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
+import { worldSeed, setCurrentRoom, markRoomVisited, saveGame,
+         currentRoom, player, playerStats, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
 import { createInterior } from './interiors.js';
 import { setMusicMode } from '../audio/audio.js';
 import { isQuestActive, areProceduralCavesUnlocked } from '../quests.js';
@@ -727,18 +728,22 @@ export function createRoom(gx, gy) {
     ];
     for (let i = 0; i < herbSpots.length; i++) {
       const [tx, ty] = herbSpots[i];
-      // Se caiu em cima de uma árvore/pedra, limpa o tile pra a erva aparecer.
+      const herbId = `herb_${i + 1}`;
+
+      // Se o jogador já coletou esta erva (em sessão anterior), pula.
+      // `playerStats._collectedHerbs` é injetado via `state.js`.
+      if (playerStats._collectedHerbs?.has(herbId)) continue;
+
       if (map[ty]?.[tx] === T.TREE || map[ty]?.[tx] === T.WALL) {
         map[ty][tx] = T.FLOOR;
       }
-      // Garante que o tile é FLOOR antes de colocar a erva
       if (map[ty]?.[tx] === T.FLOOR) {
         reserved.add(`${tx},${ty}`);
         interactables.push({
           tx, ty,
           kind: 'herb',
           title: 'Erva Rara',
-          id: `herb_${i + 1}`,
+          id: herbId,
         });
       }
     }

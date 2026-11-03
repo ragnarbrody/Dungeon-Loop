@@ -768,7 +768,7 @@ export const ITEMS_DB = {
     kind: 'material',
     name: 'Núcleo Bruto',
     description: 'Um núcleo de energia pulsante. Muito valioso para artesãos.',
-    price: 100, sellPrice: 50,
+    price: 100, sellPrice: 35,
     rarity: 'rare', stackable: false,
     icon: 'nucleo_bruto',
   },
@@ -794,6 +794,32 @@ export const ITEMS_DB = {
     stackable: true,
     stackCap: 5,
     icon: 'herb_herbalist',
+  },
+  shadowstep_boots: {
+    id: 'shadowstep_boots',
+    type: 'armor',
+    kind: 'boots',
+    slot: 'boots',
+    name: 'Botas Silenciosas',
+    description:
+      'Botas de couro escuro com solado macio. Os animais parecem não notar sua presença. ' +
+      'Durante o dia, você não é encontrado. Ao entardecer e à noite, a escuridão os deixa mais ousados — os encontros são mais raros, mas ainda acontecem.',
+    price: 45,
+    sellPrice: 18,
+    rarity: 'uncommon',
+    stackable: false,
+    icon: 'shadowstep_boots',
+    stats: {},           // ← sem bônus. O efeito é condicional.
+    reqLevel: 2,
+    reqStats: {},
+    draw: null,
+    // Efeito especial — não é lido pelo motor genérico,
+    // mas o player.js checa o itemId equipado.
+    antiEncounter: {
+      dayMultiplier: 0,      // 0 = sem encontros de dia
+      duskMultiplier: 0.35,   // 35% da chance normal ao entardecer
+      nightMultiplier: 0.5,  // 50% da chance normal à noite
+    },
   },
 };
 

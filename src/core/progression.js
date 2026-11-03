@@ -11,7 +11,7 @@ export const STARTER_ITEMS = {
   huntress:  [{ id: 'potion_weak', qty: 1 }, { id: 'potion_mana', qty: 1 }],
 };
 
-const state = { milestones: {} };   // { 5: {level,str,...}, 10: {...} }
+const state = { milestones: {} };   // { fields: {level,str,...}, desert: {...} }
 
 // ---------- Capítulos ----------
 export function isChapterComplete(id) {
@@ -34,21 +34,24 @@ export function xpToNextFor(level) {       // mesma curva do checkLevelUp
   return x;
 }
 
-function snap(ps, level) {
-  return { level, str: ps.str, agi: ps.agi, int: ps.int, def: ps.def,
+function snap(ps) {
+  return { level: ps.level, str: ps.str, agi: ps.agi, int: ps.int, def: ps.def,
            vit: ps.vit, magia: ps.magia, _baseMp: ps._baseMp };
 }
 
-// Chamado todo frame em EXPLORE (sai cedo). Só captura com os pontos já gastos.
+// Chamado todo frame em EXPLORE. Só captura com os pontos já gastos,
+// então se a entrega da quest subir de nível, espera o jogador distribuir.
 export function captureMilestoneIfNeeded(ps) {
-  const L = ps.level;
-  if (ps.points > 0 || L < LEVEL_STEP || L % LEVEL_STEP !== 0) return;
-  if (state.milestones[L]) return;
-  state.milestones[L] = snap(ps, L);
+  if (ps.points > 0) return;
+  for (const id of getCompletedChapters()) {
+    if (!state.milestones[id]) state.milestones[id] = snap(ps);
+  }
 }
-export function forceMilestone(ps) {      // debug / saves antigos
-  const L = Math.floor(ps.level / LEVEL_STEP) * LEVEL_STEP;
-  if (L >= LEVEL_STEP) state.milestones[L] = snap(ps, L);
+
+// debug / saves antigos: força o snapshot do último capítulo completo
+export function forceMilestone(ps) {
+  const done = getCompletedChapters();
+  if (done.length) state.milestones[done[done.length - 1]] = snap(ps);
 }
 
 function findRestoreMilestone(level) {
@@ -59,11 +62,11 @@ function findRestoreMilestone(level) {
 }
 
 // ---------- Plano de morte ----------
-export function planDeath(level) {
+export function planDeath() {
   const chapters = getCompletedChapters();
   if (chapters.length === 0) return { type: 'reset', reason: 'chapter' };
-  const snapshot = findRestoreMilestone(level);
-  if (!snapshot) return { type: 'reset', reason: 'level' };   // chegou "cedo demais"
+  const snapshot = state.milestones[chapters[chapters.length - 1]];
+  if (!snapshot) return { type: 'reset', reason: 'snapshot' };
   return { type: 'checkpoint', chapters, snapshot };
 }
 

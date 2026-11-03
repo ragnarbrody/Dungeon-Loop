@@ -170,6 +170,14 @@ export function installInput() {
       return;
     }
 
+    // ---- Inventário aberto: ESC e I fecham ----
+    if (gameState === STATE.INVENTORY) {
+      if (k === 'escape' || k === 'i') {
+        toggleInventory();
+      }
+      return;  // bloqueia outras teclas
+    }
+
     // ---- Diálogo aberto: só ESC fecha ----
     if (isDialogueOpen()) {
       if (k === 'escape') {
@@ -376,6 +384,13 @@ export function installInput() {
           //  interactables.js, então não dá pra comparar por referência.
           //  Filtra pelo `id` único que o `rooms.js` setou: herb_1, herb_2, herb_3.)
           const herbId = it.id;
+
+          // Marca como coletada (persiste entre sessões)
+          if (playerStats._collectedHerbs) {
+            playerStats._collectedHerbs.add(herbId);
+          }
+
+          // Remove da sala em memória
           currentRoom.interactables = currentRoom.interactables.filter(
             x => !(x.kind === 'herb' && x.id === herbId)
           );

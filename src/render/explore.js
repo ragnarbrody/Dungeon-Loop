@@ -1511,6 +1511,7 @@ function drawHerbs(room) {
 
   for (const it of room.interactables) {
     if (it.kind !== 'herb') continue;
+    if (playerStats._collectedHerbs?.has(it.id)) continue; 
     const px = it.tx * TILE_SIZE;
     const py = it.ty * TILE_SIZE;
     const cx = px + TILE_SIZE / 2;

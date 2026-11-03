@@ -19,7 +19,7 @@ const SAVE_KEY = 'dungeonLoop_save';
 
 // Sempre que adicionar uma migraÃ§Ã£o, sobe esse nÃºmero e adiciona
 // uma entrada em MIGRATIONS.
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 // ---------- Helpers de validaÃ§Ã£o ----------
 function isObject(v) {
@@ -203,6 +203,28 @@ const MIGRATIONS = {
     }
     return data;
   },
+  // v7 -> v8: equip agora salva TODOS os slots (antes só as mãos).
+  7: (data) => {
+    if (!isObject(data.equip)) {
+      data.equip = {
+        rightHand: 'sword', leftHand: null,
+        helmet: null, armor: null, boots: null,
+        amulet: null, ring1: null, ring2: null,
+      };
+    } else {
+      data.equip = {
+        rightHand: data.equip.rightHand ?? null,
+        leftHand:  data.equip.leftHand  ?? null,
+        helmet:    data.equip.helmet    ?? null,
+        armor:     data.equip.armor     ?? null,
+        boots:     data.equip.boots     ?? null,
+        amulet:    data.equip.amulet    ?? null,
+        ring1:     data.equip.ring1     ?? null,
+        ring2:     data.equip.ring2     ?? null,
+      };
+    }
+    return data;
+  },
 };
 
 // ---------- Defaults ----------
@@ -241,7 +263,7 @@ export function getDefaultSave() {
 
     meta: {
       deaths: 0,
-      vault: { gold: 0, slots: 4, items: [null, null, null, null] },
+      vault: { gold: 0, slots: 3, items: [null, null, null, null] },
     },
     quests: {
         active: null,

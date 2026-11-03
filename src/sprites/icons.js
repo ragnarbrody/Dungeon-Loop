@@ -1180,6 +1180,32 @@ export const ICONS = {
     p(13, 6, 1, 4, rune);
   }),
 
+  shadowstep_boots: makeIcon((g) => {
+    const p = px(g);
+    const leather   = '#2a2a3a';   // couro escuro (diferencia das grevas)
+    const leatherHi = '#4a4a5e';
+    const leatherSh = '#12121a';
+    const sole      = '#1a1a22';
+    const soleHi    = '#3a3a44';
+    const accent    = '#6a4a8a';   // roxo sutil (ar de "sombra")
+
+    // Bota esquerda
+    p(4, 6, 5, 8, leather);
+    p(4, 6, 5, 1, leatherHi);
+    p(4, 13, 8, 2, sole);          // solado (bico pra frente)
+    p(4, 14, 8, 1, soleHi);
+    p(6, 8, 1, 3, accent);         // fivela/costura roxa
+    p(4, 9, 5, 1, leatherSh);      // sombra da dobra
+
+    // Bota direita (espelhada)
+    p(11, 6, 5, 8, leather);
+    p(11, 6, 5, 1, leatherHi);
+    p(8, 13, 8, 2, sole);
+    p(8, 14, 8, 1, soleHi);
+    p(13, 8, 1, 3, accent);
+    p(11, 9, 5, 1, leatherSh);
+  }),
+
   // ----- ITENS DE MISSÕES ------
   letter_to_elder: makeIcon((g) => {
     const p = px(g);

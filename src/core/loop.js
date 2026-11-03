@@ -130,8 +130,8 @@ function startGame(loadSave) {
 function resetMetaState() {
   metaState.deaths = 0;
   metaState.vault.gold = 0;
-  metaState.vault.slots = 4;
-  metaState.vault.items = [null, null, null, null];
+  metaState.vault.slots = 3;
+  metaState.vault.items = [null, null, null];
 }
 
 function requestNewGame() {
@@ -182,6 +182,7 @@ function requestNewGame() {
         portalCores: new Set(),
         _escortActive: false,
         _escortPos: null, 
+        _collectedHerbs: new Set(),
       });
 
       // ---- 2.5) Reseta equipamento COMPLETO (senÃ£o armaduras antigas persistem) ----
@@ -303,6 +304,7 @@ function restartRunKeepingVault() {
         portalCores: new Set(),
         _escortActive: false,
         _escortPos: null, 
+        _collectedHerbs: new Set(),
       });
 
       resetEquipment();
