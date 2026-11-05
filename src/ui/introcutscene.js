@@ -88,6 +88,205 @@ function crack(r, x0, y0, x1, y1, jit, prog, w) {
   }
 }
 
+// Árvore pequena (dá escala à torre)
+function smallTree(x, baseY, s) {
+  ctx.fillStyle = '#4a3320';
+  ctx.fillRect(x - 1.5 * s, baseY - 14 * s, 3 * s, 14 * s);
+  ctx.fillStyle = '#2f6b33';
+  ctx.beginPath();
+  ctx.arc(x, baseY - 22 * s, 9 * s, 0, Math.PI * 2);
+  ctx.arc(x - 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
+  ctx.arc(x + 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#4a9a48';
+  ctx.beginPath();
+  ctx.arc(x - 2 * s, baseY - 25 * s, 5 * s, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Segmento do corpo da torre entre yLo (baixo) e yHi (alto).
+// Largura vai de 18 (base) a 8 (topo) ao longo de 250px.
+function towerSeg(tx, by, yLo, yHi) {
+  const wAt = (y) => lerp(18, 8, (by - y) / 250);
+  const wl = wAt(yLo), wh = wAt(yHi);
+  ctx.fillStyle = '#ece5c9';
+  ctx.beginPath();
+  ctx.moveTo(tx - wl, yLo); ctx.lineTo(tx - wh, yHi);
+  ctx.lineTo(tx + wh, yHi); ctx.lineTo(tx + wl, yLo);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(120,110,80,0.35)';
+  ctx.beginPath();
+  ctx.moveTo(tx + wl * 0.1, yLo); ctx.lineTo(tx + wh * 0.35, yHi);
+  ctx.lineTo(tx + wh, yHi);       ctx.lineTo(tx + wl, yLo);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(150,140,100,0.5)';
+  for (let k = 1; k <= 5; k++) {
+    const y = by - k * 40;
+    if (y < yLo - 2 && y > yHi) {
+      const w = wAt(y);
+      ctx.fillRect(tx - w - 1, y, 2 * w + 2, 3);
+    }
+  }
+}
+
+// Borda quebrada (dentes). dir = -1: dentes para cima; +1: para baixo.
+function jagged(tx, y, w, dir) {
+  ctx.fillStyle = '#ece5c9';
+  ctx.beginPath();
+  ctx.moveTo(tx - w, y);
+  const n = 5;
+  for (let i = 0; i <= n; i++) {
+    const x = lerp(tx - w, tx + w, i / n);
+    ctx.lineTo(x, y + (i % 2 ? 0 : dir * 9) + (i % 3) * dir * 2);
+  }
+  ctx.lineTo(tx + w, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Ponta da torre: pináculo + cristal
+function towerCap(tx, ty, pulse) {
+  ctx.fillStyle = '#ece5c9';
+  ctx.beginPath();
+  ctx.moveTo(tx - 8, ty); ctx.lineTo(tx, ty - 26); ctx.lineTo(tx + 8, ty);
+  ctx.closePath();
+  ctx.fill();
+  const cg = ctx.createRadialGradient(tx, ty - 30, 0, tx, ty - 30, 34);
+  cg.addColorStop(0, `rgba(255,250,210,${0.95 * pulse})`);
+  cg.addColorStop(1, 'rgba(255,240,170,0)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(tx - 40, ty - 70, 80, 80);
+}
+
+// Mundo da torre (usado pelas cenas `tower` e `fracture`).
+//   zoom / shake : câmera
+//   crackK  0..1 : rachaduras no chão
+//   breakK  0..1 : topo da torre se partindo e caindo
+//   birds        : pássaros ao fundo (cena calma)
+function drawTowerWorld(t, o = {}) {
+  const W = CANVAS_W, H = CANVAS_H, hz = H * 0.62;
+  const { zoom = 1, shake = 0, crackK = 0, breakK = 0, birds = false } = o;
+
+  ctx.save();
+  camera(zoom, W / 2, hz - 80, shake, t);
+
+  // céu
+  const sky = ctx.createLinearGradient(0, 0, 0, hz);
+  sky.addColorStop(0, '#6fa9c4');
+  sky.addColorStop(0.7, '#d8e3a8');
+  sky.addColorStop(1, '#f6e7a8');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-80, -80, W + 160, hz + 82);
+
+  const sg = ctx.createRadialGradient(W / 2, hz - 120, 10, W / 2, hz - 120, 260);
+  sg.addColorStop(0, 'rgba(255,248,210,0.9)');
+  sg.addColorStop(1, 'rgba(255,248,210,0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(-80, -80, W + 160, H + 160);
+
+  // nuvens
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  for (let i = 0; i < 4; i++) {
+    const x = (((i * 190 + t * 6) % (W + 300)) + (W + 300)) % (W + 300) - 150;
+    ctx.beginPath();
+    ctx.ellipse(x, 100 + i * 38, 70, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // pássaros
+  if (birds) {
+    ctx.strokeStyle = 'rgba(40,50,40,0.7)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const bx = ((t * 22 + i * 140) % (W + 120)) - 60;
+      const by0 = 110 + i * 22 + Math.sin(t * 1.3 + i) * 4;
+      const wing = Math.sin(t * 9 + i * 2) * 4;
+      ctx.beginPath();
+      ctx.moveTo(bx - 6, by0 + wing); ctx.lineTo(bx, by0); ctx.lineTo(bx + 6, by0 + wing);
+      ctx.stroke();
+    }
+  }
+
+  // colinas distantes
+  ridge(hz - 2, 5, 0.017, 1, '#7fae6a');
+  ridge(hz + 8, 6, 0.012, 3, '#5f9a4c');
+
+  // ---- a torre ----
+  const tx = W / 2, by = hz + 6, ty = hz - 250;
+  const pulse = crackK > 0
+    ? 0.55 + 0.45 * Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3))   // cristal instável
+    : 0.7 + 0.3 * Math.sin(t * 2);
+
+  if (breakK <= 0) {
+    towerSeg(tx, by, by, ty);
+    towerCap(tx, ty, pulse);
+  } else {
+    const cut = ty + 90;                       // altura da quebra
+    towerSeg(tx, by, by, cut);
+    jagged(tx, cut, lerp(18, 8, (by - cut) / 250), -1);
+
+    // brilho na ferida
+    const wg = ctx.createRadialGradient(tx, cut, 0, tx, cut, 60);
+    wg.addColorStop(0, `rgba(255,235,170,${0.55 * Math.min(1, breakK * 3)})`);
+    wg.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = wg;
+    ctx.fillRect(tx - 70, cut - 70, 140, 140);
+
+    // o topo, caindo (acelera e gira)
+    ctx.save();
+    ctx.translate(tx + breakK * 46, cut + breakK * breakK * 420);
+    ctx.rotate(breakK * 1.1);
+    ctx.translate(-tx, -cut);
+    towerSeg(tx, by, cut, ty);
+    jagged(tx, cut, lerp(18, 8, (by - cut) / 250), 1);
+    towerCap(tx, ty, pulse);
+    ctx.restore();
+
+    // poeira
+    for (let i = 0; i < 7; i++) {
+      const px = tx + (i - 3) * 12 * (0.5 + breakK);
+      const py = cut - breakK * 40 * (0.6 + i * 0.1);
+      ctx.fillStyle = `rgba(225,215,185,${0.35 * (1 - breakK * 0.6)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 8 + breakK * 22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ---- árvores junto à base (escala) ----
+  const TREES = [
+    [-190, 20, 1.8], [-150, 14, 1.5], [-118, 10, 1.1], [-84, 8, 0.9], [-52, 6, 0.7],
+    [56, 6, 0.7], [88, 9, 1.0], [122, 12, 1.3], [160, 16, 1.6], [196, 22, 1.8],
+  ];
+  TREES.forEach(([dx, dy, s], i) => {
+    const sway = Math.sin(t * 0.8 + i) * 0.8 * s;
+    smallTree(tx + dx + sway, hz + 10 + dy, s);
+  });
+
+  // colinas próximas (ancoram torre e árvores)
+  ridge(hz + 28, 8, 0.02, 1, '#4d8a3c');
+  ridge(hz + 70, 14, 0.011, 2, '#3f7a34');
+  ridge(hz + 140, 22, 0.008, 4, '#336a2c');
+
+  // rachaduras no chão
+  if (crackK > 0) {
+    const r = rng(5);
+    for (let i = 0; i < 7; i++) {
+      const ang = lerp(-1, 1, i / 6);
+      crack(r, W / 2, hz + 10, W / 2 + ang * W * 0.7, H + 20, 10, crackK, 3);
+    }
+    const gg = ctx.createRadialGradient(W / 2, hz + 10, 0, W / 2, hz + 10, 90 * crackK);
+    gg.addColorStop(0, `rgba(255,240,190,${0.8 * crackK})`);
+    gg.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = gg;
+    ctx.fillRect(W / 2 - 100, hz - 80, 200, 180);
+  }
+
+  ctx.restore();
+}
+
 // ------------------------------------------------------------
 // CENAS
 // ------------------------------------------------------------
@@ -117,106 +316,57 @@ const SCENES = {
     },
   },
 
-  // ---------- 1. Antes: o continente e a torre ----------
+  // ---------- 1a. Antes: o continente e a torre (calma) ----------
   tower: {
     duration: SCENE_DUR,
-    text: 'Antes, havia um só continente verde e uma torre no centro, ligando a base ao topo. Então veio a Fratura. Ninguém sabe dizer por quê.',
+    text: 'Antes, havia um só continente verde e uma torre no centro, ligando a base ao topo.',
     draw(t) {
-      const W = CANVAS_W, H = CANVAS_H, hz = H * 0.62;
-      const z = 1 + ease(t / SCENE_DUR) * 0.12;
+      drawTowerWorld(t, {
+        zoom: 1 + ease(t / SCENE_DUR) * 0.12,
+        birds: true,
+      });
+      motes(t, 14, '255,250,200', { seed: 2, size: 2, rise: -6, sway: 14, y0: 80, y1: CANVAS_H * 0.62 });
+      vignette(0.5);
+    },
+  },
 
-      ctx.save();
-      camera(z, W / 2, hz - 80, 0, t);
+  // ---------- 1b. A Fratura: tremor, rachaduras, topo da torre cai ----------
+  fracture: {
+    duration: SCENE_DUR,
+    text: 'Então veio a Fratura. Ninguém sabe dizer por quê.',
+    draw(t) {
+      const W = CANVAS_W, H = CANVAS_H;
+      // continua o zoom em que a cena anterior terminou (1.12)
+      const zoom = 1.12 + ease(t / SCENE_DUR) * 0.04;
+      // tremor cresce, estoura na queda e acalma no fim
+      const shake = ease(t / 3.5) * 3.4 * (1 - 0.5 * ease((t - 7.5) / 2));
+      const crackK = ease((t - 1.2) / 3.2);
+      const breakK = clamp01((t - 4) / 4);
 
-      // céu
-      const sky = ctx.createLinearGradient(0, 0, 0, hz);
-      sky.addColorStop(0, '#6fa9c4');
-      sky.addColorStop(0.7, '#d8e3a8');
-      sky.addColorStop(1, '#f6e7a8');
-      ctx.fillStyle = sky;
-      ctx.fillRect(-60, -60, W + 120, hz + 62);
+      drawTowerWorld(t, { zoom, shake, crackK, breakK });
 
-      const sg = ctx.createRadialGradient(W / 2, hz - 120, 10, W / 2, hz - 120, 260);
-      sg.addColorStop(0, 'rgba(255,248,210,0.9)');
-      sg.addColorStop(1, 'rgba(255,248,210,0)');
-      ctx.fillStyle = sg;
-      ctx.fillRect(-60, -60, W + 120, H + 120);
-
-      // nuvens
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      for (let i = 0; i < 4; i++) {
-        const x = (((i * 190 + t * 6) % (W + 300)) + (W + 300)) % (W + 300) - 150;
-        ctx.beginPath();
-        ctx.ellipse(x, 100 + i * 38, 70, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
+      // céu esquentando
+      const tint = ease((t - 4) / 4) * 0.16;
+      if (tint > 0) {
+        ctx.fillStyle = `rgba(255,110,50,${tint})`;
+        ctx.fillRect(0, 0, W, H);
       }
 
-      // colinas distantes
-      ridge(hz - 2, 5, 0.017, 1, '#7fae6a');
-      ridge(hz + 8, 6, 0.012, 3, '#5f9a4c');
+      motes(t, 22, '255,235,170', { seed: 3, size: 2, rise: -22, sway: 20, y0: 80, y1: H * 0.7, alpha: ease((t - 3) / 2) });
 
-      // a torre
-      const tx = W / 2, by = hz + 6, ty = hz - 250;
-      ctx.fillStyle = '#ece5c9';
-      ctx.beginPath();
-      ctx.moveTo(tx - 18, by); ctx.lineTo(tx - 8, ty);
-      ctx.lineTo(tx + 8, ty);  ctx.lineTo(tx + 18, by);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = 'rgba(120,110,80,0.35)';
-      ctx.beginPath();
-      ctx.moveTo(tx + 2, by); ctx.lineTo(tx + 3, ty);
-      ctx.lineTo(tx + 8, ty); ctx.lineTo(tx + 18, by);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = 'rgba(150,140,100,0.5)';
-      for (let k = 1; k <= 5; k++) {
-        const y = by - k * 40;
-        const w = lerp(18, 8, (k * 40) / 250);
-        ctx.fillRect(tx - w - 1, y, 2 * w + 2, 3);
+      // clarão curto no instante da quebra
+      const f1 = ease((t - 3.9) / 0.15) * (1 - ease((t - 4.1) / 0.4));
+      if (f1 > 0) {
+        ctx.fillStyle = `rgba(255,245,210,${f1 * 0.6})`;
+        ctx.fillRect(0, 0, W, H);
       }
-      ctx.fillStyle = '#ece5c9';
-      ctx.beginPath();
-      ctx.moveTo(tx - 8, ty); ctx.lineTo(tx, ty - 26); ctx.lineTo(tx + 8, ty);
-      ctx.closePath();
-      ctx.fill();
-      const pulse = 0.7 + 0.3 * Math.sin(t * 2);
-      const cg = ctx.createRadialGradient(tx, ty - 30, 0, tx, ty - 30, 34);
-      cg.addColorStop(0, `rgba(255,250,210,${0.95 * pulse})`);
-      cg.addColorStop(1, 'rgba(255,240,170,0)');
-      ctx.fillStyle = cg;
-      ctx.fillRect(tx - 40, ty - 70, 80, 80);
-
-      // colinas próximas (ancoram a torre)
-      ridge(hz + 28, 8, 0.02, 1, '#4d8a3c');
-      ridge(hz + 70, 14, 0.011, 2, '#3f7a34');
-      ridge(hz + 140, 22, 0.008, 4, '#336a2c');
-
-      // rachaduras (a Fratura começa)
-      const k = ease((t - 5.2) / 3.8);
-      if (k > 0) {
-        const r = rng(5);
-        for (let i = 0; i < 7; i++) {
-          const ang = lerp(-1, 1, i / 6);
-          crack(r, W / 2, hz + 10, W / 2 + ang * W * 0.7, H + 20, 10, k, 3);
-        }
-        const gg = ctx.createRadialGradient(W / 2, hz + 10, 0, W / 2, hz + 10, 90 * k);
-        gg.addColorStop(0, `rgba(255,240,190,${0.8 * k})`);
-        gg.addColorStop(1, 'rgba(255,200,100,0)');
-        ctx.fillStyle = gg;
-        ctx.fillRect(W / 2 - 100, hz - 80, 200, 180);
-      }
-      ctx.restore();
-
-      motes(t, 14, '255,250,200', { seed: 2, size: 2, rise: -6, sway: 14, y0: 80, y1: hz });
-
-      // clarão final
+      // clarão final (passagem para a cena dos anéis)
       const fl = ease((t - 8.6) / 0.5) * (1 - ease((t - 9.3) / 0.6));
       if (fl > 0) {
         ctx.fillStyle = `rgba(255,240,190,${fl * 0.8})`;
         ctx.fillRect(0, 0, W, H);
       }
-      vignette(0.5);
+      vignette(0.55);
     },
   },
 
@@ -488,7 +638,7 @@ const SCENES = {
   // ---------- 5. A promessa ----------
   portal: {
     duration: SCENE_DUR,
-    text: 'Oito Núcleos, oito Guardiões. Reacenda o Portal antes que o anel externo desabe. O Andarilho é você.',
+    text: 'Oito Núcleos, oito Guardiões. Reacenda o Portal antes que o anel externo desabe.',
     draw(t) {
       const W = CANVAS_W, H = CANVAS_H;
       const cx = W / 2, cy = (52 + (H - 96)) / 2 - 10;
@@ -561,7 +711,7 @@ const SCENES = {
 };
 
 // Ordem de exibição
-const INTRO_ORDER = ['title', 'tower', 'rings', 'aethel', 'wanderer', 'portal'];
+const INTRO_ORDER = ['title', 'tower', 'fracture', 'rings', 'aethel', 'wanderer', 'portal'];
 
 // ------------------------------------------------------------
 // Controle (mesmo formato de `cs` que o drawCutscene espera)
