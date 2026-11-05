@@ -49,6 +49,7 @@ export const STATE = {
   GAME_OVER: 'game_over',
   WORLDMAP: 'worldmap',
   QUEST_LOG: 'quest_log',
+  INTRO: 'intro',
 };
 
 export let gameState = STATE.MENU;

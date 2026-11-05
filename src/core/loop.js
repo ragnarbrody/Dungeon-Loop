@@ -24,7 +24,7 @@ import { playerEquip, resetEquipment } from '../sprites/equipment.js';
 import { resolveDeath, showDeathSummary } from './death.js';
 import { STARTER_ITEMS, captureMilestoneIfNeeded, resetProgression } from './progression.js';
 import { resetVaultGreetingCache, resetShopGreetings } from '../ui/shopgreetings.js';
-
+import { startIntroCutscene, updateIntroCutscene } from '../ui/introcutscene.js';
 
 let lastDeath = null;
 let lastTime = performance.now();
@@ -225,7 +225,12 @@ function requestNewGame() {
 
       // ---- 7) Grava jÃ¡ de cara ----
       saveGame();
-      finishStart();
+      // Só o Novo Jogo puro passa por aqui. Continuar e
+      // restartRunKeepingVault NÃO chamam a intro.
+      menuScreen.classList.add('hidden');
+      document.getElementById('class-screen').classList.add('hidden');
+      document.getElementById('gameover-screen').classList.add('hidden');
+      startIntroCutscene(() => finishStart());
     },
     () => {
       // ---- Cancelou: se havia save, restaura. ----
@@ -438,6 +443,8 @@ export function loop(now) {
       document.getElementById('gameover-screen').classList.remove('hidden');
       setMusicMode('menu');
     }
+  } else if (gameState === STATE.INTRO) {
+    updateIntroCutscene(dt);
   } else if (gameState === STATE.EXPLORE) {
     tickTime(dt);
     captureMilestoneIfNeeded(playerStats);
@@ -453,7 +460,7 @@ export function loop(now) {
 
   render(dt);
 
-  if (gameState !== STATE.MENU && gameState !== STATE.GAME_OVER) {
+  if (gameState !== STATE.MENU && gameState !== STATE.GAME_OVER && gameState !== STATE.INTRO) {
     updateHud();
   }
 

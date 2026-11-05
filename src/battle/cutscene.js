@@ -6,12 +6,12 @@
 
 import { ctx, CANVAS_W, CANVAS_H } from '../core/canvas.js';
 
-const SCENE_DUR = 10;
+export const SCENE_DUR = 10;
 const FADE = 0.8;
 const TYPE_START = 1.0;
 const TYPE_CPS = 30;
 
-function rng(seed) {
+export function rng(seed) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6D2B79F5) >>> 0;
@@ -21,11 +21,11 @@ function rng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const clamp01 = v => Math.max(0, Math.min(1, v));
-const ease = v => { v = clamp01(v); return v * v * (3 - 2 * v); };
-const lerp = (a, b, k) => a + (b - a) * k;
+export const clamp01 = v => Math.max(0, Math.min(1, v));
+export const ease = v => { v = clamp01(v); return v * v * (3 - 2 * v); };
+export const lerp = (a, b, k) => a + (b - a) * k;
 
-function vignette(strength = 0.7) {
+export function vignette(strength = 0.7) {
   const vig = ctx.createRadialGradient(
     CANVAS_W / 2, CANVAS_H / 2, CANVAS_H * 0.3,
     CANVAS_W / 2, CANVAS_H / 2, CANVAS_H * 0.95
@@ -36,7 +36,7 @@ function vignette(strength = 0.7) {
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 }
 
-function camera(zoom, ax, ay, shake = 0, t = 0) {
+export function camera(zoom, ax, ay, shake = 0, t = 0) {
   ctx.translate(ax, ay);
   ctx.scale(zoom, zoom);
   ctx.translate(-ax, -ay);
@@ -48,7 +48,7 @@ function camera(zoom, ax, ay, shake = 0, t = 0) {
   }
 }
 
-function fog(t, y, h, rgb, alpha, speed = 10, n = 6) {
+export function fog(t, y, h, rgb, alpha, speed = 10, n = 6) {
   const span = CANVAS_W + 300;
   for (let i = 0; i < n; i++) {
     const x = (((i * span / n + t * speed) % span) + span) % span - 150;
@@ -67,7 +67,7 @@ function fog(t, y, h, rgb, alpha, speed = 10, n = 6) {
   }
 }
 
-function motes(t, count, rgb, o = {}) {
+export function motes(t, count, rgb, o = {}) {
   const { seed = 1, size = 2, rise = -8, sway = 14, y0 = 0, y1 = CANVAS_H, alpha = 1 } = o;
   const r = rng(seed);
   const span = y1 - y0;
@@ -476,7 +476,7 @@ function risingRoots(t, count, color, grow, thick = 7, lash = 1) {
   ctx.restore();
 }
 
-function drawWanderer(x, y, s, color) {
+export function drawWanderer(x, y, s, color) {
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(x - 5 * s, y - 24 * s);

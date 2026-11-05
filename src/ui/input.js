@@ -27,6 +27,7 @@ import { talkToCagedVillager } from './villagerrescue.js';
 import { addMarker, revealMarker, getMarker } from '../world/knowledge.js';
 import { openVault, closeVault, isVaultOpen } from './vault.js';
 import { skipCutsceneScene } from '../battle/cutscene.js';
+import { skipIntroScene, skipIntroAll } from './introcutscene.js';
 
 const CHEST_GOLD_MIN = 30;
 const CHEST_GOLD_MAX = 70;
@@ -126,6 +127,12 @@ export function installInput() {
     const k = e.key.toLowerCase();
 
     keys[k] = true;
+
+    if (gameState === STATE.INTRO) {
+      if (k === ' ' || k === 'enter' || k === 'spacebar') { e.preventDefault(); skipIntroScene(); }
+      else if (k === 'escape') { e.preventDefault(); skipIntroAll(); }
+      return;
+    }
 
     // ---- Cutscene de boss: Espaço / Enter / Esc pulam o slide atual ----
     if (gameState === STATE.BATTLE && battle.cutscene) {
@@ -459,6 +466,7 @@ export function installInput() {
 
   // Hover ⓘ
   canvas.addEventListener('mousemove', e => {
+    if (gameState === STATE.INTRO) { canvas.style.cursor = 'pointer'; return; }
     if (gameState !== STATE.BATTLE) { if (canvas.style.cursor) canvas.style.cursor = ''; return; }
     if (battle.cutscene) { canvas.style.cursor = 'pointer'; return; }
     const { mx, my } = clientToCanvas(e);
@@ -472,6 +480,7 @@ export function installInput() {
 
   // Clique em batalha
   canvas.addEventListener('click', e => {
+    if (gameState === STATE.INTRO) { skipIntroScene(); return; }
     if (gameState !== STATE.BATTLE) return;
 
     // ---- Cutscene ativa: clique pula slide ----
