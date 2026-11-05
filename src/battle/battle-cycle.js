@@ -114,6 +114,11 @@ export function startBattle(opts = {}) {
   } else {
     battle.message = `${battle.enemies.length} ${firstEnemy.name}s selvagens apareceram!`;
   }
+
+  // música de batalha normal
+  if (!isBossFight) {
+    try { setMusicMode('battle'); } catch (e) { /* sem áudio ainda */ }
+  }
   if (typeof encounter !== 'undefined' && encounter) encounter.walkedSinceLast = 0;
   hud.style.display = 'none';
 }
