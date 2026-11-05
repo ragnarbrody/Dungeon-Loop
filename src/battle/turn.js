@@ -11,6 +11,8 @@ import {
   flashPlayer, spawnFloatingTextAt, isAnyAlive,
 } from './battle-helpers.js';
 import { classAtk } from './skills.js';
+import { ENEMIES } from './enemies-data.js';
+import { getScaledEnemy } from './enemy-spawn.js';
 
 // ---- Regen de MP ----
 function tickMpRegen() {
@@ -69,7 +71,21 @@ function tickBuffs() {
 }
 
 // ---- Fim do turno do jogador ----
-export function endPlayerTurn() {
+export function endPlayerTurn(skipStunCheck = false) {
+  // ---- Stun do jogador: se estiver enraizado, pula o turno ----
+  // (mas 'rest' passa skipStunCheck=true — descansar é permitido enraizado)
+  if (!skipStunCheck && playerStats.stunned > 0) {
+    playerStats.stunned--;
+    battle.message = 'Você está enraizado e não consegue agir!';
+    battle.turn = 'resolve';
+    battle.turnTimer = 0.9;
+    battle.enemyTurnIndex = 0;
+    battle.activeEnemyIndex = -1;
+    battle.menuMode = 'main';
+    battle.skillPage = 0;
+    battle.itemPage = 0;
+    return;
+  }
   tickMpRegen();
   tickStatusEffects();
   battle.turn = 'resolve';
@@ -126,6 +142,91 @@ export function enemyTurn() {
 
   const e = battle.enemies[battle.enemyTurnIndex];
   battle.activeEnemyIndex = battle.enemyTurnIndex;
+
+  // ---- Boss: fase 2 + invocação + cura por turno ----
+  if (e.isBoss) {
+    // Fase 2: quando o HP cai abaixo do threshold
+    if (e.phase2 && !e._phase2Active && e.hp < e.maxHp * e.phase2.hpThreshold) {
+      e._phase2Active = true;
+      e.def = e.phase2.def;
+      e.atk = e.phase2.atk;
+      battle.message = `A ${e.name} se abre! As raízes ficam vermelhas, e um coração dourado pulsa no centro da copa.`;
+      sfx('hurt');
+    }
+
+    // Cura por turno (só na fase 2)
+    if (e._phase2Active && e.phase2.healPerTurn) {
+      const heal = Math.min(e.phase2.healPerTurn, e.maxHp - e.hp);
+      if (heal > 0) {
+        e.hp += heal;
+        spawnFloatingTextAt(CANVAS_W * 0.72, CANVAS_H * 0.30 - 40, `+${heal}`, '#6fbd63');
+      }
+    }
+
+    // Invocação: a cada `everyTurns` turnos do boss
+    if (e.summons) {
+      // Escolhe a config conforme a fase (phase1/phase2 vêm do enemies-data)
+      const cfg = e._phase2Active ? e.summons.phase2 : e.summons.phase1;
+      if (!cfg) return;   // segurança: se a config não existir, não invoca
+
+      e._summonCounter = (e._summonCounter || 0) + 1;
+      if (e._summonCounter >= (cfg.everyTurns ?? 3)) {
+        e._summonCounter = 0;
+
+        const maxAlive = e.summons.maxAlive ?? 2;
+
+        // Conta só os summons do boss que ainda estão vivos
+        const aliveSummons = battle.enemies.filter(
+          x => x !== e && x.hp > 0 && x._summonedByBoss === true
+        ).length;
+
+        const slots = Math.max(0, maxAlive - aliveSummons);
+        const toSpawn = Math.min(cfg.qty, slots);
+
+        if (toSpawn > 0) {
+          const template = ENEMIES[cfg.id];
+          if (template) {
+            for (let i = 0; i < toSpawn; i++) {
+              const scaled = getScaledEnemy(template, playerStats.level);
+              battle.enemies.push({
+                ...scaled,
+                id: cfg.id,
+                name: template.name,
+                _summonedByBoss: true,
+              });
+            }
+            const nome = template.name.toLowerCase();
+            battle.message += ` ${e.name} invoca ${toSpawn} ${nome}${toSpawn > 1 ? 's' : ''}!`;
+            sfx('hit');
+          }
+        }
+      }
+    }
+
+    // ---- Habilidade de stun do boss ("Gravinas") ----
+    // Dispara antes do ataque normal. Se acertar, o jogador perde o
+    // próximo turno (playerStats.stunned = 1) e o boss NÃO ataca nesse turno
+    // (a ação dele foi "lançar gravinas").
+    if (e.rootAbility && !e._rootedThisTurn) {
+      e._bossTurnCount = (e._bossTurnCount || 0) + 1;
+      if (
+        e._bossTurnCount >= e.rootAbility.minTurn &&
+        Math.random() < e.rootAbility.chance
+      ) {
+        e._rootedThisTurn = true;
+        playerStats.stunned = 1;   // será decrementado no início do turno do jogador
+        battle.message = typeof e.rootAbility.message === 'function'
+          ? e.rootAbility.message(e.name)
+          : `${e.name} lança Gravinas! Você perde o próximo turno!`;
+        flashPlayer('white', 0.4);
+        spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.72, 'ENRAIZADO', '#6fbd63');
+        sfx('hit');
+        battle.enemyTurnIndex++;
+        battle.turnTimer = 0.8;
+        return;   // consome o turno do boss
+      }
+    }
+  }
 
   if (e.hideCooldown > 0) e.hideCooldown--;
   tickScarabBuff(e);

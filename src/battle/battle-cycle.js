@@ -21,6 +21,10 @@ import { buildEnemyGroup } from './enemy-spawn.js';
 import { isAnyAlive } from './battle-helpers.js';
 import { enemyTurn } from './turn.js';
 import { classAtk } from './skills.js';
+import { addItemToInventory } from '../items.js';
+import { showChapterItemToast } from '../ui/toast.js';
+import { buildCutscene } from './cutscene.js';
+import { roomCache } from '../world/rooms.js';
 
 const FADE_DURATION = 1.8;
 
@@ -57,11 +61,13 @@ export function startBattle(opts = {}) {
   battle.goldEarned = 0;
   battle.dropEarned = [];
   battle._shadowDodged = 0;
+  battle._bossP2Music = false;
 
   playerStats.buffs = {};
   playerStats._mpRegenAcc = 0;
   playerStats.poisoned = null;
   playerStats.bleeding = null;
+  playerStats.stunned = 0;
 
   let chosenId;
   let pool = null;
@@ -85,12 +91,31 @@ export function startBattle(opts = {}) {
   battle.player.atk = classAtk();
   battle.player.def = playerStats.def + (weaponBonus(playerEquip).def || 0);
 
-  battle.message = battle.enemies.length === 1
-    ? `Um ${battle.enemies[0].name} selvagem apareceu!`
-    : `${battle.enemies.length} ${battle.enemies[0].name}s selvagens apareceram!`;
+  // ---- Música: boss vs normal ----
+  const firstEnemy = battle.enemies[0];
+  const isBossFight = firstEnemy?.isBoss === true;
+  const musicMode = isBossFight ? 'boss' : 'battle';
+
+  // ---- Mensagem de aparição / cutscene ----
+  if (firstEnemy?.isBoss) {
+    try { setMusicMode('cutscene'); } catch { /* fallback silencioso */ }
+    battle.cutscene = buildCutscene(
+      ['title', 'approach', 'clearing', 'mother_tree', 'awakening', 'confrontation'],
+      () => {
+        battle.message = firstEnemy.introText || `${firstEnemy.name} desperta!`;
+        // Quando a cutscene termina, entra a música de boss
+        try { setMusicMode('boss'); } catch { setMusicMode('battle'); }
+      }
+    );
+  } else if (firstEnemy?.introText) {
+    battle.message = firstEnemy.introText;
+  } else if (battle.enemies.length === 1) {
+    battle.message = `Um ${firstEnemy.name} selvagem apareceu!`;
+  } else {
+    battle.message = `${battle.enemies.length} ${firstEnemy.name}s selvagens apareceram!`;
+  }
   if (typeof encounter !== 'undefined' && encounter) encounter.walkedSinceLast = 0;
   hud.style.display = 'none';
-  setMusicMode('battle');
 }
 
 // ---- Fim de batalha (vitória, fuga ou derrota) ----
@@ -127,6 +152,7 @@ export function endBattle(escaped) {
   battle.dropEarned = [];
   battle._shadowDodged = 0;
   battle._escortActive = false;
+  battle._bossP2Music = false;
 
   if (typeof encounter !== 'undefined' && encounter) {
     encounter.cooldownPx = escaped ? 600 : 800;
@@ -137,6 +163,18 @@ export function endBattle(escaped) {
   playerStats._mpRegenAcc = 0;
   playerStats.poisoned = null;
   playerStats.bleeding = null;
+  playerStats.stunned = 0;
+
+  // ---- Se um boss de arena foi derrotado, invalida a arena do cache ----
+  // (o `createGuardianArena` já vai recriar sem boss, graças à flag
+  //  playerStats.guardianFieldsDefeated)
+  if (!escaped && playerStats.guardianFieldsDefeated) {
+    try {
+      const { roomCache } = require_rooms_cache();  // ver abaixo
+      roomCache.delete('6,8');
+    } catch (_) { /* opcional */ }
+  }
+
   saveGame();
   updateHud();
 
@@ -180,6 +218,34 @@ export function clearDeadEnemies() {
     if (battle.mapEnemy && battle.mapEnemy.questGoblin) {
       markBannerQuestViolent();
     }
+    // ---- Drop do núcleo (boss) ----
+    if (e.isBoss && e.id === 'guardian_fields') {
+      // ---- Marca o boss como derrotado no estado global (persiste no save) ----
+      playerStats.guardianFieldsDefeated = true;
+      dropPortalCore('fields');
+
+      // ---- Núcleo vai DIRETO pro inventário (item de fechamento de capítulo) ----
+      const added = addItemToInventory(playerStats.inventory, 'core_fields', 1);
+      if (added > 0) {
+        showChapterItemToast({
+          itemId: 'core_fields',
+          title: 'Núcleo dos Campos',
+          subtitle: 'Item de capítulo',
+        });
+      }
+
+      // Drop do item de lore (semente) — também direto, com toast próprio
+      if (e.loreDrop) {
+        const seedAdded = addItemToInventory(playerStats.inventory, e.loreDrop, 1);
+        if (seedAdded > 0) {
+          showChapterItemToast({
+            itemId: e.loreDrop,
+            title: 'Semente dos Campos',
+            subtitle: 'Item de capítulo',
+          });
+        }
+      }
+    }
     battle.fadingEnemies.push({
       ref: e,
       timer: FADE_DURATION,
@@ -207,6 +273,25 @@ export function clearDeadEnemies() {
 
 // ---- Update por frame ----
 export function updateBattle(dt) {
+  // ---- Cutscene de entrada (boss) ----
+  // Bloqueia timers de animação/floating text, mas NÃO altera turno.
+  if (battle.cutscene) {
+    const cs = battle.cutscene;
+    cs.timer -= dt;
+    cs.totalElapsed += dt;
+    if (cs.timer <= 0) {
+      cs.index++;
+      if (cs.index >= cs.lines.length) {
+        battle.cutscene = null;
+        if (typeof cs.onEnd === 'function') cs.onEnd();
+      } else {
+        // Próxima cena: usa a duração própria dela
+        cs.timer = cs.lines[cs.index].duration ?? 2.0;
+      }
+    }
+    return;
+  }
+
   // Timers de animação
   battle.anim.shake       = Math.max(0, battle.anim.shake       - dt);
   battle.anim.flashPlayer = Math.max(0, battle.anim.flashPlayer - dt);
@@ -237,6 +322,19 @@ export function updateBattle(dt) {
   }
 
   clearDeadEnemies();
+
+  // ---- Fase 2 do boss: troca pro tema 'boss2' (uma vez só) ----
+  if (!battle._bossP2Music) {
+    const bossE = battle.enemies.find(e => e.isBoss && e.hp > 0);
+    if (bossE && bossE._phase2Active) {
+      // espera 0.4s depois do flag pra trocar (dá tempo do "se abre" respirar)
+      battle._bossP2Pending = (battle._bossP2Pending ?? 0) + dt;
+      if (battle._bossP2Pending >= 0.4) {
+        battle._bossP2Music = true;
+        try { setMusicMode('boss2'); } catch {}
+      }
+    }
+  }
 
   // Vitória
   if (!isAnyAlive()) {

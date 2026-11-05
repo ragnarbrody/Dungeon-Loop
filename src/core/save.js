@@ -260,7 +260,9 @@ export function getDefaultSave() {
     portalCores: [],
     dungeons: {},
     openedChests: [],
-
+    
+    // flags de mundo
+    guardianFieldsDefeated: false,
     meta: {
       deaths: 0,
       vault: { gold: 0, slots: 3, items: [null, null, null, null] },
@@ -332,6 +334,11 @@ export function loadSave() {
   // Se nÃ£o tinha version, Ã© o "v1 original"
   if (data.version === undefined) {
     data.version = 1;
+  }
+
+  // Default defensivo pra saves antigos
+  if (typeof data.guardianFieldsDefeated !== 'boolean') {
+    data.guardianFieldsDefeated = false;
   }
 
   return applyMigrations(data);

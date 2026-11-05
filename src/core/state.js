@@ -114,11 +114,13 @@ export const playerStats = {
   shadowActive: false,
   poisoned: null,
   bleeding: null,
+  stunned: 0,
   gold: savedData.gold ?? 0,
   _escortActive: false,
   _escortPos: null,
   _collectedHerbs: new Set(savedData._collectedHerbs ?? []),
   portalCores: new Set(savedData.portalCores ?? []),
+  guardianFieldsDefeated: !!savedData.guardianFieldsDefeated,
 };
 
 normalizeInventory(playerStats.inventory);
@@ -176,6 +178,9 @@ export function buildSaveData() {
     py: player.y,
     visited: Array.from(visitedRooms),
     worldSeed: worldSeed,
+
+    // flags de mundo
+    guardianFieldsDefeated: !!playerStats.guardianFieldsDefeated,
 
     // escolta (companion)
     _escortActive: playerStats._escortActive || false,
@@ -268,6 +273,7 @@ export const battle = {
   itemPage: 0,
   xpEarned: 0,
   goldEarned: 0,
+  cutscene: null,   // { lines: [...], index, timer, perLine, onEnd }
   dropEarned: [],
   fadingEnemies: [],
   tooltipSkill: null,

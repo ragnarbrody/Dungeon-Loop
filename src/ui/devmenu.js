@@ -102,6 +102,11 @@ function ensureContainer() {
             background:#2a6b2a; color:#fff; border:none; padding:8px 14px;
             border-radius:4px; cursor:pointer; font-family:inherit; font-weight:bold;
           ">🌿 Pular pra escolta da Herbalista</button>
+          <button data-action="jump-latest" style="
+            background:#4a2a1e; color:#feca57; border:2px solid #feca57;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">⏭️ Avançar até a última missão</button>
         </div>
       </div>
 
@@ -312,43 +317,83 @@ function refresh() {
     }
   }
 
-  // Lista de itens (todos que dão pra adicionar)
+  // Lista de itens agrupada por categoria
   const itemList = container.querySelector('#dev-item-list');
   if (itemList) {
     itemList.innerHTML = '';
-    const interestingIds = [
-      'torch', 'potion_weak', 'potion_medium', 'potion_strong',
-      'potion_mana', 'potion_mana_medium', 'potion_mana_strong',
-      'herb_herbalist',
-      'rat_tail', 'goblin_tooth', 'slime_gel', 'scorpion_pincer',
-      'vulture_egg', 'letter_to_elder', 'iron_shield', 'shield','runic_shield',
-      'bow', 'ranger_bow', 'staff', 'arcane_staff', 'dagger', 'shadow_dagger',
-      'axe', 'war_axe', 'sword', 'steel_sword', 'leather_helmet', 'leather_armor', 'leather_boots',
-      'iron_helmet', 'iron_armor', 'iron_boots', 'runic_helmet', 'runic_armor', 'runic_boots',
-    ];
-    for (const id of interestingIds) {
-      const info = ITEMS_DB[id];
-      if (!info) continue;
-      const btn = document.createElement('button');
-      btn.dataset.action = `item:${id}`;
-      btn.textContent = `+1 ${info.name}`;
-      btn.style.cssText = `
-        background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
-        padding:6px 10px; border-radius:4px; cursor:pointer;
-        font-family:inherit; font-size:11px;
+
+    // Agrupa ITEMS_DB por categoria
+    const groups = {
+      consumable: { label: '🧪 Consumíveis', items: [] },
+      weapon:     { label: '⚔️ Armas',       items: [] },
+      shield:     { label: '🛡️ Escudos',     items: [] },
+      armor:      { label: '🥋 Armaduras',   items: [] },
+      torch:      { label: '🔥 Tochas',      items: [] },
+      loot:       { label: '💰 Loot',        items: [] },
+      material:   { label: '🪨 Materiais',   items: [] },
+      quest:      { label: '📜 Missão',      items: [] },
+    };
+
+    for (const [id, info] of Object.entries(ITEMS_DB)) {
+      const kind = info.kind || info.type || 'material';
+      const group = groups[kind];
+      if (!group) {
+        // fallback: joga em "outros"
+        (groups.other ||= { label: '❓ Outros', items: [] }).items.push({ id, info });
+        continue;
+      }
+      group.items.push({ id, info });
+    }
+
+    // Ordena cada grupo por nome
+    for (const g of Object.values(groups)) {
+      g.items.sort((a, b) => a.info.name.localeCompare(b.info.name));
+    }
+
+    // Renderiza grupos como seções colapsáveis (<details>)
+    for (const [kind, group] of Object.entries(groups)) {
+      if (group.items.length === 0) continue;
+
+      const details = document.createElement('details');
+      details.style.cssText = 'width:100%; margin-top:4px;';
+
+      const summary = document.createElement('summary');
+      summary.textContent = `${group.label} (${group.items.length})`;
+      summary.style.cssText = `
+        cursor:pointer; color:#c9a24d; font-weight:bold; padding:4px 6px;
+        background:#1a1a2e; border:1px solid #444; border-radius:4px;
+        user-select:none;
       `;
-      btn.onclick = () => {
-        sfx('click');
-        const added = addItemToInventory(playerStats.inventory, id, 1);
-        if (added > 0) {
-          showToast({ itemId: id, title: info.name, subtitle: `+${added}`, color: '#6fbd63' });
-          saveGame();
-          refresh();
-        } else {
-          showToast({ itemId: id, title: info.name, subtitle: 'inventário cheio', color: '#ff6b6b' });
-        }
-      };
-      itemList.appendChild(btn);
+      details.appendChild(summary);
+
+      const inner = document.createElement('div');
+      inner.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; padding:6px 0;';
+
+      for (const { id, info } of group.items) {
+        const btn = document.createElement('button');
+        btn.dataset.action = `item:${id}`;
+        btn.textContent = `+1 ${info.name}`;
+        btn.style.cssText = `
+          background:#2a2a3e; color:#ddd; border:1px solid #c9a24d;
+          padding:6px 10px; border-radius:4px; cursor:pointer;
+          font-family:inherit; font-size:11px;
+        `;
+        btn.onclick = () => {
+          sfx('click');
+          const added = addItemToInventory(playerStats.inventory, id, 1);
+          if (added > 0) {
+            showToast({ itemId: id, title: info.name, subtitle: `+${added}`, color: '#6fbd63' });
+            saveGame();
+            refresh();
+          } else {
+            showToast({ itemId: id, title: info.name, subtitle: 'inventário cheio', color: '#ff6b6b' });
+          }
+        };
+        inner.appendChild(btn);
+      }
+
+      details.appendChild(inner);
+      itemList.appendChild(details);
     }
   }
 }
@@ -563,6 +608,72 @@ function handleAction(action) {
         showToast({ itemId: 'questlog', title: 'Teleportado', subtitle: 'Sala da Herbalista (-5, -2)', color: '#c9a24d' });
         closeDevMenu();
       });
+    });
+    return;
+  }
+
+  // ---- Pular direto pra última missão disponível ----
+  if (action === 'jump-latest') {
+    Promise.all([
+      import('../quests.js'),
+      import('../core/state.js'),
+      import('../world/rooms.js'),
+      import('../world/knowledge.js'),
+    ]).then(([questsMod, stateMod, roomsMod, knowledgeMod]) => {
+      // Lista encadeada (na ordem em que aparecem no QUEST_DB) e completa
+      // todas MENOS a última disponível.
+      const allIds = Object.keys(questsMod.QUEST_DB);
+      const completed = new Set();
+      let lastAvailable = null;
+
+      for (const id of allIds) {
+        const q = questsMod.QUEST_DB[id];
+        if (!q) continue;
+        const done = questsMod.isQuestCompleted(id);
+        const active = questsMod.isQuestActive(id);
+        if (done) { completed.add(id); continue; }
+        if (active) { lastAvailable = id; break; }
+
+        // Checa prereqs
+        const missing = (q.prereq || []).some(p => !questsMod.isQuestCompleted(p));
+        if (missing) continue;
+        lastAvailable = id;
+        break;
+      }
+
+      if (!lastAvailable) {
+        showToast({ itemId: 'questlog', title: 'Todas as quests já estão concluídas ou ativas', color: '#ff6b6b' });
+        return;
+      }
+
+      // Completa silenciosamente todas as anteriores
+      const chain = [];
+      for (const id of allIds) {
+        if (id === lastAvailable) break;
+        if (questsMod.isQuestCompleted(id)) continue;
+        chain.push(id);
+      }
+
+      let p = Promise.resolve();
+      for (const id of chain) {
+        p = p.then(() => markQuestCompletedSilently(id));
+      }
+
+      p.then(() => {
+        // Ativa a última
+        if (!questsMod.isQuestCompleted(lastAvailable) && !questsMod.isQuestActive(lastAvailable)) {
+          questsMod.activateQuest(lastAvailable);
+        }
+        const q = questsMod.QUEST_DB[lastAvailable];
+        saveGame();
+        showToast({
+          itemId: 'questlog',
+          title: 'Avançou até a última missão',
+          subtitle: q.title,
+          color: '#feca57',
+        });
+        refresh();
+      }).catch(console.error);
     });
     return;
   }

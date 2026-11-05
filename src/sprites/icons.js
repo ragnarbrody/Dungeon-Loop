@@ -1311,6 +1311,69 @@ export const ICONS = {
     p(10, 3, 1, 5, 'rgba(0,0,0,0.25)');
   }),
 
+  core_fields: makeIcon((g) => {
+    const p = px(g);
+    // Núcleo verde pulsante (fragmento da torre)
+    const core    = '#3a9a3a';
+    const coreHi  = '#6fbd63';
+    const coreGlow = 'rgba(111, 189, 99, 0.45)';
+    const rock    = '#4a4a52';
+    const rockHi  = '#6a6a72';
+
+    // Glow verde atrás
+    g.fillStyle = coreGlow;
+    g.beginPath();
+    g.arc(10, 9, 8, 0, Math.PI * 2);
+    g.fill();
+
+    // Cristal central (losango verde)
+    p(9, 3, 2, 2, coreHi);
+    p(8, 4, 4, 2, coreHi);
+    p(7, 5, 6, 4, core);
+    p(8, 6, 2, 2, coreHi);
+    p(10, 7, 2, 2, core);
+    p(8, 9, 4, 2, core);
+    p(9, 11, 2, 1, '#2a6a2a');
+
+    // Base rochosa (fragmento)
+    p(5, 12, 10, 4, rock);
+    p(6, 13, 8, 2, rockHi);
+    p(7, 14, 6, 1, '#3a3a42');
+    p(8, 15, 4, 1, '#2a2a32');
+  }),
+
+  seed_of_fields: makeIcon((g) => {
+    const p = px(g);
+    // Semente dourada, brilhante
+    const seed    = '#c9a24d';
+    const seedHi  = '#f0d27a';
+    const seedSh  = '#8a6b2a';
+    const glow    = 'rgba(240, 210, 122, 0.4)';
+    const sprout  = '#6fbd63';
+
+    // Glow dourado
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(10, 10, 8, 0, Math.PI * 2);
+    g.fill();
+
+    // Corpo da semente (oval levemente inclinada)
+    p(8, 5, 4, 2, seedHi);
+    p(7, 6, 6, 4, seed);
+    p(7, 9, 6, 2, seedSh);
+    p(8, 10, 4, 2, seed);
+    p(9, 11, 2, 2, seedSh);
+
+    // Brilho (reflexo)
+    p(8, 6, 1, 2, '#fff5c0');
+    p(9, 6, 1, 1, '#ffffff');
+
+    // Brotinho verde (saindo do topo)
+    p(10, 2, 1, 3, sprout);
+    p(9, 2, 2, 1, sprout);
+    p(11, 3, 1, 1, sprout);
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

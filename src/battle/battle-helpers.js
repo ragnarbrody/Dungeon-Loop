@@ -108,6 +108,30 @@ export function spawnFloatingTextAt(x, y, value, color) {
 export function enemyScreenPos(enemy) {
   const idx = battle.enemies.indexOf(enemy);
   const n = battle.enemies.length;
+
+  // Boss sempre no centro-direita, independentemente do número de summons
+  if (enemy.isBoss) {
+    return { x: CANVAS_W * 0.72, y: CANVAS_H * 0.30 };
+  }
+
+  // Summons e inimigos normais: distribui na metade direita, mais afastados
+  // do boss. Se o boss estiver presente, ele não entra na conta de spacing
+  // (só os outros).
+  const bossPresent = battle.enemies.some(x => x.isBoss && x.hp > 0);
+  if (bossPresent) {
+    // Lista dos não-boss vivos, na ordem em que aparecem
+    const others = battle.enemies.filter(x => !x.isBoss);
+    const oIdx = others.indexOf(enemy);
+    const m = others.length;
+    const spacing = m <= 1 ? 0 : Math.min(90, 320 / (m - 1));
+    const startX = CANVAS_W * 0.42 - (m - 1) * spacing / 2;
+    return {
+      x: startX + oIdx * spacing,
+      y: CANVAS_H * 0.34,   // um pouco mais baixo que o boss
+    };
+  }
+
+  // Sem boss: comportamento antigo
   const spacing = n <= 1 ? 0 : Math.min(120, 400 / (n - 1));
   const startX = CANVAS_W * 0.72 - (n - 1) * spacing / 2;
   return {

@@ -148,3 +148,16 @@ if (typeof window !== 'undefined') {
     noite:      () => setTimeOfDay(22),
   };
 }
+
+// Ver o estado atual do tempo
+//__time.get()
+// → { hour: 8, formatted: '08:00', label: 'Manhã', darkness: 0.0, ... }
+
+// Pular direto pra noite (22:00)
+//__time.noite()
+
+// Pular pro entardecer (17:00)
+//__time.entardecer()
+
+// Mudar pra uma hora específica
+//__time.set(20)   // 20:00

@@ -837,6 +837,26 @@ export const ITEMS_DB = {
     stackable: false,
     icon: 'banner_aethel',
   },
+  core_fields: {
+    id: 'core_fields',
+    kind: 'quest',
+    name: 'Núcleo dos Campos',
+    description: 'Um fragmento da torre original. Pulsa como um coração verde. O Ancião vai querer ver isso.',
+    price: 0, sellPrice: 0,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'core_fields', // placeholder
+  },
+  seed_of_fields: {
+    id: 'seed_of_fields',
+    kind: 'quest',
+    name: 'Semente dos Campos',
+    description: 'Uma semente dourada, quente ao toque. É tudo que restou do coração da Árvore Mãe. O Ancião vai querer ver isso.',
+    price: 0, sellPrice: 0,
+    rarity: 'rare',
+    stackable: false,
+    icon: 'seed_of_fields',   // placeholder (reusa o ícone da erva)
+  },
 };
 
 // Compat: exporta o mesmo shape que os consumidores antigos esperam.

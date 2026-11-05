@@ -26,16 +26,15 @@ import { showToast } from './toast.js';
 import { talkToCagedVillager } from './villagerrescue.js';
 import { addMarker, revealMarker, getMarker } from '../world/knowledge.js';
 import { openVault, closeVault, isVaultOpen } from './vault.js';
+import { skipCutsceneScene } from '../battle/cutscene.js';
 
 const CHEST_GOLD_MIN = 30;
 const CHEST_GOLD_MAX = 70;
 
 export const keys = {};
 
-// Função para abrir/fechar inventário
 function toggleInventory() {
   const invScreen = document.getElementById('inventory-screen');
-
   if (gameState === STATE.EXPLORE) {
     setGameState(STATE.INVENTORY);
     renderInventory();
@@ -43,12 +42,10 @@ function toggleInventory() {
   } else if (gameState === STATE.INVENTORY) {
     setGameState(STATE.EXPLORE);
     invScreen.classList.add('hidden');
-    // Reseta as teclas para o player não sair andando sozinho ao fechar
     for (let k in keys) keys[k] = false;
   }
 }
 
-// Função para abrir/fechar o quest log
 function toggleQuestLog() {
   if (gameState === STATE.EXPLORE) {
     openQuestLog();
@@ -60,16 +57,6 @@ function toggleQuestLog() {
   }
 }
 
-// ============================================================
-// Converte coordenadas do mouse (CSS) para coordenadas do canvas,
-// descontando borda/padding corretamente.
-//
-// O canvas tem `border: 4px solid #0f0f1a` no CSS. `getBoundingClientRect()`
-// retorna a caixa COM a borda, mas a área de desenho do canvas é SÓ o
-// conteúdo. Sem descontar a borda, o clique fica deslocado em ~4px CSS
-// (que viram vários pixels no espaço do canvas após o scale), e em telas
-// pequenas isso é o suficiente para errar o ⓘ (que tem só 12px de diâmetro).
-// ============================================================
 function clientToCanvas(e) {
   const rect = canvas.getBoundingClientRect();
   const style = getComputedStyle(canvas);
@@ -77,108 +64,92 @@ function clientToCanvas(e) {
   const borderT = parseFloat(style.borderTopWidth)    || 0;
   const borderR = parseFloat(style.borderRightWidth)  || 0;
   const borderB = parseFloat(style.borderBottomWidth) || 0;
-
   const cssW = Math.max(1, rect.width  - borderL - borderR);
   const cssH = Math.max(1, rect.height - borderT - borderB);
-
   const mx = (e.clientX - rect.left - borderL) * (canvas.width  / cssW);
   const my = (e.clientY - rect.top  - borderT) * (canvas.height / cssH);
   return { mx, my };
 }
 
 export function installInput() {
-  // ---- Ícone da mochila no botão ----
+  // Ícones dos botões
   const btnInv = document.getElementById('btn-inventory');
   if (btnInv && !btnInv.dataset.iconInjected) {
     btnInv.dataset.iconInjected = '1';
-
     const icon = getIcon('bag');
-    icon.style.width = '20px';
-    icon.style.height = '20px';
+    icon.style.width = '20px'; icon.style.height = '20px';
     icon.style.imageRendering = 'pixelated';
-
-    // Coloca o ícone antes do texto "Mochila (I)"
     btnInv.insertBefore(icon, btnInv.firstChild);
   }
-
   const btnMap = document.getElementById('btn-map');
   if (btnMap && !btnMap.dataset.iconInjected) {
     btnMap.dataset.iconInjected = '1';
-
     const icon = getIcon('map');
-    icon.style.width = '20px';
-    icon.style.height = '20px';
+    icon.style.width = '20px'; icon.style.height = '20px';
     icon.style.imageRendering = 'pixelated';
-
     btnMap.insertBefore(icon, btnMap.firstChild);
   }
-
   const btnQuest = document.getElementById('btn-questlog');
   if (btnQuest && !btnQuest.dataset.iconInjected) {
     btnQuest.dataset.iconInjected = '1';
-
     const icon = getIcon('questlog');
-    icon.style.width = '20px';
-    icon.style.height = '20px';
+    icon.style.width = '20px'; icon.style.height = '20px';
     icon.style.imageRendering = 'pixelated';
-
     btnQuest.insertBefore(icon, btnQuest.firstChild);
   }
 
-  // ---------- World Map: drag & zoom ----------
+  // World map drag/zoom
   canvas.addEventListener('mousedown', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
     const { mx, my } = clientToCanvas(e);
     handleMapClick(mx, my, e);
   });
-
   window.addEventListener('mousemove', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
     const { mx, my } = clientToCanvas(e);
     handleMapMove(mx, my);
   });
-
   window.addEventListener('mouseup', () => {
     if (gameState !== STATE.WORLDMAP) return;
     handleMapRelease();
   });
-
   canvas.addEventListener('wheel', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
     e.preventDefault();
     handleMapWheel(e.deltaY);
   }, { passive: false });
 
+  // ============================================================
+  // TECLADO
+  // ============================================================
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
 
-    // ---- Loja aberta: só ESC fecha ----
-    if (isShopOpen()) {
-      if (k === 'escape') closeShop();
+    keys[k] = true;
+
+    // ---- Cutscene de boss: Espaço / Enter / Esc pulam o slide atual ----
+    if (gameState === STATE.BATTLE && battle.cutscene) {
+      if (k === ' ' || k === 'enter' || k === 'escape' || k === 'spacebar') {
+        e.preventDefault();
+        skipCutsceneScene(battle.cutscene);
+      }
       return;
     }
 
+    if (isShopOpen()) { if (k === 'escape') closeShop(); return; }
     if (isVaultOpen()) { if (k === 'escape') closeVault(); return; }
 
-    // ---- Quest log aberto: só ESC/Q fecha ----
     if (gameState === STATE.QUEST_LOG) {
       if (k === 'escape' || k === 'q') {
-        closeQuestLog();
-        setGameState(STATE.EXPLORE);
+        closeQuestLog(); setGameState(STATE.EXPLORE);
         for (let kk in keys) keys[kk] = false;
       }
       return;
     }
-
-    // ---- Inventário aberto: ESC e I fecham ----
     if (gameState === STATE.INVENTORY) {
-      if (k === 'escape' || k === 'i') {
-        toggleInventory();
-      }
-      return;  // bloqueia outras teclas
+      if (k === 'escape' || k === 'i') toggleInventory();
+      return;
     }
-
-    // ---- Diálogo aberto: só ESC fecha ----
     if (isDialogueOpen()) {
       if (k === 'escape') {
         closeDialogue();
@@ -186,8 +157,6 @@ export function installInput() {
       }
       return;
     }
-
-    // ---- Painel de áudio: ESC abre/fecha (fora de combate e de loja) ----
     if (k === 'escape' && gameState !== STATE.BATTLE
         && !isShopOpen() && !isDialogueOpen() && !isWorldMapOpen()
         && !isQuestLogOpen() && !isAudioMenuOpen() && !isVaultOpen()
@@ -199,7 +168,8 @@ export function installInput() {
       if (k === 'escape') closeAudioMenu();
       return;
     }
-    // ---- Interagir (E) no mapa ----
+
+    // ---- Interagir (E) ----
     if (k === 'e' && gameState === STATE.EXPLORE) {
       const it = playerStats._nearInteractable;
       if (it) {
@@ -209,21 +179,19 @@ export function installInput() {
           openDialogue({
             title: it.title,
             text: portalText(),
-            actions: [
-              {
-                label: `Colocar núcleos (${playerStats.portalCores.size}/8)`,
-                disabled: playerStats.portalCores.size === 0,
-                action: () => {
-                  openDialogue({
-                    title: 'Núcleos',
-                    text:
-                      playerStats.portalCores.size === 0
-                        ? 'Você não tem nenhum núcleo ainda.'
-                        : `Você tem ${playerStats.portalCores.size} núcleo(s). O portal precisa dos 8 para abrir. (combate final em breve)`,
-                  });
-                },
+            actions: [{
+              label: `Colocar núcleos (${playerStats.portalCores.size}/8)`,
+              disabled: playerStats.portalCores.size === 0,
+              action: () => {
+                openDialogue({
+                  title: 'Núcleos',
+                  text:
+                    playerStats.portalCores.size === 0
+                      ? 'Você não tem nenhum núcleo ainda.'
+                      : `Você tem ${playerStats.portalCores.size} núcleo(s). O portal precisa dos 8 para abrir. (combate final em breve)`,
+                });
               },
-            ],
+            }],
           });
         } else if (it.kind === 'building_entrance') {
           enterBuilding(it.buildingId);
@@ -239,8 +207,6 @@ export function installInput() {
           openVault();
         } else if (it.kind === 'cave_entrance') {
           const hasTorchEquipped = playerEquip.leftHand === 'torch';
-
-          // Caverna PROCEDURAL (pós-quest): sempre exige tocha, mas não exige quest ativa
           if (it.procedural) {
             if (playerStats._escortActive) {
               openDialogue({
@@ -256,14 +222,11 @@ export function installInput() {
                 color: '#ff6b6b',
               });
             } else {
-              // ID único por sala: assim cada caverna procedural é uma dungeon diferente
               const dungeonId = `proc_cave_${currentRoom.gx}_${currentRoom.gy}`;
               enterDungeon(dungeonId, { procedural: true });
             }
             return;
           }
-
-          // Caverna da QUEST (comportamento antigo)
           if (!isQuestActive('story_cave')) {
             openDialogue({
               title: it.title,
@@ -290,19 +253,13 @@ export function installInput() {
                 'Dentro dela, um pergaminho selado com o brasão de Aethel. Parece importante. O Ancião vai querer ver isso.',
             });
           } else {
-            openDialogue({
-              title: 'Mochila Abandonada',
-              text: 'A mochila está vazia.',
-            });
+            openDialogue({ title: 'Mochila Abandonada', text: 'A mochila está vazia.' });
           }
         } else if (it.kind === 'caged_villager') {
           talkToCagedVillager();
-          // Marca a jaula como aberta (persiste no save)
           currentRoom._cageOpened = true;
           saveGame();
         } else if (it.kind === 'treasure_chest') {
-          // Se o miniboss da sala ainda está vivo, mostra um diálogo
-          // explicando por que o baú não abre.
           const minibossAlive = (currentRoom.enemies || []).some(
             e => !e.defeated && e.id === 'goblin_sergeant'
           );
@@ -316,122 +273,61 @@ export function installInput() {
             });
             return;
           }
-          // Abre o baú: sorteia ouro + 1-2 poções
-          const gold = CHEST_GOLD_MIN + Math.floor(
-            Math.random() * (CHEST_GOLD_MAX - CHEST_GOLD_MIN + 1)
-          );
+          const gold = CHEST_GOLD_MIN + Math.floor(Math.random() * (CHEST_GOLD_MAX - CHEST_GOLD_MIN + 1));
           playerStats.gold += gold;
-
           const potionRoll = Math.random();
           const potions = [];
-          if (potionRoll < 0.5) {
-            potions.push({ id: 'potion_weak', qty: 1 + Math.floor(Math.random() * 2) });
-          } else if (potionRoll < 0.85) {
-            potions.push({ id: 'potion_medium', qty: 1 });
-          } else {
-            potions.push({ id: 'potion_medium', qty: 1 });
-            potions.push({ id: 'potion_mana', qty: 1 });
-          }
+          if (potionRoll < 0.5) potions.push({ id: 'potion_weak', qty: 1 + Math.floor(Math.random() * 2) });
+          else if (potionRoll < 0.85) potions.push({ id: 'potion_medium', qty: 1 });
+          else { potions.push({ id: 'potion_medium', qty: 1 }); potions.push({ id: 'potion_mana', qty: 1 }); }
           for (const p of potions) addItemToInventory(playerStats.inventory, p.id, p.qty);
-
-          // Marca como aberto na sala em memória
           currentRoom._chestOpened = true;
           saveGame();
           sfx('chest');
-
-          // Marca a caverna como concluída no mapa-múndi.
-          // A "sala" é a do MUNDO (onde fica a entrada da caverna), não a dungeon.
-          // `startGX`/`startGY` são exatamente isso — a sala de onde o jogador entrou
-          // em `enterDungeon`. Eles NÃO mudam com `setDungeonRoom`.
           const markerId = `cave_done_${startGX}_${startGY}`;
           if (!getMarker(markerId)) {
-            addMarker({
-              id: markerId,
-              type: 'cave_done',
-              gx: startGX,
-              gy: startGY,
-              title: 'Caverna concluída',
-              revealed: true,
-            });
+            addMarker({ id: markerId, type: 'cave_done', gx: startGX, gy: startGY, title: 'Caverna concluída', revealed: true });
             revealMarker(markerId);
           }
-
           const dropStr = potions.map(p => `${p.qty}× ${p.id}`).join(', ');
-          openDialogue({
-            title: 'Baú',
-            text: `Você abre o baú.\n\nDentro, ${gold} de ouro e ${dropStr}.`,
-          });
+          openDialogue({ title: 'Baú', text: `Você abre o baú.\n\nDentro, ${gold} de ouro e ${dropStr}.` });
         } else if (it.kind === 'banner') {
           const added = addItemToInventory(playerStats.inventory, 'banner_aethel', 1);
           if (added > 0) {
-            // Remove o interactable da sala em memória
-            currentRoom.interactables = currentRoom.interactables.filter(
-              x => x.kind !== 'banner'
-            );
-            saveGame();
-            sfx('chest');
-            showToast({
-              itemId: 'banner_aethel',
-              title: 'Estandarte de Aethel',
-              subtitle: '+1',
-              color: '#feca57',
-            });
+            currentRoom.interactables = currentRoom.interactables.filter(x => x.kind !== 'banner');
+            saveGame(); sfx('chest');
+            showToast({ itemId: 'banner_aethel', title: 'Estandarte de Aethel', subtitle: '+1', color: '#feca57' });
             openDialogue({
               title: 'Estandarte de Aethel',
               text:
-                'Você pega o estandarte. O pano está sujo de fumaça e ' +
-                'rasgado nas bordas, mas o brasão de Aethel ainda é visível.\n\n' +
+                'Você pega o estandarte. O pano está sujo de fumaça e rasgado nas bordas, mas o brasão de Aethel ainda é visível.\n\n' +
                 'Os goblins não parecem notar. (ou não se importam.)\n\n' +
                 'Melhor voltar pro Ancião antes que algo mude.',
             });
           } else {
-            showToast({
-              itemId: 'banner_aethel',
-              title: 'Inventário cheio',
-              subtitle: 'Libere espaço antes de pegar o estandarte.',
-              color: '#ff6b6b',
-            });
+            showToast({ itemId: 'banner_aethel', title: 'Inventário cheio', subtitle: 'Libere espaço antes de pegar o estandarte.', color: '#ff6b6b' });
           }
         } else if (it.kind === 'herbalist_escort') {
-          // Só chega aqui na PRIMEIRA interação (ela ainda não é companion).
-          // A "segunda interação" (dizer pra voltar) foi removida: o objetivo
-          // `escort_home` completa sozinho ao chegar em Aethel.
           playerStats._escortActive = true;
           playerStats._escortPos = { x: player.x - 20, y: player.y };
           advanceObjective('story_herbalist_escort', 'talk_herbalist', 1);
           saveGame();
           openDialogue({
-              title: 'Herbalista',
-              text:
-                'Ah, você veio! Que alívio.\n\n' +
-                'Eu vim buscar ervas raras — elas só crescem aqui, e só nesta época. ' +
-                'Mas o caminho de volta é perigoso demais para eu fazer sozinha.\n\n' +
-                'Me ajude a colher as três que faltam. Elas estão espalhadas por aqui. ' +
-                'Depois, podemos voltar à Aethel.',
+            title: 'Herbalista',
+            text:
+              'Ah, você veio! Que alívio.\n\n' +
+              'Eu vim buscar ervas raras — elas só crescem aqui, e só nesta época. ' +
+              'Mas o caminho de volta é perigoso demais para eu fazer sozinha.\n\n' +
+              'Me ajude a colher as três que faltam. Elas estão espalhadas por aqui. ' +
+              'Depois, podemos voltar à Aethel.',
           });
         } else if (it.kind === 'herb') {
-          // Remove a erva do mapa SEMPRE que o jogador interage com ela.
-          // (O `it` que chega aqui é uma CÓPIA criada por `{ ...it }` no
-          //  interactables.js, então não dá pra comparar por referência.
-          //  Filtra pelo `id` único que o `rooms.js` setou: herb_1, herb_2, herb_3.)
           const herbId = it.id;
-
-          // Marca como coletada (persiste entre sessões)
-          if (playerStats._collectedHerbs) {
-            playerStats._collectedHerbs.add(herbId);
-          }
-
-          // Remove da sala em memória
-          currentRoom.interactables = currentRoom.interactables.filter(
-            x => !(x.kind === 'herb' && x.id === herbId)
-          );
-
-          // Tenta dar o item pro inventário.
+          if (playerStats._collectedHerbs) playerStats._collectedHerbs.add(herbId);
+          currentRoom.interactables = currentRoom.interactables.filter(x => !(x.kind === 'herb' && x.id === herbId));
           const added = addItemToInventory(playerStats.inventory, 'herb_herbalist', 1);
-
           if (added > 0) {
-            saveGame();
-            sfx('chest');
+            saveGame(); sfx('chest');
             showToast({
               itemId: 'herb_herbalist',
               title: 'Erva Rara',
@@ -439,8 +335,6 @@ export function installInput() {
               color: '#6fbd63',
             });
           } else {
-            // Inventário cheio (ou já tem as 3): a erva some mesmo assim,
-            // pra não ficar no chão pra sempre.
             showToast({
               itemId: 'herb_herbalist',
               title: 'Inventário cheio',
@@ -448,59 +342,41 @@ export function installInput() {
               color: '#ff6b6b',
             });
           }
-        } 
-
+        }
         for (let kk in keys) keys[kk] = false;
       }
       return;
     }
 
-    if (k === 'i' && gameState !== STATE.BATTLE) {
-      toggleInventory();
-      return;
-    }
-
-    // ---- Quest log: Q abre/fecha (só em explore) ----
-    if (k === 'q' && gameState === STATE.EXPLORE) {
-      toggleQuestLog();
-      return;
-    }
-
-    // ---- World map: M abre/fecha ----
+    if (k === 'i' && gameState !== STATE.BATTLE) { toggleInventory(); return; }
+    if (k === 'q' && gameState === STATE.EXPLORE) { toggleQuestLog(); return; }
     if (k === 'm' && (gameState === STATE.EXPLORE || gameState === STATE.WORLDMAP)) {
-      if (gameState === STATE.EXPLORE) {
-        openWorldMap();
-        setGameState(STATE.WORLDMAP);
-      } else {
-        closeWorldMap();
-        setGameState(STATE.EXPLORE);
-      }
+      if (gameState === STATE.EXPLORE) { openWorldMap(); setGameState(STATE.WORLDMAP); }
+      else { closeWorldMap(); setGameState(STATE.EXPLORE); }
       return;
     }
-
     if (gameState === STATE.WORLDMAP) {
-      if (k === 'escape') {
-        closeWorldMap();
-        setGameState(STATE.EXPLORE);
-        return;
-      }
+      if (k === 'escape') { closeWorldMap(); setGameState(STATE.EXPLORE); return; }
       if (k === 'c') { centerOnPlayer(); return; }
-      return; // bloqueia outras teclas
+      return;
     }
-
-    if (gameState === STATE.INVENTORY) return; // Pausa as outras teclas
+    if (gameState === STATE.INVENTORY) return;
 
     keys[k] = true;
 
-    // Combate
+    // ---- Combate ----
     if (gameState === STATE.BATTLE && battle.turn === 'player') {
+      if (playerStats.stunned > 0) {
+        if (k === 'escape' && battle.tooltipSkill) {
+          battle.tooltipSkill = null;
+          battle.tooltipPos = null;
+        }
+        return;
+      }
       if (battle.showItems) {
-        // No submenu de itens: Esc volta
         if (k === 'escape') playerAction('close_items');
         return;
       }
-
-      // Navegação de alvo
       const living = battle.enemies.filter(e => e.hp > 0 && e.hiding === 0);
       if (living.length > 1) {
         if (k === 'arrowleft' || k === 'q') {
@@ -508,8 +384,7 @@ export function installInput() {
           for (let step = 1; step <= n; step++) {
             const idx = (battle.targetIndex - step + n) % n;
             if (battle.enemies[idx].hp > 0 && battle.enemies[idx].hiding === 0) {
-              battle.targetIndex = idx;
-              break;
+              battle.targetIndex = idx; break;
             }
           }
           return;
@@ -519,29 +394,19 @@ export function installInput() {
           for (let step = 1; step <= n; step++) {
             const idx = (battle.targetIndex + step) % n;
             if (battle.enemies[idx].hp > 0 && battle.enemies[idx].hiding === 0) {
-              battle.targetIndex = idx;
-              break;
+              battle.targetIndex = idx; break;
             }
           }
           return;
         }
       }
-
       const cls = CLASSES[playerStats.classId];
       if (!cls) return;
-
-      // ESC: volta pro menu principal (se estiver em submenu)
       if (k === 'escape') {
-        if (battle.tooltipSkill) {
-          battle.tooltipSkill = null;
-          battle.tooltipPos = null;
-          return;
-        }
+        if (battle.tooltipSkill) { battle.tooltipSkill = null; battle.tooltipPos = null; return; }
         if (battle.menuMode !== 'main') playerAction('menu_main');
         return;
       }
-
-      // Atalhos do menu principal
       if (battle.menuMode === 'main') {
         if (k === 'h' || k === '1') { playerAction('menu_skills'); return; }
         if (k === 'j' || k === '2') { playerAction('menu_items'); return; }
@@ -549,12 +414,9 @@ export function installInput() {
         if (k === 'l' || k === '4') { playerAction('flee'); return; }
         return;
       }
-
-      // Submenu de skills: Q/E para paginar, 1-3 para usar
       if (battle.menuMode === 'skills') {
         if (k === 'q') { playerAction('skill_page_prev'); return; }
         if (k === 'e') { playerAction('skill_page_next'); return; }
-
         const PER_PAGE = 3;
         const page = battle.skillPage;
         const idx = parseInt(k) - 1;
@@ -566,12 +428,9 @@ export function installInput() {
         }
         return;
       }
-
-      // Submenu de itens: 1-9 seleciona
       if (battle.menuMode === 'items') {
         if (k === 'q') { playerAction('item_page_prev'); return; }
         if (k === 'e') { playerAction('item_page_next'); return; }
-
         const PER_PAGE = 4;
         const page = battle.itemPage;
         const usableItems = playerStats.inventory.filter(i => i.qty > 0 && CONSUMABLES[i.id]);
@@ -587,132 +446,75 @@ export function installInput() {
 
   window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-  // Clique no botão da mochila
   document.getElementById('btn-inventory').addEventListener('click', toggleInventory);
-
-  // Clique no botão do mapa
   document.getElementById('btn-map').addEventListener('click', () => {
-    if (gameState === STATE.EXPLORE) {
-      openWorldMap();
-      setGameState(STATE.WORLDMAP);
-    } else if (gameState === STATE.WORLDMAP) {
-      closeWorldMap();
-      setGameState(STATE.EXPLORE);
-    }
+    if (gameState === STATE.EXPLORE) { openWorldMap(); setGameState(STATE.WORLDMAP); }
+    else if (gameState === STATE.WORLDMAP) { closeWorldMap(); setGameState(STATE.EXPLORE); }
   });
-
-  // Clique no botão de missões
   document.getElementById('btn-questlog').addEventListener('click', () => {
-    if (gameState === STATE.EXPLORE) {
-      openQuestLog();
-      setGameState(STATE.QUEST_LOG);
-    } else if (gameState === STATE.QUEST_LOG) {
-      closeQuestLog();
-      setGameState(STATE.EXPLORE);
-    }
+    if (gameState === STATE.EXPLORE) { openQuestLog(); setGameState(STATE.QUEST_LOG); }
+    else if (gameState === STATE.QUEST_LOG) { closeQuestLog(); setGameState(STATE.EXPLORE); }
   });
+  document.getElementById('btn-audio').addEventListener('click', () => openAudioMenu());
 
-  // Clique no botão de áudio
-  document.getElementById('btn-audio').addEventListener('click', () => {
-    openAudioMenu();
-  });
-
-  // ---------- Hover: cursor `pointer` sobre o ⓘ ----------
-  // Só cosmético, mas ajuda o jogador a perceber que o ⓘ é clicável.
-  // Roda em BATTLE e checa se o mouse está sobre uma hitbox de ⓘ.
+  // Hover ⓘ
   canvas.addEventListener('mousemove', e => {
-    if (gameState !== STATE.BATTLE) {
-      if (canvas.style.cursor) canvas.style.cursor = '';
-      return;
-    }
+    if (gameState !== STATE.BATTLE) { if (canvas.style.cursor) canvas.style.cursor = ''; return; }
+    if (battle.cutscene) { canvas.style.cursor = 'pointer'; return; }
     const { mx, my } = clientToCanvas(e);
     let overInfo = false;
     for (const b of battle.buttons) {
       if (b.action !== '__toggle_tooltip__') continue;
-      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
-        overInfo = true;
-        break;
-      }
+      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) { overInfo = true; break; }
     }
     canvas.style.cursor = overInfo ? 'pointer' : '';
   });
 
-  // Clique nos botões de combate
+  // Clique em batalha
   canvas.addEventListener('click', e => {
     if (gameState !== STATE.BATTLE) return;
+
+    // ---- Cutscene ativa: clique pula slide ----
+    if (battle.cutscene) {
+      skipCutsceneScene(battle.cutscene);
+      return;
+    }
+
     if (battle.turn !== 'player') return;
 
     const { mx, my } = clientToCanvas(e);
-
-    // Ignora cliques fora da área útil (defensivo: bordas/padding geram
-    // coordenadas negativas ou > canvas.width/height)
     if (mx < 0 || my < 0 || mx > canvas.width || my > canvas.height) return;
 
-    // Procura um botão clicado (ordem inversa: o ⓘ é registrado DEPOIS dos
-    // botões da skill, então ele fica "por cima" na checagem)
     for (let i = battle.buttons.length - 1; i >= 0; i--) {
       const b = battle.buttons[i];
       if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+        if (playerStats.stunned > 0 && b.action !== 'rest') return;
         if (b.action === '__toggle_tooltip__') {
-          // Toggle do tooltip
-          if (battle.tooltipSkill === b._skill) {
-            battle.tooltipSkill = null;
-            battle.tooltipPos = null;
-          } else {
-            battle.tooltipSkill = b._skill;
-            battle.tooltipPos = { x: b.x, y: b.y + b.h + 8 };
-          }
+          if (battle.tooltipSkill === b._skill) { battle.tooltipSkill = null; battle.tooltipPos = null; }
+          else { battle.tooltipSkill = b._skill; battle.tooltipPos = { x: b.x, y: b.y + b.h + 8 }; }
           return;
         }
-        // Fecha o tooltip se estava aberto e clicou num botão normal
-        battle.tooltipSkill = null;
-        battle.tooltipPos = null;
-
+        battle.tooltipSkill = null; battle.tooltipPos = null;
         playerAction(b.action);
         return;
       }
     }
-
-    // Clique fora de qualquer botão: fecha o tooltip
-    if (battle.tooltipSkill) {
-      battle.tooltipSkill = null;
-      battle.tooltipPos = null;
-    }
+    if (battle.tooltipSkill) { battle.tooltipSkill = null; battle.tooltipPos = null; }
   });
 
-  // ---- Atalho do menu de desenvolvedor ----
-  import('./devmenu.js').then(mod => {
-    mod.installDevShortcut();
-  });
+  import('./devmenu.js').then(mod => mod.installDevShortcut());
 
-  // ---- Som de clique em TODOS os botões ----
-  // Delegação no document: qualquer clique que tenha um <button> (ou um
-  // .class-card, que age como botão) no caminho sobe um `sfx('click')`.
-  // Funciona pra botões que já existem e pros que são criados depois
-  // (inventário, quest log, loja, diálogo, etc.).
+  // Clique geral em botões (som)
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!t || !t.closest) return;
-
-    // Ignora cliques dentro do canvas (já são tratados à parte,
-    // e alguns deles têm som próprio, tipo o ⓘ do combate).
     if (t.closest('canvas')) return;
-
-    // É um botão de verdade?
     const btn = t.closest('button');
     if (btn) {
-      // Se o botão está desabilitado, não toca.
       if (btn.disabled) return;
-      // Se o botão já tem um som próprio (ex.: o de áudio), ainda
-      // tocamos o click — é barato e mantém consistência.
       sfx('click');
       return;
     }
-
-    // Card de classe (div clicável que age como botão)
-    if (t.closest('.class-card')) {
-      sfx('click');
-      return;
-    }
+    if (t.closest('.class-card')) { sfx('click'); return; }
   });
 }

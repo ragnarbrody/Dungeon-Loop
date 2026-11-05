@@ -6,7 +6,7 @@ import { worldSeed, setCurrentRoom, markRoomVisited, saveGame,
          currentRoom, player, playerStats, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
 import { createInterior } from './interiors.js';
 import { setMusicMode } from '../audio/audio.js';
-import { isQuestActive, areProceduralCavesUnlocked } from '../quests.js';
+import { isQuestActive, isQuestCompleted, areProceduralCavesUnlocked } from '../quests.js';
 
 // ============================================================
 // REGRA DE PORTAS
@@ -274,6 +274,110 @@ export function enterDungeon(instanceId, opts = {}) {
 }
 
 // ============================================================
+// ARENA DO GUARDIÃO DOS CAMPOS — sala fixa da quest story_guardian_prep
+//
+// Layout:
+//   - Círculo de pedras (T.TREE) em volta do centro
+//   - Boss no centro
+//   - Porta única no sul (o jogador vem de baixo)
+//   - Sem encontros aleatórios (isFixed = true)
+// ============================================================
+function createGuardianArena(gx, gy) {
+  const map = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    const row = [];
+    for (let x = 0; x < GRID_SIZE; x++) row.push(T.FLOOR);
+    map.push(row);
+  }
+
+  // Bordas
+  for (let i = 0; i < GRID_SIZE; i++) {
+    map[0][i] = T.WALL;
+    map[GRID_SIZE - 1][i] = T.WALL;
+    map[i][0] = T.WALL;
+    map[i][GRID_SIZE - 1] = T.WALL;
+  }
+
+  const mid = Math.floor(GRID_SIZE / 2);
+
+  // ---- Portas: usa o MESMO sistema de reciprocidade das outras salas ----
+  const allSides = ['top', 'bottom', 'left', 'right'];
+  const doors = allSides.filter(side => hasDoor(gx, gy, side));
+
+  // Garantia: pelo menos uma porta (a sala precisa ser acessível)
+  if (doors.length === 0) doors.push('bottom');
+
+  const carve = (side) => {
+    if (side === 'top')    for (let x = mid - 1; x <= mid + 1; x++) map[0][x] = T.DOOR;
+    if (side === 'bottom') for (let x = mid - 1; x <= mid + 1; x++) map[GRID_SIZE - 1][x] = T.DOOR;
+    if (side === 'left')   for (let y = mid - 1; y <= mid + 1; y++) map[y][0] = T.DOOR;
+    if (side === 'right')  for (let y = mid - 1; y <= mid + 1; y++) map[y][GRID_SIZE - 1] = T.DOOR;
+  };
+  doors.forEach(carve);
+
+  // Círculo de pedras (T.TREE) — 8 pedras ao redor do centro (raio 5)
+  const stoneCoords = [
+    [mid, mid - 5], [mid + 3, mid - 4], [mid + 5, mid - 1],
+    [mid + 4, mid + 3], [mid + 1, mid + 5],
+    [mid - 2, mid + 4], [mid - 5, mid + 2], [mid - 4, mid - 2],
+  ];
+  for (const [tx, ty] of stoneCoords) {
+    if (ty > 0 && ty < GRID_SIZE - 1 && tx > 0 && tx < GRID_SIZE - 1) {
+      map[ty][tx] = T.TREE;
+    }
+  }
+
+   // Boss no centro — SÓ se ele ainda não foi derrotado
+  const bossDefeated = !!playerStats.guardianFieldsDefeated;
+  const enemies = [];
+  const reserved = new Set();
+
+  if (!bossDefeated) {
+    enemies.push({
+      id: 'guardian_fields',
+      tx: mid,
+      ty: mid,
+      defeated: false,
+      isBoss: true,
+    });
+    reserved.add(`${mid},${mid}`);
+  } else {
+    // Mesmo derrotado, o centro fica reservado (pra nenhum outro
+    // inimigo nascer em cima do "toco").
+    reserved.add(`${mid},${mid}`);
+  }
+  
+  // Reserva também a área de spawn perto de cada porta (2 tiles pra dentro)
+  for (const s of doors) {
+    if (s === 'top') {
+      for (let x = mid - 1; x <= mid + 1; x++) reserved.add(`${x},2`);
+    } else if (s === 'bottom') {
+      for (let x = mid - 1; x <= mid + 1; x++) reserved.add(`${x},${GRID_SIZE - 3}`);
+    } else if (s === 'left') {
+      for (let y = mid - 1; y <= mid + 1; y++) reserved.add(`2,${y}`);
+    } else if (s === 'right') {
+      for (let y = mid - 1; y <= mid + 1; y++) reserved.add(`${GRID_SIZE - 3},${y}`);
+    }
+  }
+
+  return {
+    gx, gy,
+    map,
+    doors,
+    biomeId: 'fields',
+    name: 'Coração dos Campos',
+    nameCoords: `${gx}, ${gy}`,
+    isFixed: true,
+    isGuardianArena: true,
+    reserved,
+    enemies,                    // ← usa o array `enemies` (que já está certo)
+    hasTrees: true,
+    interactables: [],
+    guardianId: 'fields',
+  };
+}
+
+// ============================================================
 // CIDADES — salas fixas, sem inimigos, com layout memorável
 // ============================================================
 
@@ -513,9 +617,8 @@ function createCity(gx, gy) {
     { id: 'blacksmith',  name: 'Ferreiro',    tx: 4,  ty: 5,  w: 5, h: 3, signTx: 4,  signTy: 8  }, // porta em tx:6
     { id: 'herbalist',   name: 'Herbalista',  tx: 21, ty: 5,  w: 5, h: 3, signTx: 21, signTy: 8  }, // porta em tx:23
     { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 4,  signTy: 24 }, // porta em tx:6
-    { id: 'jeweler',     name: 'Joalheiro',   tx: 21, ty: 21, w: 5, h: 3, signTx: 21, signTy: 24 }, // porta em tx:23
+    { id: 'bank',        name: 'Banco de Aethel', tx: 21, ty: 21, w: 5, h: 3, signTx: 21, signTy: 24 }, // porta em tx:23
     { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 13, signTy: 25 }, // porta em tx:15
-    { id: 'bank', name: 'Banco de Aethel', tx: 13, ty: 5, w: 5, h: 3, signTx: 13, signTy: 8 },
   ];
 
   for (const obj of cityObjects) {
@@ -689,6 +792,17 @@ export function createRoom(gx, gy) {
   if (gx === 4 && gy === 6) {
     return createBannerCamp(gx, gy);
   }
+
+  // Arena do Guardião dos Campos (story_guardian_prep)
+  // A arena continua existindo mesmo depois da quest concluída — só
+  // o boss deixa de nascer (controlado em createGuardianArena).
+  if (
+    gx === 6 && gy === 8 &&
+    (isQuestActive('story_guardian_prep') || isQuestCompleted('story_guardian_prep'))
+  ) {
+    return createGuardianArena(gx, gy);
+  }
+
   const rng = makeRng(seedFrom(gx + worldSeed, gy));
   const map = [];
   for (let y = 0; y < GRID_SIZE; y++) {
@@ -940,6 +1054,8 @@ export function createRoom(gx, gy) {
       }
     }
   }
+
+
 
   // ---- Caverna procedural (pós-quest 5.2) ----
   // Aparece em ~8% das salas do anel externo (Campos), longe de Aethel.

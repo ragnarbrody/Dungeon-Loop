@@ -520,7 +520,11 @@ export function updatePlayer(dt) {
       if (e.asleep) continue;   // dormindo não colide
       if (player.fleeImmune.has(e)) continue;
       if (e.tx === ptx && e.ty === pty) {
-        startBattle({ enemyId: e.id, mapEnemy: e });
+        startBattle({
+          enemyId: e.id,
+          mapEnemy: e,
+          noFlee: e.isBoss === true,   // boss não deixa fugir
+        });
         break;
       }
     }

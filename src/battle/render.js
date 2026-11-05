@@ -9,6 +9,7 @@ import { CLASSES } from '../classes.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { drawIconOnCanvas } from '../sprites/icons.js';
 import { NPC_SPRITES } from '../sprites/npcs.js';
+import { drawCutscene } from './cutscene.js';
 
 export function renderBattleInner() {
   const grd = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
@@ -29,8 +30,8 @@ export function renderBattleInner() {
   for (const f of battle.fadingEnemies) {
     const e = f.ref;
     const alpha = Math.max(0, f.timer / f.total);
+    const isBoss = e.isBoss === true;
 
-    // Mesma posição original
     const idx = f.slotIndex;
     const n = f.slotCount;
     const spacing = n <= 1 ? 0 : Math.min(120, 400 / (n - 1));
@@ -38,7 +39,6 @@ export function renderBattleInner() {
     const px = startX + idx * spacing;
     const py = CANVAS_H * 0.30;
 
-    // Sombra mais larga (deitado)
     ctx.globalAlpha = alpha * 0.35;
     ctx.fillStyle = '#000';
     ctx.beginPath();
@@ -50,9 +50,8 @@ export function renderBattleInner() {
 
     ctx.globalAlpha = alpha;
 
-    // Desenha o sprite 64x64 "esmagado" para 64x26, base alinhada com o chão
-    const dw = 64;
-    const dh = 26;
+    const dw = isBoss ? 96 : 64;
+    const dh = isBoss ? 48 : 26;
     const dx = px - dw / 2;
     const dy = py + 32 - dh;
     ctx.drawImage(frame, dx, dy, dw, dh);
@@ -63,27 +62,29 @@ export function renderBattleInner() {
   enemies.forEach((e, i) => {
     const pos = enemyScreenPos(e);
     const isDead = e.hp <= 0;
+    const isBoss = e.isBoss === true;
 
-    // Lunge só no inimigo que está atacando agora
     let lungeOffsetX = 0;
     if (battle.anim.lungeEnemy > 0 && i === battle.activeEnemyIndex) {
       lungeOffsetX = -(battle.anim.lungeEnemy / 0.2) * 30;
     }
     const drawX = pos.x + lungeOffsetX;
 
-    // Sombra
+    const shadowW = isBoss ? 40 : 24;
+    const shadowH = isBoss ? 9 : 6;
+    const shadowY = isBoss ? 48 : 34;
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(pos.x, pos.y + 34, 24, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(pos.x, pos.y + shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Sprite
     const sprites = ENEMY_SPRITES[e.id] || ENEMY_SPRITES.slime;
     const gFrame = (battle.turn === 'resolve' && i === battle.activeEnemyIndex)
-      ? sprites.attack[0]
-      : sprites.idle[Math.floor(performance.now() / 500) % sprites.idle.length];
+      ? (e._phase2Active && sprites.attackPhase2 ? sprites.attackPhase2[0] : sprites.attack[0])
+      : (e._phase2Active && sprites.phase2
+          ? sprites.phase2[Math.floor(performance.now() / 500) % sprites.phase2.length]
+          : sprites.idle[Math.floor(performance.now() / 500) % sprites.idle.length]);
 
-    // Flash só no inimigo que foi acertado
     let enemyFlash = null;
     if (battle.anim.flashEnemy > 0 && i === battle.anim.flashEnemyIndex) {
       const blink = Math.floor(performance.now() / 60) % 2 === 0;
@@ -92,13 +93,15 @@ export function renderBattleInner() {
       }
     }
 
+    const spriteScale = isBoss ? 3 : 2;
+    const spritePx = 32 * spriteScale;
+
     ctx.globalAlpha = isDead ? 0.3 : (e.hiding > 0 ? 0.25 : 1);
-    drawSpriteWithFlash(gFrame, drawX - 32, pos.y - 32, 2, enemyFlash);
+    drawSpriteWithFlash(gFrame, drawX - spritePx / 2, pos.y - spritePx / 2, spriteScale, enemyFlash);
     ctx.globalAlpha = 1;
 
-    // Barra de HP
-    const barW = 80;
-    const barH = 6;
+    const barW = isBoss ? 140 : 80;
+    const barH = isBoss ? 8 : 6;
     const bx = pos.x - barW / 2;
     const by = pos.y - 60;
     ctx.fillStyle = '#000';
@@ -108,17 +111,15 @@ export function renderBattleInner() {
     ctx.fillStyle = isDead ? '#555' : '#c93030';
     ctx.fillRect(bx, by, barW * (e.hp / e.maxHp), barH);
 
-    // Número de HP ao lado da barra (à direita)
     ctx.font = 'bold 10px "Courier New", monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#000';
-    ctx.fillText(`${e.hp}/${e.maxHp}`, bx + barW + 5, by + barH / 2 + 1); // sombra
+    ctx.fillText(`${e.hp}/${e.maxHp}`, bx + barW + 5, by + barH / 2 + 1);
     ctx.fillStyle = isDead ? '#777' : '#eee';
     ctx.fillText(`${e.hp}/${e.maxHp}`, bx + barW + 4, by + barH / 2);
     ctx.textAlign = 'center';
 
-    // Status effects visuais
     let statusText = '';
     let statusColor = '#fff';
     if (e.scarabBuff && e.scarabBuff.turns > 0) {
@@ -150,7 +151,6 @@ export function renderBattleInner() {
       ctx.fillText(statusText, pos.x, by - 6);
     }
 
-    // Seta de alvo
     const visualTarget = getVisualTargetIndex();
     if (i === visualTarget && !isDead) {
       ctx.fillStyle = '#feca57';
@@ -162,7 +162,7 @@ export function renderBattleInner() {
     }
   });
 
-  // Companion (Herbalista) — escondida atrás do jogador
+  // Companion (Herbalista)
   if (battle._escortActive) {
     const sprite = NPC_SPRITES.herbalist.idle[0];
     const cx = CANVAS_W * 0.18;
@@ -199,11 +199,9 @@ export function renderBattleInner() {
 
   drawSpriteWithFlash(composed, px - 32 + shakePlayer, py - 40, 2, playerFlash);
 
-  // HP do jogador
   drawHpBar(30, 30, 'Você', playerStats.hp, playerStats.maxHp);
   drawMpBar(30, 50, playerStats.mp, playerStats.maxMp);
 
-  // indicador de veneno
   if (playerStats.poisoned) {
     ctx.fillStyle = '#9b3fb5';
     ctx.font = 'bold 11px "Courier New", monospace';
@@ -212,7 +210,6 @@ export function renderBattleInner() {
     ctx.fillText(`PSN ${playerStats.poisoned.turns}t (-${playerStats.poisoned.dmg}/t)`, 30, 76);
   }
 
-  // indicador de sangramento
   if (playerStats.bleeding) {
     ctx.fillStyle = '#ff3b3b';
     ctx.font = 'bold 11px "Courier New", monospace';
@@ -222,7 +219,15 @@ export function renderBattleInner() {
     ctx.fillText(`SNG ${playerStats.bleeding.turns}t (-${playerStats.bleeding.dmg}/t)`, 30, yBleed);
   }
 
-  // Indicador de alvo (canto superior direito)
+  if (playerStats.stunned > 0) {
+    ctx.fillStyle = '#6fbd63';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const yStun = 76 + (playerStats.poisoned ? 14 : 0) + (playerStats.bleeding ? 14 : 0);
+    ctx.fillText(`ENRAIZADO (${playerStats.stunned}t)`, 30, yStun);
+  }
+
   if (battle.enemies.length > 1) {
     const vIdx = getVisualTargetIndex();
     const t = vIdx >= 0 ? battle.enemies[vIdx] : null;
@@ -253,9 +258,6 @@ export function renderBattleInner() {
   ctx.globalAlpha = 1.0;
 
   // Mensagem
-  // Quando um submenu (skills/items) está aberto, os botões ocupam a parte de baixo.
-  // Nesse caso, movemos a mensagem para o topo, logo abaixo das barras de HP/MP,
-  // para não ficar escondida atrás dos botões.
   const menuOpen = battle.menuMode === 'skills' || battle.menuMode === 'items';
   const msgY = menuOpen ? 340 : CANVAS_H - 175;
   const msgH = 40;
@@ -272,8 +274,21 @@ export function renderBattleInner() {
   ctx.textBaseline = 'middle';
   ctx.fillText(battle.message, 32, msgY + msgH / 2);
 
+  // ---- Cutscene de entrada (boss) ----
+  if (battle.cutscene) {
+    drawCutscene(battle.cutscene);
+    // Não desenha botões, menus nem a mensagem por baixo
+    battle.buttons.length = 0;
+    return;
+  }
+
+  ctx.globalAlpha = 1;
+
   // Botões
   battle.buttons.length = 0;
+
+  // Durante a cutscene, não desenhamos botões e nem menus.
+  if (battle.cutscene) return;
 
   const cls = CLASSES[playerStats.classId];
   const skills = cls ? cls.skills : [];
@@ -342,7 +357,6 @@ export function renderBattleInner() {
       ctx.fillText(`x${item.qty}`, iconX + iconW + 10, y + bH / 2 + 10);
     });
 
-    // Paginação (setas nas laterais, igual às skills)
     if (totalPages > 1) {
       const arrowW = 28;
       const arrowH = 60;
@@ -375,7 +389,6 @@ export function renderBattleInner() {
         ctx.fillText('►', CANVAS_W - arrowW / 2 - 2, arrowY + arrowH / 2);
       }
 
-      // Indicador de página
       ctx.fillStyle = '#aaa';
       ctx.font = '11px "Courier New", monospace';
       ctx.textAlign = 'center';
@@ -383,7 +396,6 @@ export function renderBattleInner() {
       ctx.fillText(`${page + 1} / ${totalPages}`, CANVAS_W / 2, bY - 8);
     }
 
-    // Botão "Voltar" (embaixo)
     const backY = bY + rows * (bH + gap) + 4;
     battle.buttons.push({ x: 20, y: backY, w: CANVAS_W - 40, h: bH, action: 'menu_main' });
     drawButton(20, backY, CANVAS_W - 40, bH, 'Voltar');
@@ -391,7 +403,7 @@ export function renderBattleInner() {
     return;
   }
 
-  // ============ SUBMENU DE SKILLS (paginado) ============
+  // ============ SUBMENU DE SKILLS ============
   if (battle.menuMode === 'skills') {
     const PER_PAGE = 3;
     const totalPages = Math.max(1, Math.ceil(skills.length / PER_PAGE));
@@ -418,18 +430,15 @@ export function renderBattleInner() {
       ctx.lineWidth = 2;
       ctx.strokeRect(x + 1, bY + 1, bW - 2, bH - 2);
 
-      // Nome da skill (quebra em até 2 linhas)
       const nameLabel = `${idx + 1}. ${sk.name}`;
       const nameLines = drawSkillName(nameLabel, x + bW / 2, bY + 28, bW - 20, 15, canUse);
 
-      // Custo de MP (posicionado logo abaixo do nome)
       ctx.fillStyle = canUse ? '#8ad8ff' : '#444';
       ctx.font = '12px "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(`${cost} MP`, x + bW / 2, bY + 28 + (nameLines - 1) * 17 + 16);
 
-      // Dano estimado (só skills ofensivas)
       const dmgEst = estimateSkillDamage(sk.id);
       if (dmgEst) {
         const dmgY = bY + 28 + (nameLines - 1) * 17 + 16 + 14;
@@ -443,17 +452,14 @@ export function renderBattleInner() {
         ctx.fillText(txt, x + bW / 2, dmgY);
       }
 
-      // ---- ⓘ (canto superior direito) ----
       drawInfoIcon(x + bW - 18, bY + 8, sk, canUse);
     });
 
-    // Setas de paginação (só se tem mais de 1 página)
     if (totalPages > 1) {
       const arrowW = 32;
       const arrowH = 60;
       const arrowY = bY + (bH - arrowH) / 2;
 
-      // Seta esquerda
       if (page > 0) {
         battle.buttons.push({ x: 4, y: arrowY, w: arrowW, h: arrowH, action: 'skill_page_prev' });
         ctx.fillStyle = '#2a2a3e';
@@ -468,7 +474,6 @@ export function renderBattleInner() {
         ctx.fillText('◄', 4 + arrowW / 2, arrowY + arrowH / 2);
       }
 
-      // Seta direita
       if (page < totalPages - 1) {
         battle.buttons.push({ x: CANVAS_W - arrowW - 4, y: arrowY, w: arrowW, h: arrowH, action: 'skill_page_next' });
         ctx.fillStyle = '#2a2a3e';
@@ -483,7 +488,6 @@ export function renderBattleInner() {
         ctx.fillText('►', CANVAS_W - arrowW / 2 - 4, arrowY + arrowH / 2);
       }
 
-      // Indicador de página
       ctx.fillStyle = '#aaa';
       ctx.font = '11px "Courier New", monospace';
       ctx.textAlign = 'center';
@@ -491,7 +495,6 @@ export function renderBattleInner() {
       ctx.fillText(`${page + 1} / ${totalPages}`, CANVAS_W / 2, bY - 8);
     }
 
-    // Botão "Voltar"
     const backY = bY + bH + 10;
     battle.buttons.push({ x: margin, y: backY, w: CANVAS_W - margin * 2, h: 44, action: 'menu_main' });
     drawButton(margin, backY, CANVAS_W - margin * 2, 44, 'Voltar');
@@ -514,41 +517,42 @@ export function renderBattleInner() {
     const bH = 60;
     const n = 4;
     const bW = (CANVAS_W - margin * 2 - gap * (n - 1)) / n;
+    const stunned = playerStats.stunned > 0;
 
     // Atacar
     battle.buttons.push({ x: margin, y: bY, w: bW, h: bH, action: 'menu_skills' });
-    drawBigButton(margin, bY, bW, bH, 'sword', 'Atacar');
+    drawBigButton(margin, bY, bW, bH, 'sword', 'Atacar', stunned);
 
     // Item
     const itemX = margin + (bW + gap);
     battle.buttons.push({ x: itemX, y: bY, w: bW, h: bH, action: 'menu_items' });
-    drawBigButton(itemX, bY, bW, bH, 'bag', 'Item');
+    drawBigButton(itemX, bY, bW, bH, 'bag', 'Item', stunned);
 
-    // Descansar
+    // Descansar (sempre habilitado, mesmo enraizado)
     const restX = margin + 2 * (bW + gap);
     battle.buttons.push({ x: restX, y: bY, w: bW, h: bH, action: 'rest' });
-    drawBigButton(restX, bY, bW, bH, 'rest', 'Descansar');
+    drawBigButton(restX, bY, bW, bH, 'rest', 'Descansar', false);
 
     // Fugir
     const fleeX = margin + 3 * (bW + gap);
     battle.buttons.push({ x: fleeX, y: bY, w: bW, h: bH, action: 'flee' });
-    drawBigButton(fleeX, bY, bW, bH, 'flee', 'Fugir');
+    drawBigButton(fleeX, bY, bW, bH, 'flee', 'Fugir', stunned);
 
     return;
   }
 
+  // ============ LAYOUT ANTIGO (2 linhas, fallback) ============
   if (battle.turn === 'player') {
     const cls = CLASSES[playerStats.classId];
     const skills = cls ? cls.skills : [];
 
     const gap = 8;
     const margin = 20;
-    const bH1 = 70;   // altura da linha de skills
-    const bH2 = 46;   // altura da linha de ações secundárias
-    const bY2 = CANVAS_H - bH2 - 10;              // base (Item/Descansar/Fugir)
-    const bY1 = bY2 - bH1 - gap;                  // topo (skills)
+    const bH1 = 70;
+    const bH2 = 46;
+    const bY2 = CANVAS_H - bH2 - 10;
+    const bY1 = bY2 - bH1 - gap;
 
-    // ---- LINHA 1: SKILLS ----
     const nSkills = skills.length;
     const bW1 = (CANVAS_W - margin * 2 - gap * (nSkills - 1)) / nSkills;
 
@@ -565,18 +569,15 @@ export function renderBattleInner() {
       ctx.lineWidth = 2;
       ctx.strokeRect(x + 1, bY1 + 1, bW1 - 2, bH1 - 2);
 
-      // Nome da skill (quebra em até 2 linhas)
       const nameLabel = `${i + 1}. ${sk.name}`;
       const nameLines = drawSkillName(nameLabel, x + bW1 / 2, bY1 + 24, bW1 - 16, 13, canUse);
 
-      // Custo de MP (posicionado logo abaixo do nome)
       ctx.fillStyle = canUse ? '#8ad8ff' : '#444';
       ctx.font = '11px "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(`${cost} MP`, x + bW1 / 2, bY1 + 24 + (nameLines - 1) * 15 + 14);
 
-      // Dano estimado (só skills ofensivas)
       const dmgEst = estimateSkillDamage(sk.id);
       if (dmgEst) {
         const dmgY = bY1 + 24 + (nameLines - 1) * 15 + 14 + 12;
@@ -590,15 +591,12 @@ export function renderBattleInner() {
         ctx.fillText(txt, x + bW1 / 2, dmgY);
       }
 
-      // ---- ⓘ (canto superior direito) ----
       drawInfoIcon(x + bW1 - 18, bY1 + 8, sk, canUse);
     });
 
-    // ---- LINHA 2: ITEM / DESCANSAR / FUGIR ----
     const nSecondary = 3;
     const bW2 = (CANVAS_W - margin * 2 - gap * (nSecondary - 1)) / nSecondary;
 
-    // Item
     const itemX = margin;
     battle.buttons.push({ x: itemX, y: bY2, w: bW2, h: bH2, action: 'open_items' });
     ctx.fillStyle = '#2a2a3e';
@@ -615,7 +613,6 @@ export function renderBattleInner() {
     ctx.font = '9px "Courier New", monospace';
     ctx.fillText('(consome turno)', itemX + bW2 / 2, bY2 + 34);
 
-    // Descansar
     const restX = margin + (bW2 + gap);
     battle.buttons.push({ x: restX, y: bY2, w: bW2, h: bH2, action: 'rest' });
     ctx.fillStyle = '#2a2a3e';
@@ -631,7 +628,6 @@ export function renderBattleInner() {
     ctx.font = '9px "Courier New", monospace';
     ctx.fillText('+HP/+MP', restX + bW2 / 2, bY2 + 34);
 
-    // Fugir
     const fleeX = margin + 2 * (bW2 + gap);
     battle.buttons.push({ x: fleeX, y: bY2, w: bW2, h: bH2, action: 'flee' });
     ctx.fillStyle = '#2a2a3e';
@@ -649,14 +645,18 @@ export function renderBattleInner() {
     ctx.textAlign = 'center';
     ctx.fillText('...', CANVAS_W / 2, CANVAS_H - 80);
   }
+
   drawSkillTooltip();
 }
 
-// E crie uma nova que chama a antiga + o tooltip:
 export function renderBattle() {
   renderBattleInner();
   drawSkillTooltip();
 }
+
+// ============================================================
+// Helpers
+// ============================================================
 
 function drawMpBar(x, y, mp, maxMp) {
   const w = 200, h = 8;
@@ -695,26 +695,27 @@ function drawButton(x, y, w, h, label, hint = '') {
   }
 }
 
-function drawBigButton(x, y, w, h, iconId, label) {
-  ctx.fillStyle = '#2a2a3e';
+function drawBigButton(x, y, w, h, iconId, label, disabled = false) {
+  ctx.fillStyle = disabled ? '#1a1a24' : '#2a2a3e';
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = '#c9a24d';
+  ctx.strokeStyle = disabled ? '#444' : '#c9a24d';
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Ícone desenhado (pixel art) em cima
-  const iconSize = 28;          // tamanho em pixels na tela
-  const scale = iconSize / 20;  // icons.js é 20x20
+  const iconSize = 28;
+  const scale = iconSize / 20;
   const iconX = x + w / 2 - iconSize / 2;
   const iconY = y + h * 0.28 - iconSize / 2;
-  drawIconOnCanvas(ctx, iconId, iconX, iconY, scale);
 
-  // Label embaixo
+  ctx.globalAlpha = disabled ? 0.35 : 1;
+  drawIconOnCanvas(ctx, iconId, iconX, iconY, scale);
+  ctx.globalAlpha = 1;
+
   ctx.font = 'bold 13px "Courier New", monospace';
-  ctx.fillStyle = '#eee';
+  ctx.fillStyle = disabled ? '#555' : '#eee';
   ctx.fillText(label, x + w / 2, y + h * 0.75);
 }
 
@@ -758,39 +759,6 @@ function wrapText(text, cx, startY, maxWidth, lineHeight) {
   }
   if (line) ctx.fillText(line, cx, y);
   return y + lineHeight;
-}
-
-function wrapTextClamped(text, cx, startY, maxWidth, lineHeight, maxLines, minFontSize = 9) {
-  const words = text.split(' ');
-  const lines = [];
-  let line = '';
-
-  for (const w of words) {
-    const testLine = line ? line + ' ' + w : w;
-    if (ctx.measureText(testLine).width > maxWidth && line) {
-      lines.push(line);
-      line = w;
-    } else {
-      line = testLine;
-    }
-  }
-  if (line) lines.push(line);
-
-  if (lines.length > maxLines) {
-    lines.length = maxLines;
-    let last = lines[maxLines - 1];
-    while (last.length > 0 && ctx.measureText(last + '…').width > maxWidth) {
-      last = last.slice(0, -1);
-    }
-    lines[maxLines - 1] = last.trimEnd() + '…';
-  }
-
-  let y = startY;
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], cx, y);
-    y += lineHeight;
-  }
-  return lines.length;
 }
 
 function drawInfoIcon(x, y, skill, canUse) {

@@ -36,13 +36,18 @@ export function drawMapEnemies(room) {
       frame = sprites.idle[Math.floor(now / 500) % sprites.idle.length];
     }
 
-    const dx = e.tx * TILE_SIZE + TILE_SIZE / 2 - 16;
-    const dy = e.ty * TILE_SIZE + TILE_SIZE - 30;
+    // Boss é 48×48 (desenhado 1.5× maior no mapa).
+    const isBoss = e.isBoss === true;
+    const spriteSize = isBoss ? 48 : 32;
+    const halfSprite = spriteSize / 2;
+
+    const dx = e.tx * TILE_SIZE + TILE_SIZE / 2 - halfSprite;
+    const dy = e.ty * TILE_SIZE + TILE_SIZE - (isBoss ? 44 : 30);
 
     // Sombra
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(dx + 16, dy + 30, 10, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(dx + halfSprite, dy + (isBoss ? 44 : 30), isBoss ? 18 : 10, isBoss ? 5 : 3, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // ---------- GLOW (só na caverna, com tocha) ----------
@@ -110,6 +115,6 @@ export function drawMapEnemies(room) {
     }
 
     // Sprite real (por cima do glow)
-    ctx.drawImage(frame, dx, dy, 32, 32);
+    ctx.drawImage(frame, dx, dy, spriteSize, spriteSize);
   }
 }

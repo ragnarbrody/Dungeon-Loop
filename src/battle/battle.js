@@ -195,6 +195,14 @@ export function playerAction(action) {
     if (mpGanho > 0) spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.60, `+${mpGanho} MP`, '#8ad8ff');
     if (hpGanho > 0) spawnFloatingTextAt(CANVAS_W * 0.25, CANVAS_H * 0.55, `+${hpGanho} HP`, '#6fbd63');
 
+    // Descansar funciona mesmo enraizado: consome o stun e vai pro
+    // turno do inimigo normalmente (o turno do jogador foi "gasto"
+    // descansando, não atacando).
+    if (playerStats.stunned > 0) {
+      playerStats.stunned--;
+      battle.message = `${msg} (Mas você ainda estava enraizado — o inimigo aproveita!)`;
+    }
+
     flashPlayer('white', 0.2);
     endPlayerTurn();
     return;

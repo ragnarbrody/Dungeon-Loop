@@ -221,7 +221,7 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_cave'],
     description:
-      'A Herbalista saiu para colher ervas raras e não voltou. O Ancião está preocupado. Encontre-a onde ela avisou que ia, ajude-a a colher as ervas e traga-a de volta.',
+      'A Herbalista saiu para colher ervas raras e não voltou. Eu estou preocupado. Encontre-a onde ela avisou que ia, ajude-a a colher as ervas e traga-a de volta.',
     objectives: [
       {
         id: 'find_herbalist',
@@ -245,7 +245,7 @@ export const QUEST_DB = {
       },
     ],
     rewards: { xp: 80, gold: 40, items: [{ id: 'potion_medium', qty: 2 }] },
-    next: 'story_guardian_prep',
+    next: 'story_banner',
   },
   story_banner: {
     id: 'story_banner',
@@ -279,7 +279,41 @@ export const QUEST_DB = {
         { id: 'potion_mana_medium', qty: 1 },
       ],
     },
-    next: null,
+    next: 'story_guardian_prep',
+  },
+  story_guardian_prep: {
+    id: 'story_guardian_prep',
+    type: 'story',
+    chapter: 'fields',
+    title: 'O Guardião dos Campos',
+    giver: 'elder',
+    prereq: ['story_banner'],
+    description:
+      'A Árvore Mãe guarda o Núcleo do anel. Enquanto ela vive, os Campos ficam estáveis. ' +
+      'Encontre-a no Coração dos Campos, a sudeste. E decida o que você está disposto a fazer.',
+    objectives: [
+      {
+        id: 'reach_guardian',
+        text: 'Chegue ao Coração dos Campos (marcado no mapa)',
+        target: 1, type: 'visit', filter: { gx: 6, gy: 8 },
+      },
+      {
+        id: 'defeat_guardian',
+        text: 'Derrote o Guardião dos Campos',
+        target: 1, type: 'kill', filter: 'guardian_fields',
+      },
+      {
+        id: 'collect_core',
+        text: 'Recupere o Núcleo dos Campos',
+        target: 1, type: 'collect', filter: 'core_fields',
+      },
+    ],
+    rewards: {
+      xp: 150,
+      gold: 100,
+      items: [{ id: 'potion_strong', qty: 2 }],
+    },
+    next: 'story_to_akmira',
   },
 
 };
@@ -409,6 +443,18 @@ export function activateQuest(id) {
     //  a sala foi gerada como procedural normal — precisa regenerar)
     import('./world/rooms.js').then(mod => {
       mod.roomCache.delete('4,6');
+    }).catch(console.error);
+  } else if (id === 'story_guardian_prep') {
+    _addMarker({
+      id: 'marker_guardian_camp',
+      type: 'quest',
+      gx: 6, gy: 8,
+      title: 'Coração dos Campos',
+      revealed: true,
+    });
+    _revealMarker('marker_guardian_camp');
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('6,8');
     }).catch(console.error);
   }
 
@@ -582,6 +628,13 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     // goblins ficam "órfãos". Melhor deixar a sala lá, só sem
     // o banner. O cache não precisa ser limpo.
     // (O `input.js` já removeu o interactable da sala em memória.)
+  }
+
+  if (q.id === 'story_guardian_prep') {
+    _removeMarker('marker_guardian_camp');
+    import('./world/rooms.js').then(mod => {
+      mod.roomCache.delete('6,8');
+    }).catch(console.error);
   }
 
   // ---- 3) Marca como concluída ----

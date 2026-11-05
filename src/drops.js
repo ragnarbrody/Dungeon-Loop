@@ -34,7 +34,7 @@ export const ENEMY_DROPS = {
   goblin: [
     { itemId: 'goblin_tooth',  chance: 0.65, qtyMin: 1, qtyMax: 2 },
     { itemId: 'potion_weak', chance: 0.20, qtyMin: 1, qtyMax: 2 },
-    { itemId: 'potion_medium', chance: 0.12, qtyMin: 1, qtyMax: 1 },
+    { itemId: 'potion_medium', chance: 0.05, qtyMin: 1, qtyMax: 1 },
     { itemId: 'potion_agi',    chance: 0.05, qtyMin: 1, qtyMax: 1 },
   ],
 
@@ -52,7 +52,8 @@ export const ENEMY_DROPS = {
 
   // Múmia: dropa poção forte (raro)
   mummy: [
-    { itemId: 'potion_medium', chance: 0.25, qtyMin: 1, qtyMax: 1 },
+    { itemId: 'potion_medium', chance: 0.25, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_mana_medium', chance: 0.20, qtyMin: 1, qtyMax: 1 },
   ],
 
   // Escaravelho: dropa poção de força
@@ -68,6 +69,7 @@ export const ENEMY_DROPS = {
   goblin_sergeant: [
     { itemId: 'nucleo_bruto', chance: 1.0, qtyMin: 1, qtyMax: 1 }, // Drop garantido
     { itemId: 'potion_medium', chance: 0.5, qtyMin: 1, qtyMax: 2 },
+    { itemId: 'potion_mana_medium', chance: 0.25, qtyMin: 1, qtyMax: 1 },
   ],
 };
 

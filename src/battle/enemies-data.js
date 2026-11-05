@@ -78,4 +78,47 @@ export const ENEMIES = {
     defPen: 0.4,          // ignora 40% da def do jogador
     isMiniboss: true,
   },
+  guardian_fields: {
+    id: 'guardian_fields',
+    name: 'Árvore Mãe',
+    hp: 120,
+    atk: 13,              // ← era 10 (mais dano)
+    def: 2,
+    xp: 200,
+    goldMin: 50,
+    goldMax: 80,
+    isMiniboss: true,
+    isBoss: true,
+    introText: 'A Árvore Mãe abre os olhos. As raízes se erguem — ela não vai deixar você levar o Núcleo.',
+
+    // ---- Poder de stun: "Gravinas" ----
+    // Chance por turno de enraizar o jogador (stun 1 turno).
+    // Só dispara a partir do 2º turno do boss (dá tempo do jogador entender o padrão).
+    rootAbility: {
+      chance: 0.30,        // 30% por turno
+      minTurn: 2,          // só a partir do 2º turno do boss
+      message: (name) => `${name} lança Gravinas! Raízes prendem seus pés — você perde o próximo turno!`,
+    },
+
+    // ---- Invocação ----
+    // Regra:
+    //   - máximo de 2 aliados VIVOS (contando os invocados, não o boss)
+    //   - se 2 vivos: não invoca
+    //   - se 1 vivo: invoca +1
+    //   - se 0 vivos: invoca 2
+    //   - fase 1: invoca 'slime' (qtd configurável)
+    //   - fase 2: invoca 'goblin' (qtd configurável)
+    summons: {
+      phase1: { id: 'slime',  qty: 2, everyTurns: 3 },
+      phase2: { id: 'goblin', qty: 2, everyTurns: 3 },
+      maxAlive: 2,
+    },
+    phase2: {
+      hpThreshold: 0.5,
+      def: 3,
+      atk: 18,             // ← era 14 (fase 2 mais perigosa)
+      healPerTurn: 6,
+    },
+    loreDrop: 'seed_of_fields',
+  },
 };

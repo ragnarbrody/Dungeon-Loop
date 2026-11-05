@@ -243,6 +243,37 @@ export function offerQuests() {
     return;
   }
 
+  // ---- Entrega especial: story_guardian_prep ----
+  if (
+    active &&
+    active.id === 'story_guardian_prep' &&
+    isQuestReadyToComplete(active.id)
+  ) {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Você voltou. E o Núcleo está com você.\n\n` +
+        `Eu sinto o peso dele daqui, ${vocative()}. O anel já está sentindo a falta dela. ` +
+        `Os Campos vão ficar mais instáveis agora — não muito, mas o suficiente pra notar.\n\n` +
+        `Você trouxe a semente também. Então ela não vai voltar. Mas... a semente pode ser plantada. ` +
+        `Talvez, um dia, Aethel tenha uma Árvore Mãe de novo.\n\n` +
+        `Coloque o Núcleo no Portal quando puder. E descanse. Você fez o que precisava.`,
+      actions: [
+        {
+          label: 'Receber recompensa',
+          action: () => {
+            completeActiveQuest(playerStats, addItemToInventory);
+            saveGame();
+            closeDialogue();
+            checkLevelUp();
+            offerQuests();
+          },
+        },
+      ],
+    });
+    return;
+  }
+
   // ---- Se tem quest ativa e pronta pra entregar AO ANCIÃO: entrega ----
   if (active && isQuestReadyToComplete(active.id)) {
     const q = active;
@@ -319,6 +350,36 @@ export function offerQuests() {
         `${greeting()}\n\n` +
         `Por ora, não tenho mais nada para pedir, ${vocative()}. ` +
         `Volte quando o Portal estiver mais perto.`,
+    });
+    return;
+  }
+
+  // ---- Oferta especial: story_guardian_prep ----
+  if (available[0]?.id === 'story_guardian_prep') {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Você trouxe o estandarte de volta. Mas a Fratura não para, ${vocative()}.\n\n` +
+        `Eu tenho evitado falar disso, mas não dá mais pra adiar. Lá no Coração dos Campos, ` +
+        `a sudeste, mora a Árvore Mãe. Ela é o Guardião do nosso anel — a coisa mais antiga que ` +
+        `ainda respira por aqui. Enquanto ela vive, os Campos ficam estáveis.\n\n` +
+        `O Núcleo que você precisa está com ela. Eu não vou mentir: não é uma luta justa. ` +
+        `Ela não ataca primeiro. Só se defende. Mas o Núcleo é a única forma de reacender o Portal.\n\n` +
+        `Vá até lá. E decida com cuidado o que você está disposto a fazer.`,
+      actions: [
+        {
+          label: 'Aceitar',
+          action: () => {
+            activateQuest('story_guardian_prep');
+            saveGame();
+            closeDialogue();
+          },
+        },
+        {
+          label: 'Agora não',
+          action: () => closeDialogue(),
+        },
+      ],
     });
     return;
   }
