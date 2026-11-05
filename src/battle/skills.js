@@ -1,12 +1,12 @@
 // ============================================================
 // Skills do jogador: implementações, custo e estimativa de dano.
-// Fórmulas preservadas do battle.js original.
 // ============================================================
 import { playerStats, effStat, battle } from '../core/state.js';
 import { rand } from '../core/rng.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { CLASSES } from '../classes.js';
 import { sfx } from '../audio/audio.js';
+import { computeIncomingMagicDamage } from './damage.js';
 import {
   target, targetIgnoringHiding, livingEnemies, tryDodge,
   flashEnemyAt, flashPlayer, spawnFloatingText, applyMarkBonus,
@@ -22,7 +22,7 @@ export function classDamageStat() {
 export function classAtk() {
   const stat = classDamageStat();
   const eq = weaponBonus(playerEquip)[stat] || 0;
-  return 2 + (effStat(stat) + eq) * 2;
+  return 2 + (effStat(stat) + eq) * 1.5;
 }
 
 export function dmgStat() {
@@ -37,6 +37,11 @@ export function effectiveSkillCost(skill) {
   return base + extra;
 }
 
+// Helper: dano mágico puro (ignora defesa, mas respeita magicResist)
+function magicDamage(enemy, raw) {
+  return computeIncomingMagicDamage(raw, 0, enemy.magicResist || 0);
+}
+
 // ---- Implementações ----
 export const SKILL_IMPL = {
   // ---- CAVALEIRA (str) ----
@@ -48,8 +53,8 @@ export const SKILL_IMPL = {
     }
     if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
     const dmg = Math.max(1, classAtk() - t.def + rand(-1, 1));
-    const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
-    const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
+    const isCrit = Math.random() < Math.min(0.25, 0.02 + effStat('int') * 0.01);
+    const finalDmg = isCrit ? Math.floor(dmg * 1.35) : dmg;
     t.hp = Math.max(0, t.hp - finalDmg);
     sfx('hit');
     battle.message = `Você atacou rápido! ${finalDmg} de dano em ${t.name}. ${isCrit ? '(CRÍTICO!)' : ''}`;
@@ -64,10 +69,10 @@ export const SKILL_IMPL = {
     if (Math.random() >= hitChance) {
       battle.message = 'Seu ataque forte errou!'; sfx('miss'); return;
     }
-    const base = Math.round(classAtk() * 1.8);
+    const base = Math.round(classAtk() * 1.5);
     const dmg = Math.max(1, base - t.def + rand(-1, 2));
-    const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
-    const finalDmg = isCrit ? Math.floor(dmg * 1.5) : dmg;
+    const isCrit = Math.random() < Math.min(0.25, 0.02 + effStat('int') * 0.01);
+    const finalDmg = isCrit ? Math.floor(dmg * 1.35) : dmg;
     t.hp = Math.max(0, t.hp - finalDmg);
     sfx('hit');
     battle.message = `Você atacou forte! ${finalDmg} de dano em ${t.name}. ${isCrit ? '(CRÍTICO!)' : ''}`;
@@ -98,11 +103,12 @@ export const SKILL_IMPL = {
     battle.anim.shake = 0.3;
   },
 
-  // ---- MAGO (int) — ignora defesa ----
+  // ---- MAGO (int) — ignora defesa, mas respeita magicResist ----
   bolt: () => {
     const t = target(); if (!t) return;
     if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
-    const dmg = Math.max(1, 3 + dmgStat() * 2 + rand(-1, 1));
+    const raw = 3 + dmgStat() * 2 + rand(-1, 1);
+    const dmg = magicDamage(t, raw);
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
     battle.message = `Force Bolt! ${dmg} de dano em ${t.name}.`;
@@ -113,10 +119,11 @@ export const SKILL_IMPL = {
   fireball: () => {
     const t = target(); if (!t) return;
     if (tryDodge(t)) { battle.anim.shake = 0.1; return; }
-    const dmg = Math.max(1, 5 + dmgStat() * 2 + rand(-1, 2));
+    const raw = 5 + dmgStat() * 2 + rand(-1, 2);
+    const dmg = magicDamage(t, raw);
     t.hp = Math.max(0, t.hp - dmg);
     sfx('hit');
-    battle.message = `Bola de Fogo! ${dmg} de dano em ${t.name} (ignora defesa).`;
+    battle.message = `Bola de Fogo! ${dmg} de dano em ${t.name}.`;
     flashEnemyAt(t, 'white');
     battle.anim.shake = 0.25;
     spawnFloatingText(t, dmg, '#ff8a3b');
@@ -124,11 +131,12 @@ export const SKILL_IMPL = {
   arcane: () => {
     const living = livingEnemies().filter(e => e.hiding === 0);
     if (living.length === 0) return;
-    const baseDmg = 5 + dmgStat() * 2;
+    const baseRaw = 5 + dmgStat() * 2;
     let total = 0, hits = 0;
     for (const e of living) {
       if (tryDodge(e)) continue;
-      const dmg = Math.max(1, baseDmg + rand(-2, 2));
+      const raw = baseRaw + rand(-2, 2);
+      const dmg = magicDamage(e, raw);
       e.hp = Math.max(0, e.hp - dmg);
       total += dmg; hits++;
       flashEnemyAt(e, 'white');
@@ -182,7 +190,7 @@ export const SKILL_IMPL = {
     const t = targetIgnoringHiding(); if (!t) return;
     const base = 1 + dmgStat() * 1.8;
     const dmg = Math.max(1, Math.round(base - t.def * 0.5 + rand(-1, 1)));
-    const isCrit = Math.random() < Math.min(0.35, 0.02 + effStat('int') * 0.01);
+    const isCrit = Math.random() < Math.min(0.25, 0.02 + effStat('int') * 0.01);
     const finalDmg = applyMarkBonus(t, isCrit ? Math.floor(dmg * 1.5) : dmg);
 
     if (t.hiding > 0) {
@@ -237,6 +245,9 @@ export const SKILL_IMPL = {
 };
 
 // ---- Estimativa de dano (UI) ----
+// Nota: não considera magicResist (é uma estimativa "contra DEF 0",
+// que é o que a UI mostra hoje). O jogador vai ver o número real
+// no combate quando o inimigo tiver resistência.
 export function estimateSkillDamage(skillId) {
   const stat = classDamageStat();
   const atk = 2 + (effStat(stat) + (weaponBonus(playerEquip)[stat] || 0)) * 2;
@@ -248,7 +259,7 @@ export function estimateSkillDamage(skillId) {
       return { min: Math.max(1, base - 1), max: Math.floor((base + 1) * 1.5) };
     }
     case 'heavy': {
-      const base = Math.round(atk * 1.8);
+      const base = Math.round(atk * 1.5);
       return { min: Math.max(1, base - 1), max: Math.floor((base + 2) * 1.5) };
     }
     case 'spin': {

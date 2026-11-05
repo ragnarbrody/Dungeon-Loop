@@ -93,6 +93,98 @@ const MODES = {
       { bass: true,  arp: true, kick: false, snare: false, hihat: false, backing: false, intensity: 2, chord: true, bell: true, arpHarmonyGain: 0.03, arpHarmonySemitones: 12, bellPattern: [0, null, null, null, 4, null, null, null, 2, null, null, null, 4, null, null, null], pad: true, padGain: 0.02, flute: true, fluteGain: 0.025, flutePhraseIndex: 2 },
     ],
   },
+  // ============================================================
+  // CIDADE DE AKMIRA — "Oásis entre as Dunas"
+  // Sereno, árabe, acolhedor. Diferente do deserto (tenso) e do
+  // Aethel (pastoral): aqui o jogador descansa, negocia, conversa.
+  // ============================================================
+  akmira: {
+    root: 261.63,                 // C4 — relativo, "claro" e aberto
+    scale: [0, 1, 4, 5, 7, 8, 11], // hijaz (frígio dominante) — sabor árabe
+    bpm: 84,
+    arpGain: 0.05,
+    chordGain: 0.045,
+    arpOct: 1,
+    chordOct: 0,
+    arpSubdiv: 2,
+    // Padrão de arpejo suave (não é o ostinato do deserto — é mais "canção")
+    arpPattern: [0, null, 2, null, 4, null, 2, null, 0, null, 4, null, 2, null, 4, null],
+    // Percussão árabe leve (tabla esparsa + címbalo em tempos fortes)
+    tabla: true,
+    tablaGain: 0.035,
+    cymbal: true,
+    cymbalGain: 0.015,
+    // Contrabaixo árabe (a "respiração grave" da cidade)
+    arabicBass: true,
+    arabicBassGain: 0.045,
+    bassGain: 0.06,
+    bassOct: -1,
+    // Sitar suave (identidade "exótica", mas sem competir com o deserto)
+    sitar: true,
+    sitarGain: 0.022,
+    // Flauta de bambu — a melodia acolhedora da cidade
+    bambooFlute: true,
+    bambooFluteGain: 0.03,
+    barsPerPhase: 4,
+    phases: [
+      // 0: Introdução — só contrabaixo árabe + flauta. "A cidade respira."
+      {
+        bass: false, arp: false, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 0, chord: false,
+        arabicBass: true, arabicBassGain: 0.035,
+        bambooFlute: true, bambooFluteGain: 0.028,
+        // frase inicial calma
+        bambooFlutePattern: [0, null, null, 2, null, 4, null, 2, 0, null, null, 2, null, 4, null, null],
+      },
+      // 1: Entra o arpejo + sitar + tabla. "As pessoas acordam."
+      {
+        bass: false, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: false,
+        arpHarmonyGain: 0.02, arpHarmonySemitones: 7,
+        tabla: true, tablaGain: 0.03,
+        sitar: true, sitarGain: 0.02,
+        arabicBass: true, arabicBassGain: 0.04,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, null, 2, null, null],
+      },
+      // 2: Entra o baixo + acorde no downbeat. "O comércio abre."
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: true,
+        tabla: true, tablaGain: 0.035,
+        sitar: true, sitarGain: 0.022,
+        arabicBass: true, arabicBassGain: 0.045,
+        bambooFlute: true, bambooFluteGain: 0.03,
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, null, 2, null, null],
+      },
+      // 3: Entra o címbalo (festa / mercado) + pad (calor). Mais cheio.
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 2, chord: true,
+        tabla: true, tablaGain: 0.04,
+        sitar: true, sitarGain: 0.024,
+        arabicBass: true, arabicBassGain: 0.045,
+        cymbal: true, cymbalGain: 0.018,
+        bambooFlute: true, bambooFluteGain: 0.032,
+        bambooFlutePattern: [0, 4, 2, 4, null, 2, null, 4, 0, 4, 2, 4, 2, 4, 0, null],
+        pad: true, padGain: 0.022,
+      },
+      // 4: Loop de "fim de tarde / descanso" — mais esparso, flauta domina.
+      // (mantém identidade, mas baixa a intensidade — o jogador pode
+      //  ficar na cidade sem cansar do loop)
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: true,
+        tabla: true, tablaGain: 0.025,
+        sitar: true, sitarGain: 0.02,
+        arabicBass: true, arabicBassGain: 0.04,
+        bambooFlute: true, bambooFluteGain: 0.035,
+        bambooFlutePattern: [0, null, null, 2, null, 4, null, 2, 0, null, null, 2, null, 4, null, null],
+        pad: true, padGain: 0.02,
+        barsPerPhaseOverride: Infinity,
+      },
+    ],
+  },
 
   fields: {
     root: 293.66,
@@ -283,6 +375,128 @@ const MODES = {
         drone: true, drip: true, wind: true, bell: true,
         arpHarmonyGain: 0.02, arpHarmonySemitones: 7,
         pad: true, padGain: 0.018,
+      },
+    ],
+  },
+
+  // ============================================================
+  // MÚSICA DE DUNGEON DO DESERTO — "Tumba de Areia"
+  // Pirâmide/tumba antiga. Percussão ritual, cordas dedilhadas
+  // (oud), sinos de vento, coro sussurrado. Mais cerimonial que
+  // a caverna comum (que é úmida e "gotejante").
+  // ============================================================
+  desert_cave: {
+    root: 164.81,                  // E3 — mais grave, "antigo"
+    scale: [0, 1, 4, 5, 7, 8, 10], // frígia dominante (hijaz)
+    bpm: 64,                       // cerimonial, lento
+    arpGain: 0.04,
+    chordGain: 0.045,
+    arpOct: 1,
+    chordOct: -1,
+    arpSubdiv: 2,
+    bassGain: 0.08,
+    bassOct: -2,
+    // Percussão ritual (tabla grave + tímpano distante)
+    tabla: true,
+    tablaGain: 0.045,
+    deepDrum: true,
+    deepDrumGain: 0.18,
+    // Oud (cordas dedilhadas árabes) — assina o tema
+    sitar: true,
+    sitarGain: 0.025,
+    // Sino de vento, marca o tempo ritual
+    windChime: true,
+    windChimeGain: 0.02,
+    // Cítara grave (baixo) — o "peso" da tumba
+    arabicBass: true,
+    arabicBassGain: 0.05,
+    // Coro sussurrado (o "guardião" da tumba)
+    choir: true,
+    choirChord: true,
+    choirGain: 0.025,
+    // Drone (a "respiração" da tumba)
+    drone: true,
+    droneGain: 0.03,
+    droneOct: -2,
+    // Sopro de vento esparso (areia entrando)
+    wind: true,
+    windGain: 0.018,
+    windEveryBars: 4,
+    // Sino com eco (a câmara é grande)
+    bell: true,
+    bellGain: 0.035,
+    bellDur: 3.0,
+    bellEcho: true,
+    barsPerPhase: 4,
+    phases: [
+      // 0: Introdução — drone + oud + tímpano distante. "A tumba respira."
+      {
+        bass: false, arp: false, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 0, chord: false,
+        drone: true, oud: true,
+        sitar: true, sitarGain: 0.028,
+        deepDrum: true, deepDrumGain: 0.12, deepDrumSteps: [0, 8],
+        bell: true, bellGain: 0.02,
+      },
+      // 1: Entra arpejo + tabla + cítara. "As paredes acordam."
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 1, chord: true,
+        drone: true,
+        sitar: true, sitarGain: 0.03,
+        tabla: true, tablaGain: 0.04,
+        arabicBass: true, arabicBassGain: 0.045,
+        deepDrum: true, deepDrumGain: 0.14, deepDrumSteps: [0, 4, 8, 12],
+        bell: true, bellGain: 0.025,
+      },
+      // 2: Coro entra + sino de vento + vento esparso. "Os guardiões observam."
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 2, chord: true,
+        drone: true,
+        sitar: true, sitarGain: 0.032,
+        tabla: true, tablaGain: 0.045,
+        arabicBass: true, arabicBassGain: 0.05,
+        choir: true, choirChord: true, choirGain: 0.02,
+        windChime: true, windChimeGain: 0.018,
+        deepDrum: true, deepDrumGain: 0.18, deepDrumSteps: [0, 4, 8, 12],
+        wind: true, windGain: 0.015,
+        bell: true, bellGain: 0.03,
+      },
+      // 3: Clímax contido — tudo, mas cerimonial. "O ritual."
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 3, chord: true,
+        drone: true,
+        sitar: true, sitarGain: 0.035,
+        tabla: true, tablaGain: 0.05,
+        arabicBass: true, arabicBassGain: 0.055,
+        choir: true, choirChord: true, choirGain: 0.03,
+        windChime: true, windChimeGain: 0.022,
+        deepDrum: true, deepDrumGain: 0.22, deepDrumSteps: [0, 4, 6, 8, 12, 14],
+        wind: true, windGain: 0.018,
+        pad: true, padGain: 0.018,
+        bell: true, bellGain: 0.04,
+        // último compasso: um golpe orquestral ("o guardião se ergue")
+        hit: true, hitSteps: [0], hitGain: 0.035,
+        barsPerPhaseOverride: 2,
+      },
+      // 4: Loop de "exploração" — mais calmo que o clímax, mas
+      // mantém a identidade ritualística. (O jogador pode ficar
+      // muito tempo explorando a tumba.)
+      {
+        bass: true, arp: true, kick: false, snare: false, hihat: false,
+        backing: false, intensity: 2, chord: true,
+        drone: true,
+        sitar: true, sitarGain: 0.03,
+        tabla: true, tablaGain: 0.04,
+        arabicBass: true, arabicBassGain: 0.05,
+        choir: true, choirChord: true, choirGain: 0.02,
+        windChime: true, windChimeGain: 0.02,
+        deepDrum: true, deepDrumGain: 0.16, deepDrumSteps: [0, 8],
+        wind: true, windGain: 0.015,
+        bell: true, bellGain: 0.028,
+        barsPerPhaseOverride: Infinity,
       },
     ],
   },

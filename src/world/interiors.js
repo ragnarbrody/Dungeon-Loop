@@ -1,5 +1,6 @@
 import { TILE_SIZE } from '../core/canvas.js';
 import { T } from './tiles.js';
+import { getCityId } from './cities.js';
 
 const INTERIOR_COLS = 9;
 const INTERIOR_ROWS = 9;
@@ -11,7 +12,19 @@ const NPC_FOR_BUILDING = {
   blacksmith: 'blacksmith',
   armorer: 'armorer',
   bank: 'banker',
+  jeweler: 'jeweler',
 };
+
+// Nome "amigável" do banco por cidade.
+// Fallback: "Banco de Aethel" (cidade base).
+function bankNameFor(gx, gy) {
+  const cityId = getCityId(gx, gy);
+  const names = {
+    aethel: 'Banco de Aethel',
+    akmira: 'Banco de Akmira',
+  };
+  return names[cityId] || 'Banco';
+}
 
 export function createInterior(buildingId, gx, gy) {
   const cols = INTERIOR_COLS;
@@ -51,18 +64,27 @@ export function createInterior(buildingId, gx, gy) {
     ty: tableY - 1,
   };
 
+  // Nome do interior: usa cidade como fallback pra "Banco" e "Ancião"
+  const name = (() => {
+    if (buildingId === 'bank') return bankNameFor(gx, gy);
+    if (buildingId === 'quest_giver') {
+      const cityId = getCityId(gx, gy);
+      return cityId === 'akmira' ? 'Salão do Ancião de Akmira' : 'Salão do Ancião';
+    }
+    if (buildingId === 'blacksmith') return 'Ferreiro';
+    if (buildingId === 'armorer')    return 'Armeiro';
+    if (buildingId === 'herbalist')  return 'Herbalista';
+    if (buildingId === 'jeweler')    return 'Joalheira';
+    return 'Interior';
+  })();
+
   return {
     gx, gy,
     cols, rows,
     map,
     doors: ['bottom'],
     biomeId: 'interior',
-    name: buildingId === 'quest_giver' ? 'Salão do Ancião'
-    : buildingId === 'blacksmith'  ? 'Ferreiro'
-    : buildingId === 'armorer'    ? 'Armeiro' 
-    : buildingId === 'herbalist'  ? 'Herbalista'
-    : buildingId === 'bank' ? 'Banco de Aethel'
-    : 'Interior',
+    name,
     nameCoords: `${gx}, ${gy}`,
     isInterior: true,
     buildingId,

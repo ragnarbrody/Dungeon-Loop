@@ -5,6 +5,8 @@ import { showToast } from './toast.js';
 import { getVault, depositGold, withdrawGold, depositItem, withdrawItem,
          buyVaultSlot, nextSlotPrice, GOLD_DEPOSIT_FEE } from '../core/meta.js';
 import { pickVaultGreeting } from './shopgreetings.js';
+import { currentRoom } from '../core/state.js';
+import { getCityData } from '../world/cities.js';
 
 const CSS = `
 #vault-screen{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72)}
@@ -48,9 +50,17 @@ function ensure() {
 }
 
 export function openVault() {
-  ensure().classList.remove('hidden');
+  const c = ensure();
+  // Nome dinâmico
+  const cityId = currentRoom?.cityId || 'aethel';
+  const city = getCityData(cityId);
+  const bankName = city
+    ? `Banco de ${city.name.replace('Cidade de ', '')}`
+    : 'Banco';
+  c.querySelector('h2').textContent = bankName;
+
+  c.classList.remove('hidden');
   tab = 'gold';
-  // Saudação sorteada SÓ na abertura
   c.querySelector('.vault-greeting').textContent = pickVaultGreeting();
   render();
 }

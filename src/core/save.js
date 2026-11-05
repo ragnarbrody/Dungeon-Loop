@@ -19,7 +19,7 @@ const SAVE_KEY = 'dungeonLoop_save';
 
 // Sempre que adicionar uma migraÃ§Ã£o, sobe esse nÃºmero e adiciona
 // uma entrada em MIGRATIONS.
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 10;
 
 // ---------- Helpers de validaÃ§Ã£o ----------
 function isObject(v) {
@@ -225,6 +225,15 @@ const MIGRATIONS = {
     }
     return data;
   },
+  8: (data) => {
+    if (!Array.isArray(data.portalInserted)) data.portalInserted = [];
+    return data;
+  },
+  9: (data) => {
+    if (typeof data.fastTravelUnlocked !== 'boolean') data.fastTravelUnlocked = false;
+    if (!Array.isArray(data._knownCities)) data._knownCities = ['aethel'];
+    return data;
+  },
 };
 
 // ---------- Defaults ----------
@@ -258,11 +267,14 @@ export function getDefaultSave() {
     knowledge: { revealed: [], markers: [] },
     // portal
     portalCores: [],
+    portalInserted: [],
     dungeons: {},
     openedChests: [],
     
     // flags de mundo
     guardianFieldsDefeated: false,
+    fastTravelUnlocked: false,
+    _knownCities: ['aethel'],
     meta: {
       deaths: 0,
       vault: { gold: 0, slots: 3, items: [null, null, null, null] },

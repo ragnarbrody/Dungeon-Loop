@@ -85,6 +85,32 @@ export const SHOP_GREETINGS = {
     () => `${greeting()} Vende o que não usa. Eu avalio e te faço uma oferta honesta.`,
     () => `${greeting()} Se não for pra negociar, fecha a porta devagar. Tô no meio de uma inspeção.`,
   ],
+  jeweler: [
+    // ---- Ofício / filosofia da joia ----
+    () => `${greeting()} Cada anel carrega uma história. Qual vai ser a sua?`,
+    () => `${greeting()} Joia boa não é a que brilha mais. É a que você escolhe carregar.`,
+    () => `${greeting()} Ouro e pedra são só matéria. O que você faz com eles é que fica.`,
+    () => `${greeting()} A areia apaga tudo. Menos o que a gente prende em metal.`,
+    () => `${greeting()} Demore o quanto quiser. Joia não se escolhe com pressa.`,
+
+    // ---- Reconhecimento do Andarilho ----
+    () => `${greeting()} ${agree('Um', 'Uma')} ${agree('Andarilho', 'Andarilha')} ${agree('inteiro', 'inteira')}. Faz tempo que não vejo ${agree('um', 'uma')}.`,
+    () => `${greeting()} Você já perdeu coisas, ${vocative()}. Dá pra ver nos olhos. As joias também sentem.`,
+    () => `${greeting()} Você atravessou os anéis até aqui. Isso já é uma história que vale um anel.`,
+    () => `${greeting()} Os outros viajantes que passam por Akmira não voltam. Você voltou. Interessante.`,
+
+    // ---- Aviso / sabedoria ----
+    () => `${greeting()} Anel bom não te faz mais forte. Te faz lembrar do que importa.`,
+    () => `${greeting()} Cuidado com o que carrega, ${vocative()}. O peso que você escolhe é o peso que fica.`,
+    () => `${greeting()} Amuleto não afasta a Fratura. Mas ajuda você a não esquecer quem é.`,
+    () => `${greeting()} Se for pra um bioma novo, pense no que quer levar. E no que quer deixar.`,
+
+    // ---- Loja / mercadoria ----
+    () => `${greeting()} Vende o que não usa? Eu avalio com calma. Joia boa merece.`,
+    () => `${greeting()} Tenho peças que a areia não conseguiu apagar. Quer ver?`,
+    () => `${greeting()} Ouro na mão, história na outra. É assim que eu negocio.`,
+    () => `${greeting()} Se não for pra comprar nem vender, ainda pode olhar. Beleza também é remédio.`,
+  ],
 };
 
 // ============================================================

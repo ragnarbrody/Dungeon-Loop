@@ -34,55 +34,83 @@ export const ENEMIES = {
     chargeMul: 2.0,
   },
   scorpion: {
-    name: 'EscorpiÃ£o',
+    name: 'Escorpião',
     hp: 20, maxHp: 20, atk: 5, def: 0, xp: 22,
-    goldMin: 2, goldMax: 8,
+    goldMin: 10, goldMax: 25,
     poisonChance: 0.35,
+    // ---- Calibragem do deserto ----
+    defPen: 0.15,        // ferrão perfura parte da armadura
+    magicResist: 0.10,   // exoesqueleto quitinoso
   },
   vulture: {
     name: 'Abutre',
     hp: 8, maxHp: 8, atk: 6, def: 0, xp: 25,
-    goldMin: 2, goldMax: 9,
+    goldMin: 7, goldMax: 15,
     dodgeChance: 0.35,
+    // ---- Calibragem do deserto ----
+    magicResist: 0.0,    // pena e osso, magia passa direto
   },
   mummy: {
-    name: 'MÃºmia',
+    name: 'Múmia',
     hp: 28, maxHp: 28, atk: 9, def: 3, xp: 40,
-    goldMin: 6, goldMax: 20,
+    goldMin: 25, goldMax: 55,
     chargeChance: 0.5,
     chargeMul: 2.5,
+    // ---- Calibragem do deserto ----
+    defPen: 0.25,        // tecido antigo agarra e atravessa armadura
+    magicResist: 0.25,   // resina e tecido absorvem magia
   },
   scarab: {
     name: 'Escaravelho',
     hp: 7, maxHp: 7, atk: 3, def: 0, xp: 15,
-    goldMin: 1, goldMax: 4,
+    goldMin: 5, goldMax: 10,
     isBuffer: true,
     buffChance: 0.6,
     buffDef: 2,
     buffAtk: 1,
     buffDuration: 3,
+    // ---- Calibragem do deserto ----
+    magicResist: 0.15,   // casco duro, mas pequeno
   },
   bat: {
     name: 'Morcego Sombrio',
     hp: 12, maxHp: 12, atk: 6, def: 1, xp: 20,
-    goldMin: 2, goldMax: 7,
+    goldMin: 6, goldMax: 12,
     dodgeChance: 0.25,
     bleedChance: 0.30,
   },
   goblin_sergeant: {
     name: 'Sargento Goblin',
-    hp: 75, maxHp: 75, atk: 12, def: 4, xp: 100,
+    hp: 65, maxHp: 65, atk: 10, def: 4, xp: 100,
     goldMin: 20, goldMax: 40,
     chargeChance: 0.45,
     chargeMul: 2.2,
-    defPen: 0.4,          // ignora 40% da def do jogador
+    defPen: 0.4,
+    isMiniboss: true,
+  },
+  // ============================================================
+  // MINIBOSS DO DESERTO — Escorpião Gigante
+  // Só aparece como miniboss de dungeon do deserto (nunca no bioma
+  // aberto). Reusa o sprite do escorpião com escala maior no mapa.
+  // Equivalente ao goblin_sergeant das cavernas dos Campos.
+  // ============================================================
+  scorpion_giant: {
+    name: 'Escorpião Gigante',
+    hp: 90, maxHp: 90, atk: 12, def: 5, xp: 140,
+    goldMin: 40, goldMax: 80,
+    poisonChance: 0.5,
+    poisonDmgMul: 0.35,   // veneno mais forte que o do escorpião comum
+    defPen: 0.4,
+    magicResist: 0.15,
+    chargeChance: 0.4,
+    chargeMul: 2.0,
     isMiniboss: true,
   },
   guardian_fields: {
     id: 'guardian_fields',
     name: 'Árvore Mãe',
     hp: 120,
-    atk: 13,              // ← era 10 (mais dano)
+    atk: 13,
     def: 2,
     xp: 200,
     goldMin: 50,
@@ -90,24 +118,11 @@ export const ENEMIES = {
     isMiniboss: true,
     isBoss: true,
     introText: 'A Árvore Mãe abre os olhos. As raízes se erguem — ela não vai deixar você levar o Núcleo.',
-
-    // ---- Poder de stun: "Gravinas" ----
-    // Chance por turno de enraizar o jogador (stun 1 turno).
-    // Só dispara a partir do 2º turno do boss (dá tempo do jogador entender o padrão).
     rootAbility: {
-      chance: 0.30,        // 30% por turno
-      minTurn: 2,          // só a partir do 2º turno do boss
+      chance: 0.30,
+      minTurn: 2,
       message: (name) => `${name} lança Gravinas! Raízes prendem seus pés — você perde o próximo turno!`,
     },
-
-    // ---- Invocação ----
-    // Regra:
-    //   - máximo de 2 aliados VIVOS (contando os invocados, não o boss)
-    //   - se 2 vivos: não invoca
-    //   - se 1 vivo: invoca +1
-    //   - se 0 vivos: invoca 2
-    //   - fase 1: invoca 'slime' (qtd configurável)
-    //   - fase 2: invoca 'goblin' (qtd configurável)
     summons: {
       phase1: { id: 'slime',  qty: 2, everyTurns: 3 },
       phase2: { id: 'goblin', qty: 2, everyTurns: 3 },
@@ -116,7 +131,7 @@ export const ENEMIES = {
     phase2: {
       hpThreshold: 0.5,
       def: 3,
-      atk: 18,             // ← era 14 (fase 2 mais perigosa)
+      atk: 18,
       healPerTurn: 6,
     },
     loreDrop: 'seed_of_fields',

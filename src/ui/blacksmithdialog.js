@@ -34,7 +34,7 @@ export function talkToBlacksmith() {
     openDialogue({
       title: 'Ferreiro',
       text:
-        `${greeting()} Tá tudo aqui. Dente, geleia, pinça, ovo... ` +
+        `${greeting()} Tá tudo aqui. Dente, geleia, Cauda... ` +
         `Não pergunte pra que serve, mas vai dar um caldeirão dos bons.\n\n` +
         `Aqui, o pagamento. E leva essas poções de brinde.`,
       actions: [
@@ -63,7 +63,7 @@ export function talkToBlacksmith() {
     text:
       `${greeting()} Ainda falta material pra o caldeirão, ${vocative()}.\n\n` +
       `${lines}\n\n` +
-      `O deserto é logo a oeste de Aethel. Cuidado com os escorpiões — e com os abutres, que não gostam de entregar os ovos.`,
+      `Cuidado com os goblins, ninguém gosta de entregar os dentes de mão beijada`,
   });
   return true;
 }

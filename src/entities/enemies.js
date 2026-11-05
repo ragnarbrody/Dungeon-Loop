@@ -36,18 +36,25 @@ export function drawMapEnemies(room) {
       frame = sprites.idle[Math.floor(now / 500) % sprites.idle.length];
     }
 
-    // Boss é 48×48 (desenhado 1.5× maior no mapa).
-    const isBoss = e.isBoss === true;
-    const spriteSize = isBoss ? 48 : 32;
+    // Boss OU miniboss: sprite maior no mapa (48x48).
+    // Só boss ativa cutscene no combate — o miniboss é luta direta.
+    const isBig = e.isBoss === true || e.isMiniboss === true;
+    const spriteSize = isBig ? 48 : 32;
     const halfSprite = spriteSize / 2;
 
     const dx = e.tx * TILE_SIZE + TILE_SIZE / 2 - halfSprite;
-    const dy = e.ty * TILE_SIZE + TILE_SIZE - (isBoss ? 44 : 30);
+    const dy = e.ty * TILE_SIZE + TILE_SIZE - (isBig ? 44 : 30);
 
     // Sombra
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(dx + halfSprite, dy + (isBoss ? 44 : 30), isBoss ? 18 : 10, isBoss ? 5 : 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      dx + halfSprite,
+      dy + (isBig ? 44 : 30),
+      isBig ? 18 : 10,
+      isBig ? 5 : 3,
+      0, 0, Math.PI * 2
+    );
     ctx.fill();
 
     // ---------- GLOW (só na caverna, com tocha) ----------
@@ -64,7 +71,6 @@ export function drawMapEnemies(room) {
         const glowAlpha = (0.45 + pulse * 0.35) * falloff;
 
         // Glow por "sprite fantasma" colorido atrás do inimigo.
-        // Truque barato: desenha o frame com filtro de cor via shadowBlur.
         ctx.save();
 
         // 1) Halo radial atrás do inimigo
@@ -80,15 +86,11 @@ export function drawMapEnemies(room) {
         ctx.arc(dx + 16, dy + 16, 26, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2) Outline brilhante do sprite (usando shadowBlur + tint)
-        //    Desenhamos o sprite várias vezes com offset de 1px em 4 direções,
-        //    com cor vermelha e blur — vira um "contorno" luminoso.
+        // 2) Outline brilhante do sprite
         ctx.globalAlpha = glowAlpha;
         ctx.shadowColor = '#ff3b3b';
         ctx.shadowBlur = 8;
 
-        // Tinta o sprite de vermelho usando composite
-        // (mais barato que filtro por pixel)
         const tintCanvas = document.createElement('canvas');
         tintCanvas.width = 32;
         tintCanvas.height = 32;
@@ -99,14 +101,12 @@ export function drawMapEnemies(room) {
         tctx.fillStyle = '#ff3b3b';
         tctx.fillRect(0, 0, 32, 32);
 
-        // Desenha o tint 4 vezes deslocado (contorno) + o original
         const off = 1.5;
         ctx.drawImage(tintCanvas, dx - off, dy);
         ctx.drawImage(tintCanvas, dx + off, dy);
         ctx.drawImage(tintCanvas, dx, dy - off);
         ctx.drawImage(tintCanvas, dx, dy + off);
 
-        // Restaura estado antes de desenhar o sprite real
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
         ctx.globalAlpha = 1;

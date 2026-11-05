@@ -614,6 +614,192 @@ const DRAWERS = {
     },
   },
 
+  // ---------------- CIMITARRA DE AKMIRA (mão direita) ----------------
+  akmira_sword: {
+    draw(g, dir, bob) {
+      const px = makePx(g, bob);
+      const blade   = '#f0d27a';
+      const bladeHi = '#fff5c0';
+      const bladeSh = '#a87a3a';
+      const hilt    = '#4a2a1a';
+      const grip    = '#6b3a1a';
+      const gem     = '#c93030';
+
+      if (dir === 'down') {
+        px(8, 8, 2, 14, blade);
+        px(8, 8, 1, 14, bladeHi);
+        px(9, 8, 1, 14, bladeSh);
+        px(6, 22, 6, 1, hilt);
+        px(8, 23, 2, 3, grip);
+        px(8, 26, 2, 1, hilt);
+        px(8, 21, 2, 1, gem);
+      } else if (dir === 'up') {
+        px(22, 8, 2, 14, blade);
+        px(22, 8, 1, 14, bladeHi);
+        px(23, 8, 1, 14, bladeSh);
+        px(20, 22, 6, 1, hilt);
+        px(22, 23, 2, 3, grip);
+        px(22, 26, 2, 1, hilt);
+        px(22, 21, 2, 1, gem);
+      } else if (dir === 'left' || dir === 'right') {
+        const p = sidePx(px, dir);
+        drawBladeSide(p, { tipY: 8, k: 0.18, guardW: 7, gripLen: 3, blade, hi: bladeHi, sh: bladeSh, hilt, grip, gem });
+      }
+    },
+  },
+
+  // ---------------- CAJADO DO SOL (mão direita) ----------------
+  akmira_staff: {
+    draw(g, dir, bob) {
+      const px = makePx(g, bob);
+      const wood   = '#8a6a3a';
+      const woodSh = '#5a3a1a';
+      const gem    = '#ffb703';
+      const gemHi  = '#fff5c0';
+      const glow   = 'rgba(255,183,3,0.55)';
+
+      if (dir === 'down') {
+        px(8, 6, 2, 20, wood);
+        px(9, 6, 1, 20, woodSh);
+        px(5, 2, 8, 1, glow);
+        px(4, 3, 10, 1, glow);
+        px(6, 3, 6, 5, gem);
+        px(7, 4, 4, 3, gemHi);
+        px(8, 5, 2, 2, '#ffffff');
+      } else if (dir === 'up') {
+        px(22, 6, 2, 20, wood);
+        px(22, 6, 1, 20, woodSh);
+        px(19, 2, 8, 1, glow);
+        px(18, 3, 10, 1, glow);
+        px(20, 3, 6, 5, gem);
+        px(21, 4, 4, 3, gemHi);
+        px(22, 5, 2, 2, '#ffffff');
+      } else if (dir === 'left' || dir === 'right') {
+        const p = sidePx(px, dir);
+        drawStaffSide(p, {
+          k: 0.15, topY: 8, bottomY: 27, wood, woodSh,
+          gemFn: (x) => {
+            p(x - 3, 2, 8, 1, glow);
+            p(x - 4, 3, 10, 1, glow);
+            p(x - 2, 3, 6, 5, gem);
+            p(x - 1, 4, 4, 3, gemHi);
+            p(x,     5, 2, 2, '#ffffff');
+          },
+        });
+      }
+    },
+  },
+
+  // ---------------- ADAGA DAS DUNAS (mão direita) ----------------
+  akmira_dagger: {
+    draw(g, dir, bob) {
+      const px = makePx(g, bob);
+      const blade   = '#c8d8e8';
+      const bladeHi = '#ffffff';
+      const bladeSh = '#7a8a9a';
+      const hilt    = '#c9a24d';
+      const grip    = '#3a1a0a';
+      const gem     = '#6fbd63';
+
+      if (dir === 'down') {
+        px(8, 10, 2, 12, blade);
+        px(8, 10, 1, 12, bladeHi);
+        px(9, 10, 1, 12, bladeSh);
+        px(7, 22, 6, 1, hilt);
+        px(8, 23, 2, 3, grip);
+        px(8, 21, 2, 1, gem);
+      } else if (dir === 'up') {
+        px(22, 10, 2, 12, blade);
+        px(22, 10, 1, 12, bladeHi);
+        px(23, 10, 1, 12, bladeSh);
+        px(21, 22, 6, 1, hilt);
+        px(22, 23, 2, 3, grip);
+        px(22, 21, 2, 1, gem);
+      } else if (dir === 'left' || dir === 'right') {
+        const p = sidePx(px, dir);
+        drawBladeSide(p, { tipY: 10, k: 0.3, guardW: 6, gripLen: 3, blade, hi: bladeHi, sh: bladeSh, hilt, grip, gem });
+      }
+    },
+  },
+
+  // ---------------- ARCO DO MIRAGEM (mão direita) ----------------
+  akmira_bow: {
+    draw(g, dir, bob) {
+      const px = makePx(g, bob);
+      const wood   = '#8a5a2a';
+      const woodHi = '#c9a24d';
+      const woodSh = '#4a2a1a';
+      const string = '#fff5c0';
+      const gem    = '#c93030';
+
+      if (dir === 'down') {
+        px(26, 5, 1, 2, wood);
+        px(27, 7, 1, 2, wood);
+        px(27, 9, 1, 14, wood);
+        px(26, 23, 1, 2, wood);
+        px(25, 25, 1, 2, wood);
+        px(26, 9, 1, 14, woodHi);
+        px(28, 10, 1, 10, woodSh);
+        px(25, 7, 1, 1, string);
+        px(24, 8, 1, 14, string);
+        px(25, 23, 1, 1, string);
+        px(27, 15, 1, 1, gem);
+      } else if (dir === 'up') {
+        px(7, 5, 1, 2, wood);
+        px(6, 7, 1, 2, wood);
+        px(6, 9, 1, 14, wood);
+        px(7, 23, 1, 2, wood);
+        px(8, 25, 1, 2, wood);
+        px(8, 9, 1, 14, woodHi);
+        px(6, 10, 1, 10, woodSh);
+        px(8, 7, 1, 1, string);
+        px(9, 8, 1, 14, string);
+        px(8, 23, 1, 1, string);
+        px(7, 15, 1, 1, gem);
+      } else if (dir === 'left') {
+        px(7, 5, 1, 2, wood);
+        px(6, 7, 1, 2, wood);
+        px(4, 9, 1, 2, wood);
+        px(3, 11, 1, 2, wood);
+        px(3, 13, 1, 3, wood);
+        px(4, 16, 1, 2, wood);
+        px(5, 18, 1, 2, wood);
+        px(6, 20, 1, 2, wood);
+        px(7, 22, 1, 2, wood);
+        px(5, 10, 1, 1, woodHi);
+        px(4, 12, 1, 1, woodHi);
+        px(4, 14, 1, 1, woodHi);
+        px(5, 19, 1, 1, woodHi);
+        px(5, 11, 1, 2, woodSh);
+        px(5, 15, 1, 2, woodSh);
+        px(9, 4, 1, 1, string);
+        px(10, 5, 1, 18, string);
+        px(9, 23, 1, 1, string);
+        px(4, 14, 1, 1, gem);
+      } else if (dir === 'right') {
+        px(24, 5, 1, 2, wood);
+        px(25, 7, 1, 2, wood);
+        px(27, 9, 1, 2, wood);
+        px(28, 11, 1, 2, wood);
+        px(28, 13, 1, 3, wood);
+        px(27, 16, 1, 2, wood);
+        px(26, 18, 1, 2, wood);
+        px(25, 20, 1, 2, wood);
+        px(24, 22, 1, 2, wood);
+        px(26, 10, 1, 1, woodHi);
+        px(27, 12, 1, 1, woodHi);
+        px(27, 14, 1, 1, woodHi);
+        px(26, 19, 1, 1, woodHi);
+        px(26, 11, 1, 2, woodSh);
+        px(26, 15, 1, 2, woodSh);
+        px(22, 4, 1, 1, string);
+        px(21, 5, 1, 18, string);
+        px(22, 23, 1, 1, string);
+        px(27, 14, 1, 1, gem);
+      }
+    },
+  },
+
   // ---------------- TOCHA (mão esquerda) ----------------
   torch: {
     draw(g, dir, bob) {

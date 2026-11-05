@@ -1,5 +1,8 @@
 import { getQuestsByChapter, isQuestCompleted } from '../quests.js';
 
+let _getCurrentRoom = () => null;
+export function setCurrentRoomGetter(fn) { _getCurrentRoom = fn; }
+
 export const LEVEL_STEP = 5;
 export const CHAPTER_ORDER = ['fields', 'desert'];       // acrescente os outros 6 biomas na ordem do mundo
 export const CHAPTER_NAMES = { fields: 'os Campos', desert: 'o Deserto' };
@@ -34,17 +37,36 @@ export function xpToNextFor(level) {       // mesma curva do checkLevelUp
   return x;
 }
 
-function snap(ps) {
-  return { level: ps.level, str: ps.str, agi: ps.agi, int: ps.int, def: ps.def,
-           vit: ps.vit, magia: ps.magia, _baseMp: ps._baseMp };
+function snap(ps, extra = {}) {
+  return {
+    level: ps.level, str: ps.str, agi: ps.agi, int: ps.int, def: ps.def,
+    vit: ps.vit, magia: ps.magia, _baseMp: ps._baseMp,
+    ...extra,
+  };
+}
+
+export function setMilestoneRespawn(chapterId, cityId) {
+  if (state.milestones[chapterId]) {
+    state.milestones[chapterId].respawnCityId = cityId;
+  }
 }
 
 // Chamado todo frame em EXPLORE. Só captura com os pontos já gastos,
 // então se a entrega da quest subir de nível, espera o jogador distribuir.
 export function captureMilestoneIfNeeded(ps) {
   if (ps.points > 0) return;
+  const room = _getCurrentRoom();
+  // Salva onde foi capturado: se é cidade, guarda o cityId; senão null (= Aethel)
+  const respawn = room?.isCity ? room.cityId : null;
   for (const id of getCompletedChapters()) {
-    if (!state.milestones[id]) state.milestones[id] = snap(ps);
+    if (!state.milestones[id]) {
+      state.milestones[id] = snap(ps, { respawnCityId: respawn });
+    } else if (respawn && !state.milestones[id].respawnCityId) {
+      // Upgrade: se o marco já existia sem cidade e agora estamos numa,
+      // aproveita pra gravar (ex.: jogador concluiu fields em Aethel,
+      // mas está em Akmira quando o snapshot roda de novo)
+      state.milestones[id].respawnCityId = respawn;
+    }
   }
 }
 

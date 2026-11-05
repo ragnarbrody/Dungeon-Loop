@@ -1374,6 +1374,191 @@ export const ICONS = {
     p(11, 3, 1, 1, sprout);
   }),
 
+  // ---------- ARMAS DE AKMIRA ----------
+  akmira_sword: makeIcon((g) => {
+    const p = px(g);
+    // Cimitarra: lâmina curva dourada
+    const blade = '#f0d27a', bladeHi = '#fff5c0', bladeSh = '#a87a3a';
+    const hilt = '#4a2a1a', grip = '#6b3a1a', gem = '#c93030';
+    p(10, 2, 2, 2, bladeHi);          // ponta
+    p(11, 4, 1, 2, bladeHi);
+    p(12, 6, 1, 3, blade);            // curva
+    p(11, 9, 1, 3, blade);
+    p(10, 12, 1, 2, blade);
+    p(9, 14, 2, 1, hilt);             // guarda
+    p(8, 15, 2, 1, hilt);
+    p(9, 15, 2, 3, grip);             // cabo
+    p(9, 18, 2, 1, hilt);
+    p(10, 14, 1, 1, gem);             // gema
+    p(10, 3, 1, 2, bladeSh);          // sombra
+  }),
+  akmira_staff: makeIcon((g) => {
+    const p = px(g);
+    const wood = '#8a6a3a', woodSh = '#5a3a1a';
+    const gem = '#ffb703', gemHi = '#fff5c0', glow = 'rgba(255,183,3,0.4)';
+    // Glow
+    g.fillStyle = glow; g.beginPath(); g.arc(10, 6, 7, 0, Math.PI*2); g.fill();
+    // Cabo
+    p(9, 6, 2, 13, wood);
+    p(10, 6, 1, 13, woodSh);
+    // Gema solar
+    p(7, 2, 6, 5, gem);
+    p(8, 3, 4, 3, gemHi);
+    p(9, 4, 2, 1, '#ffffff');
+    // Aro
+    p(6, 2, 1, 5, '#c9a24d'); p(13, 2, 1, 5, '#c9a24d');
+    p(7, 1, 6, 1, '#c9a24d'); p(7, 7, 6, 1, '#c9a24d');
+  }),
+  akmira_dagger: makeIcon((g) => {
+    const p = px(g);
+    const blade = '#c8d8e8', bladeHi = '#ffffff', bladeSh = '#7a8a9a';
+    const hilt = '#c9a24d', grip = '#3a1a0a', gem = '#6fbd63';
+    p(9, 3, 2, 9, blade);
+    p(9, 3, 1, 9, bladeHi);
+    p(10, 3, 1, 9, bladeSh);
+    p(8, 2, 4, 1, bladeHi);            // ponta larga
+    p(7, 12, 6, 1, hilt);
+    p(9, 13, 2, 3, grip);
+    p(9, 16, 2, 1, hilt);
+    p(10, 11, 1, 1, gem);              // gema
+  }),
+  akmira_bow: makeIcon((g) => {
+    const p = px(g);
+    const wood = '#8a5a2a', woodHi = '#c9a24d', woodSh = '#4a2a1a';
+    const string = '#fff5c0';
+    // Arco curvado
+    p(11, 1, 1, 2, wood);
+    p(12, 3, 1, 2, wood);
+    p(13, 5, 1, 10, wood);
+    p(12, 15, 1, 2, wood);
+    p(11, 17, 1, 2, wood);
+    p(12, 5, 1, 10, woodHi);
+    p(14, 5, 1, 10, woodSh);
+    // Corda
+    p(10, 2, 1, 1, string);
+    p(9, 3, 1, 14, string);
+    p(10, 17, 1, 1, string);
+    // Enfeite dourado
+    p(13, 9, 1, 1, '#c93030');
+    p(13, 10, 1, 1, '#f0d27a');
+  }),
+
+  // ---------- JOIAS ----------
+  ring_power: makeIcon((g) => {
+    const p = px(g);
+    const gold = '#c9a24d', goldHi = '#f0d27a', goldSh = '#8a6b2a';
+    const gem = '#c93030', gemHi = '#ff8a8a';
+    // Aro (anel)
+    p(7, 9, 6, 1, gold);
+    p(7, 14, 6, 1, gold);
+    p(7, 10, 1, 4, gold);
+    p(12, 10, 1, 4, gold);
+    p(7, 9, 6, 1, goldHi);
+    p(7, 14, 6, 1, goldSh);
+    // Gema
+    p(8, 11, 4, 2, gem);
+    p(9, 11, 2, 1, gemHi);
+    p(9, 12, 2, 1, '#8a0a0a');
+  }),
+  ring_agility: makeIcon((g) => {
+    const p = px(g);
+    const gold = '#c9a24d', goldHi = '#f0d27a', goldSh = '#8a6b2a';
+    const gem = '#6fbd63', gemHi = '#c8f8c8';
+    p(7, 9, 6, 1, gold);
+    p(7, 14, 6, 1, gold);
+    p(7, 10, 1, 4, gold);
+    p(12, 10, 1, 4, gold);
+    p(7, 9, 6, 1, goldHi);
+    p(7, 14, 6, 1, goldSh);
+    p(8, 11, 4, 2, gem);
+    p(9, 11, 2, 1, gemHi);
+    p(9, 12, 2, 1, '#2a5a2a');
+  }),
+  ring_luck: makeIcon((g) => {
+    const p = px(g);
+    const gold = '#c9a24d', goldHi = '#f0d27a', goldSh = '#8a6b2a';
+    const gem = '#d78cff', gemHi = '#f0d8ff';
+    p(7, 9, 6, 1, gold);
+    p(7, 14, 6, 1, gold);
+    p(7, 10, 1, 4, gold);
+    p(12, 10, 1, 4, gold);
+    p(7, 9, 6, 1, goldHi);
+    p(7, 14, 6, 1, goldSh);
+    p(8, 11, 4, 2, gem);
+    p(9, 11, 2, 1, gemHi);
+    p(9, 12, 2, 1, '#6a3a8a');
+    // Trevo estilizado
+    p(9, 8, 1, 1, '#6fbd63');
+    p(10, 7, 1, 1, '#6fbd63');
+  }),
+  amulet_mana: makeIcon((g) => {
+    const p = px(g);
+    const chain = '#8a8a90', chainHi = '#c8c8d0';
+    const gem = '#3aa0ff', gemHi = '#8ad8ff', gemSh = '#1a5a9a';
+    // Corrente (V)
+    p(5, 3, 1, 3, chain);
+    p(14, 3, 1, 3, chain);
+    p(6, 6, 1, 2, chain);
+    p(13, 6, 1, 2, chain);
+    p(7, 8, 1, 2, chain);
+    p(12, 8, 1, 2, chain);
+    p(6, 3, 1, 1, chainHi);
+    p(14, 3, 1, 1, chainHi);
+    // Gema (losango)
+    p(9, 9, 2, 1, gemHi);
+    p(8, 10, 4, 2, gem);
+    p(9, 12, 2, 1, gemSh);
+    p(9, 10, 1, 1, '#ffffff');
+  }),
+  amulet_guardian: makeIcon((g) => {
+    const p = px(g);
+    const chain = '#8a6b2a', chainHi = '#c9a24d';
+    const gem = '#f0d27a', gemHi = '#fff5c0', gemSh = '#8a6b2a';
+    const rune = '#a87aff';
+    // Corrente
+    p(5, 3, 1, 3, chain); p(14, 3, 1, 3, chain);
+    p(6, 6, 1, 2, chain); p(13, 6, 1, 2, chain);
+    p(7, 8, 1, 2, chain); p(12, 8, 1, 2, chain);
+    p(6, 3, 1, 1, chainHi); p(14, 3, 1, 1, chainHi);
+    // Gema (pedra grande, formato escudo)
+    p(7, 9, 6, 2, gem);
+    p(6, 11, 8, 3, gem);
+    p(7, 14, 6, 1, gemSh);
+    p(8, 15, 4, 1, gemSh);
+    p(8, 10, 4, 2, gemHi);
+    // Runa
+    p(9, 11, 2, 1, rune);
+    p(10, 12, 1, 2, rune);
+  }),
+
+  // ---------- POÇÕES DE AKMIRA ----------
+  potion_def: makeIcon((g) => {
+    const p = px(g);
+    const glass = '#c8d8e8', glassSh = '#8aa0b8';
+    const cork = '#8a6b5a', liquid = '#3a6ab0', liquidHi = '#8ad8ff';
+    p(7, 2, 6, 2, cork);
+    p(6, 4, 8, 12, glass);
+    p(7, 5, 6, 10, liquid);
+    p(8, 6, 2, 2, liquidHi);
+    p(6, 14, 8, 2, glassSh);
+    // Símbolo de escudo
+    p(9, 8, 2, 4, '#ffffff');
+    p(8, 9, 4, 2, '#ffffff');
+  }),
+  antidote: makeIcon((g) => {
+    const p = px(g);
+    const glass = '#c8d8e8', glassSh = '#8aa0b8';
+    const cork = '#8a6b5a', liquid = '#6fbd63', liquidHi = '#c8f8c8';
+    p(7, 2, 6, 2, cork);
+    p(6, 4, 8, 12, glass);
+    p(7, 5, 6, 10, liquid);
+    p(8, 6, 2, 2, liquidHi);
+    p(6, 14, 8, 2, glassSh);
+    // Cruz (símbolo médico)
+    p(9, 7, 2, 6, '#ffffff');
+    p(7, 9, 6, 2, '#ffffff');
+  }),
+
 };
 
 const fallbackIcon = makeIcon((g) => px(g)(6, 6, 8, 8, '#666'));

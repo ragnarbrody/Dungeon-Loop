@@ -12,6 +12,7 @@ import { playerEquip, resetEquipment } from '../sprites/equipment.js';
 import { CLASSES } from '../classes.js';
 import { TILE_SIZE } from './canvas.js';
 import { writeSave } from './save.js';
+import { getCityData } from '../world/cities.js';
 
 export function resolveDeath() {
   const levelBefore = playerStats.level;
@@ -53,9 +54,14 @@ export function resolveDeath() {
       gold: 0, hp: 20, mp: 5,
       str: 1, agi: 1, int: 1, def: 1, vit: 1, magia: 0, _baseMp: 5,
       classId: null,
+      guardianFieldsDefeated: false,
+      _elderSawCoreInserted: false,
     });
     playerStats.inventory.length = 0;
     playerStats.portalCores = new Set();
+    playerStats.portalInserted = new Set();
+    playerStats.fastTravelUnlocked = false;
+    playerStats._knownCities = new Set(['aethel']);
 
     // Limpa o estado do mundo em memória
     visitedRooms.clear();
@@ -122,10 +128,12 @@ export function resolveDeath() {
   clearRoomCache();   // inimigos reaparecem
 
   // volta pra cidade
-  const room = getRoom(0, 0);
+  const respawnCityId = s.respawnCityId || 'aethel';
+  const city = getCityData(respawnCityId);
+  const room = getRoom(city.gx, city.gy);
   setCurrentRoom(room);
-  markRoomVisited(0, 0);
-  revealRoom(0, 0);
+  markRoomVisited(city.gx, city.gy);
+  revealRoom(city.gx, city.gy);
   const sp = getCitySpawn();
   player.x = sp.tx * TILE_SIZE + TILE_SIZE / 2;
   player.y = sp.ty * TILE_SIZE + TILE_SIZE / 2;

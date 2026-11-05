@@ -278,7 +278,8 @@ export function enemyTurn() {
 
       // Veneno
       if (e.poisonChance && Math.random() < e.poisonChance) {
-        const novo = { turns: 2, dmg: Math.max(1, Math.floor(e.atk * 0.3)) };
+        const mul = e.poisonDmgMul ?? 0.3;
+        const novo = { turns: 2, dmg: Math.max(1, Math.floor(e.atk * mul)) };
         if (playerStats.poisoned) {
           playerStats.poisoned.turns = Math.max(playerStats.poisoned.turns, novo.turns);
           playerStats.poisoned.dmg   = Math.max(playerStats.poisoned.dmg, novo.dmg);

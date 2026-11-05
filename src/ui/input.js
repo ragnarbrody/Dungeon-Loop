@@ -14,7 +14,7 @@ import { talkToElder } from './elderdialog.js';
 import {
   openWorldMap, closeWorldMap, isWorldMapOpen,
   handleMapClick, handleMapMove, handleMapRelease, handleMapWheel,
-  centerOnPlayer,
+  centerOnPlayer, wasMapDrag, handleCityClick,
 } from './worldmap.js';
 import { talkToHerbalist } from './herbalistdialog.js';
 import { talkToBlacksmith } from './blacksmithdialog.js';
@@ -105,6 +105,15 @@ export function installInput() {
     const { mx, my } = clientToCanvas(e);
     handleMapClick(mx, my, e);
   });
+
+  // clique (só dispara se não arrastou)
+  canvas.addEventListener('click', e => {
+    if (gameState !== STATE.WORLDMAP) return;
+    if (wasMapDrag()) return;
+    const { mx, my } = clientToCanvas(e);
+    handleCityClick(mx, my);
+  });
+
   window.addEventListener('mousemove', (e) => {
     if (gameState !== STATE.WORLDMAP) return;
     const { mx, my } = clientToCanvas(e);
@@ -182,28 +191,49 @@ export function installInput() {
       if (it) {
         if (it.kind === 'sign') {
           openDialogue({ title: it.title, text: it.text });
+        } else if (it.kind === 'oasis') {
+          openDialogue({
+            title: it.title || 'Oásis de Akmira',
+            text: portalText(currentRoom),
+          });
         } else if (it.kind === 'portal') {
           openDialogue({
-            title: it.title,
-            text: portalText(),
-            actions: [{
-              label: `Colocar núcleos (${playerStats.portalCores.size}/8)`,
-              disabled: playerStats.portalCores.size === 0,
-              action: () => {
-                openDialogue({
-                  title: 'Núcleos',
-                  text:
-                    playerStats.portalCores.size === 0
-                      ? 'Você não tem nenhum núcleo ainda.'
-                      : `Você tem ${playerStats.portalCores.size} núcleo(s). O portal precisa dos 8 para abrir. (combate final em breve)`,
-                });
+            title: 'Portal Antigo',
+            text: portalText(currentRoom),
+            actions: [
+              {
+                label: `Colocar núcleo no portal (${playerStats.portalInserted.size}/8)`,
+                disabled: playerStats.portalCores.size === 0,
+                action: () => {
+                  // Insere UM núcleo (o próximo disponível)
+                  const next = [...playerStats.portalCores][0];
+                  if (!next) return;
+                  playerStats.portalCores.delete(next);
+                  playerStats.portalInserted.add(next);
+                  saveGame();
+                  sfx('chest');
+                  // Reabre o diálogo com o novo texto
+                  openDialogue({
+                    title: 'Portal Antigo',
+                    text: portalText(currentRoom),
+                  });
+                },
               },
-            }],
+              {
+                label: 'Ver encaixes',
+                action: () => {
+                  openDialogue({
+                    title: 'Encaixes do Portal',
+                    text: `Inseridos: ${playerStats.portalInserted.size}/8\nNa mochila: ${playerStats.portalCores.size}`,
+                  });
+                },
+              },
+            ],
           });
         } else if (it.kind === 'building_entrance') {
           enterBuilding(it.buildingId);
         } else if (it.kind === 'elder') {
-          talkToElder();
+          talkToElder(it.cityId || 'aethel');
         } else if (it.kind === 'herbalist_quest') {
           talkToHerbalist();
         } else if (it.kind === 'blacksmith_quest') {
@@ -212,28 +242,44 @@ export function installInput() {
           openShop(it.buildingId);
         } else if (it.kind === 'banker') {
           openVault();
+        } else if (it.kind === 'jeweler_quest') {
+          talkToJeweler();
         } else if (it.kind === 'cave_entrance') {
           const hasTorchEquipped = playerEquip.leftHand === 'torch';
           if (it.procedural) {
+            // Dungeon do deserto NÃO exige tocha (é penumbra, não breu)
+            const requiresTorch = it.dungeonTheme !== 'desert';
+
             if (playerStats._escortActive) {
               openDialogue({
                 title: 'Caverna',
                 text: 'A Herbalista não pode entrar aí, é muito perigoso. Leve-a de volta a Aethel primeiro.',
               });
               return;
-            } else if (!hasTorchEquipped) {
+            }
+
+            if (requiresTorch && !hasTorchEquipped) {
               showToast({
                 itemId: 'torch',
                 title: 'Tocha necessária',
                 subtitle: 'Equipe uma tocha na mão esquerda para entrar.',
                 color: '#ff6b6b',
               });
-            } else {
-              const dungeonId = `proc_cave_${currentRoom.gx}_${currentRoom.gy}`;
-              enterDungeon(dungeonId, { procedural: true });
+              return;
             }
+
+            const dungeonId = it.dungeonTheme === 'desert'
+              ? `desert_cave_${currentRoom.gx}_${currentRoom.gy}`
+              : `proc_cave_${currentRoom.gx}_${currentRoom.gy}`;
+
+            enterDungeon(dungeonId, {
+              procedural: true,
+              theme: it.dungeonTheme || 'cave',
+            });
             return;
           }
+
+          // Caverna da quest (não mudou)
           if (!isQuestActive('story_cave')) {
             openDialogue({
               title: it.title,

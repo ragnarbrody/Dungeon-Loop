@@ -18,6 +18,7 @@ import { openDialogue } from '../ui/dialogue.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { getTimeOfDay, getTimeState } from '../core/timeofday.js';
 import { ITEMS_DB } from '../items.js';
+import { musicForCity } from '../world/cities.js';
 
 let walkTimer = 0;
 const WALK_FRAME_MS = 0.14;
@@ -89,7 +90,7 @@ function checkDoorTransition() {
     revealRoom(back.gx, back.gy);
 
     // Restaura a música do bioma de fora
-    setMusicMode(back.isCity ? 'aethel' : back.biomeId);
+    setMusicMode(back.isCity ? musicForCity(back.cityId) : back.biomeId);
 
     if (door) {
       // Coloca o player em cima da porta (ou 1 tile abaixo, para não disparar
@@ -136,7 +137,7 @@ function checkDoorTransition() {
   updateHud();
 
   // Música do novo bioma (ou 'aethel' se for cidade)
-  setMusicMode(newRoom.isCity ? 'aethel' : newRoom.biomeId);
+  setMusicMode(currentRoom.isCity ? musicForCity(currentRoom.cityId) : currentRoom.biomeId);
     
   // Spawna o jogador passando o mapa da nova sala
   spawnAt(d.opposite, newRoom);
@@ -207,7 +208,7 @@ function leaveDungeon() {
   setCurrentRoom(room);
   clearLeaves();
   updateHud();
-  setMusicMode(room.biomeId);
+  setMusicMode(room.isCity ? musicForCity(room.cityId) : room.biomeId);
 
   const ent = room.interactables?.find(i => i.kind === 'cave_entrance');
   const tx = ent ? ent.tx : Math.floor(GRID_SIZE / 2);

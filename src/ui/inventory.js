@@ -11,6 +11,7 @@ import { player } from '../core/state.js';
 import { showToast } from './toast.js';
 import { sfx } from '../audio/audio.js';
 import { attachTooltip } from './tooltip.js';
+import { getStatsBonusText } from './shop.js';
 
 let currentTab = 'inventory';
 let inventoryPage = 0;
@@ -40,11 +41,15 @@ const STAT_LABELS = {
 // ============================================================
 // EQUIPAR / DESEQUIPAR
 // ============================================================
-function equipItem(itemId) {
-  const info = ITEMS_DB[itemId];
-  if (!info || !info.slot) return;
 
-  // ---- Requisitos ----
+// Executa o equipamento real num slot específico (não abre popover).
+function equipItemToSlot(itemId, slotId) {
+  const info = ITEMS_DB[itemId];
+  if (!info) return;
+  // Aceita itens sem slot fixo (anéis), desde que o slotId seja válido
+  if (!info.slot && info.slotType !== 'ring') return;
+
+  // ---- Requisitos (mesma lógica de antes) ----
   const reqLevel = info.reqLevel ?? 1;
   if (playerStats.level < reqLevel) {
     showToast({
@@ -59,14 +64,9 @@ function equipItem(itemId) {
   const reqStats = info.reqStats || {};
   const missing = [];
   for (const stat in reqStats) {
-    // IMPORTANTE: checar contra o stat BASE, não o effStat,
-    // senão dá pra burlar com anel.
     const base = playerStats[stat] || 0;
     const need = reqStats[stat];
-    if (base < need) {
-      const label = STAT_LABELS[stat] || stat;
-      missing.push(`${label} ${need}`);
-    }
+    if (base < need) missing.push(`${STAT_LABELS[stat] || stat} ${need}`);
   }
   if (missing.length > 0) {
     showToast({
@@ -78,17 +78,32 @@ function equipItem(itemId) {
     return;
   }
 
-  const slot = info.slot;
-  const currentId = playerEquip[slot];
+  const currentId = playerEquip[slotId];
   if (currentId === itemId) return;
 
   if (removeItem(playerStats.inventory, itemId, 1) < 1) return;
   if (currentId) addItemToInventory(playerStats.inventory, currentId, 1);
 
-  playerEquip[slot] = itemId;
+  playerEquip[slotId] = itemId;
   saveGame();
   sfx('equip');
   renderInventory();
+}
+
+// Ponto de entrada: decide se equipa direto ou abre o seletor.
+function equipItem(itemId) {
+  const info = ITEMS_DB[itemId];
+  if (!info) return;
+
+  // Anel: qualquer item com slotType 'ring' (ou slot legado começando com 'ring')
+  if (info.slotType === 'ring' || (info.slot && info.slot.startsWith('ring'))) {
+    openRingSlotPicker(itemId);
+    return;
+  }
+
+  // Demais equipáveis precisam de slot definido
+  if (!info.slot) return;
+  equipItemToSlot(itemId, info.slot);
 }
 
 function unequipSlot(slotId) {
@@ -375,7 +390,9 @@ function createItemTile(item, qty) {
   const isQuest = kind === 'quest';
   const isConsumable = kind === 'consumable' && !info.combatOnly;
   const isCombatOnly = kind === 'consumable' && !!info.combatOnly;
-  const isEquippable = !isQuest && !!info.slot && kind !== 'consumable';
+  const isEquippable = !isQuest
+    && kind !== 'consumable'
+    && (!!info.slot || info.slotType === 'ring');
 
   // <button> pra clicáveis (consumable ou equippable)
   const tile = document.createElement(
@@ -674,4 +691,171 @@ function renderSkillsTab(parent) {
   }
 
   parent.appendChild(grid);
+}
+
+// ============================================================
+// SELETOR DE SLOT DE ANEL
+// Abre um popover flutuante com os 2 slots disponíveis (ring1, ring2).
+// Cada botão mostra o item atualmente equipado (ou "Vazio").
+// ============================================================
+function openRingSlotPicker(itemId) {
+  const info = ITEMS_DB[itemId];
+  if (!info) return;
+
+  // Remove popover antigo, se houver
+  const old = document.getElementById('ring-slot-picker');
+  if (old) old.remove();
+
+  const picker = document.createElement('div');
+  picker.id = 'ring-slot-picker';
+  picker.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.55);
+    font-family: inherit;
+  `;
+
+  // Caixa central
+  const box = document.createElement('div');
+  box.style.cssText = `
+    background: #1a1a2e;
+    border: 2px solid #c9a24d;
+    border-radius: 8px;
+    padding: 16px 20px;
+    max-width: 340px;
+    width: calc(100% - 40px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+    color: #eee;
+  `;
+
+  // Título
+  const title = document.createElement('h3');
+  title.textContent = `Equipar: ${info.name}`;
+  title.style.cssText = `
+    margin: 0 0 4px 0;
+    color: #feca57;
+    font-size: 15px;
+    text-align: center;
+  `;
+  box.appendChild(title);
+
+  // Subtítulo (opcional — mostra o bônus, ajuda na decisão)
+  const statsText = getStatsBonusText(info);
+  if (statsText) {
+    const sub = document.createElement('p');
+    sub.textContent = `Bônus: ${statsText}`;
+    sub.style.cssText = `
+      margin: 0 0 14px 0;
+      color: #8ad8ff;
+      font-size: 11px;
+      text-align: center;
+    `;
+    box.appendChild(sub);
+  }
+
+  // Os dois slots
+  const slots = [
+    { id: 'ring1', label: 'Anel 1' },
+    { id: 'ring2', label: 'Anel 2' },
+  ];
+
+  for (const slot of slots) {
+    const currentId = playerEquip[slot.id];
+    const currentItem = currentId ? ITEMS_DB[currentId] : null;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: ${currentItem ? '#3a2a1e' : '#2a2a3e'};
+      border: 2px solid ${currentItem ? '#c9a24d' : '#444'};
+      border-radius: 4px;
+      color: inherit;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.1s;
+    `;
+    btn.onmouseenter = () => { btn.style.background = currentItem ? '#4a3a2e' : '#3a3a4e'; };
+    btn.onmouseleave = () => { btn.style.background = currentItem ? '#3a2a1e' : '#2a2a3e'; };
+
+    // Ícone do item atual (ou slot vazio)
+    if (currentItem) {
+      const icon = getIcon(currentItem.icon || currentItem.id);
+      icon.style.width = '24px';
+      icon.style.height = '24px';
+      icon.style.imageRendering = 'pixelated';
+      btn.appendChild(icon);
+    } else {
+      const ph = document.createElement('div');
+      ph.style.cssText = 'width: 24px; height: 24px; border: 1px dashed #555; border-radius: 2px;';
+      btn.appendChild(ph);
+    }
+
+    // Texto: nome do slot + item atual
+    const text = document.createElement('div');
+    text.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex: 1;';
+    const slotName = document.createElement('span');
+    slotName.style.cssText = 'font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;';
+    slotName.textContent = slot.label;
+    text.appendChild(slotName);
+    const itemName = document.createElement('span');
+    itemName.style.cssText = `font-size: 12px; font-weight: bold; color: ${currentItem ? '#eee' : '#666'};`;
+    itemName.textContent = currentItem ? currentItem.name : 'Vazio';
+    text.appendChild(itemName);
+    btn.appendChild(text);
+
+    btn.onclick = () => {
+      picker.remove();
+      equipItemToSlot(itemId, slot.id);
+    };
+
+    box.appendChild(btn);
+  }
+
+  // Botão cancelar
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'Cancelar (ESC)';
+  cancel.style.cssText = `
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  `;
+  cancel.onclick = () => picker.remove();
+  box.appendChild(cancel);
+
+  picker.appendChild(box);
+
+  // Fecha ao clicar fora
+  picker.addEventListener('click', (e) => {
+    if (e.target === picker) picker.remove();
+  });
+
+  // Fecha com ESC
+  const onEsc = (e) => {
+    if (e.key === 'Escape') {
+      picker.remove();
+      window.removeEventListener('keydown', onEsc, true);
+    }
+  };
+  window.addEventListener('keydown', onEsc, true);
+
+  document.getElementById('game-container').appendChild(picker);
 }

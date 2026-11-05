@@ -3,6 +3,7 @@ import { currentRoom, visitedRooms } from '../core/state.js';
 import { pickBiome } from '../world/biomes.js';
 import { isCity } from '../world/rooms.js';
 import { getMarkers } from '../world/knowledge.js';
+import { getCityId } from '../world/cities.js';
 
 const BIOME_MINIMAP_COLORS = {
   fields: { visited: '#4f9a4a', unvisited: '#2a3a2a' },
@@ -87,18 +88,20 @@ export function renderMinimap() {
       const py = startY + y * (tileSize + gap);
 
       if (isCityCell) {
+        const cityId = getCityId(gx, gy);
+        const isDesertCity = cityId === 'akmira';
+
         if (isCurrent) {
-          ctx.fillStyle = CITY_COLORS.current;
+          ctx.fillStyle = isDesertCity ? '#e8c060' : '#f0d27a';
           ctx.fillRect(px, py, tileSize, tileSize);
           drawHouseIcon(px + tileSize / 2, py + tileSize / 2, tileSize, '#1a1a2e');
         } else if (isVisited) {
-          ctx.fillStyle = CITY_COLORS.visited;
+          ctx.fillStyle = isDesertCity ? '#8a6a3a' : '#4a6a8a';
           ctx.fillRect(px, py, tileSize, tileSize);
           drawHouseIcon(px + tileSize / 2, py + tileSize / 2, tileSize, '#1a1a2e');
         } else {
-          ctx.fillStyle = CITY_COLORS.unvisited;
+          ctx.fillStyle = isDesertCity ? '#3a2a1a' : '#2a3a4a';
           ctx.fillRect(px, py, tileSize, tileSize);
-          // Sem ícone enquanto não visitada
         }
         continue;
       }

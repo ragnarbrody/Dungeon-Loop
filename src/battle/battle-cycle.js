@@ -13,7 +13,7 @@ import { rand } from '../core/rng.js';
 import { hud, updateHud } from '../ui/hud.js';
 import { CANVAS_W, CANVAS_H } from '../core/canvas.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
-import { getBiomeEnemies } from '../world/biomes.js';
+import { getBiomeEnemies, pickBiome } from '../world/biomes.js';
 import { notifyEnemyKilled, notifyDungeonEnemyKilled, markBannerQuestViolent } from '../quests.js';
 import { rollDrops, formatDrop } from '../drops.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
@@ -28,9 +28,16 @@ import { roomCache } from '../world/rooms.js';
 
 const FADE_DURATION = 1.8;
 
+// Multiplicador de ouro por bioma. O deserto é mais difícil e
+// tudo em Akmira é 15% mais caro, então o ouro rende mais.
+const GOLD_BIOME_MUL = {
+  fields: 1.0,
+  desert: 1.35,   // ~35% a mais que o valor base
+  cave:   1.15,   // caverna já dá um pouco mais
+};
+
 // ---- Início de batalha ----
 export function startBattle(opts = {}) {
-  // Cidade é safezone — nunca entra em combate
   if (currentRoom && currentRoom.isCity) return;
 
   const { enemyId, mapEnemy, biomeGX, biomeGY, noFlee } = opts;
@@ -69,14 +76,25 @@ export function startBattle(opts = {}) {
   playerStats.bleeding = null;
   playerStats.stunned = 0;
 
+  // ---- Descobre o bioma (pra escala e grupos curados) ----
+  // Ordem de prioridade:
+  //   1. biomeGX/biomeGY (batalha aleatória do mapa)
+  //   2. currentRoom.biomeId (batalha fixa ou dungeon)
+  //   3. 'fields' (fallback)
+  let biomeId = 'fields';
+  if (biomeGX !== undefined && biomeGY !== undefined) {
+    biomeId = pickBiome(biomeGX, biomeGY);
+  } else if (currentRoom?.biomeId) {
+    biomeId = currentRoom.biomeId;
+  }
+  battle._biomeId = biomeId;
+
   let chosenId;
   let pool = null;
 
   if (enemyId) {
-    // Batalha fixa do mapa — grupo homogêneo
     chosenId = enemyId;
   } else {
-    // Batalha aleatória — passa o pool pro buildEnemyGroup sortear MISTO
     pool = (biomeGX !== undefined && biomeGY !== undefined)
       ? getBiomeEnemies(biomeGX, biomeGY)
       : ['slime', 'rat', 'goblin'];
@@ -85,7 +103,7 @@ export function startBattle(opts = {}) {
     chosenId = pool[Math.floor(Math.random() * pool.length)];
   }
 
-  battle.enemies = buildEnemyGroup(chosenId, playerStats.level, enemyId ? null : pool);
+  battle.enemies = buildEnemyGroup(chosenId, playerStats.level, enemyId ? null : pool, biomeId);
 
   // Recalcula o ATK da classe com o equipamento atual
   battle.player.atk = classAtk();
@@ -94,7 +112,6 @@ export function startBattle(opts = {}) {
   // ---- Música: boss vs normal ----
   const firstEnemy = battle.enemies[0];
   const isBossFight = firstEnemy?.isBoss === true;
-  const musicMode = isBossFight ? 'boss' : 'battle';
 
   // ---- Mensagem de aparição / cutscene ----
   if (firstEnemy?.isBoss) {
@@ -103,7 +120,6 @@ export function startBattle(opts = {}) {
       ['title', 'approach', 'clearing', 'mother_tree', 'awakening', 'confrontation'],
       () => {
         battle.message = firstEnemy.introText || `${firstEnemy.name} desperta!`;
-        // Quando a cutscene termina, entra a música de boss
         try { setMusicMode('boss'); } catch { setMusicMode('battle'); }
       }
     );
@@ -115,7 +131,6 @@ export function startBattle(opts = {}) {
     battle.message = `${battle.enemies.length} ${firstEnemy.name}s selvagens apareceram!`;
   }
 
-  // música de batalha normal
   if (!isBossFight) {
     try { setMusicMode('battle'); } catch (e) { /* sem áudio ainda */ }
   }
@@ -186,11 +201,13 @@ export function endBattle(escaped) {
   // Volta pra música do bioma (ou Aethel, se for cidade)
   if (currentRoom) {
     if (currentRoom.isDungeon) {
-      setMusicMode('cave');
+      setMusicMode(currentRoom.dungeonTheme === 'desert' ? 'desert_cave' : 'cave');
     } else {
       setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
     }
   }
+
+  battle._biomeId = 'fields';
 }
 
 // ---- Limpeza de inimigos mortos (chamado a cada frame e antes de skill) ----
@@ -207,7 +224,9 @@ export function clearDeadEnemies() {
     // Recompensas
     battle.xpEarned += e.xp;
     if (e.goldMin !== undefined) {
-      const gold = rand(e.goldMin, e.goldMax);
+      const raw = rand(e.goldMin, e.goldMax);
+      const mul = GOLD_BIOME_MUL[battle._biomeId] ?? 1;
+      const gold = Math.round(raw * mul);
       if (gold > 0) battle.goldEarned = (battle.goldEarned || 0) + gold;
     }
     const drops = rollDrops(e.id, playerStats.inventory);

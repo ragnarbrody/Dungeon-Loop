@@ -32,6 +32,8 @@ import { countItem, ITEMS_DB } from './items.js';
 let _removeMarker = () => {};
 let _addMarker = () => {};
 let _revealMarker = () => {};
+let _revealRoom = () => {};
+export function setRevealRoomFn(fn) { _revealRoom = fn; }
 
 export function setKnowledgeFunctions(removeFn, addFn, revealFn) {
   _removeMarker = removeFn;
@@ -105,7 +107,7 @@ export const QUEST_DB = {
     giver: 'elder',
     prereq: ['story_slimes'],       // paralela com rat_tails
     description:
-      'Um aldeão, Corin, saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descubrir o que aconteceu? Vou marcar a localização no seu mapa',
+      'Um aldeão, Corin, saiu de Aethel para buscar um pergaminho importante em outra cidade, mas não voltou. Você pode ir até o último local onde ele foi visto e descobrir o que aconteceu? Vou marcar a localização no seu mapa',
     objectives: [
       {
         id: 'visit_last_seen',
@@ -133,16 +135,13 @@ export const QUEST_DB = {
     giver: 'elder',              // o Ancião OFERECE
     turnInNpc: 'blacksmith',     // o FERREIRO recebe
     prereq: ['story_lost_traveler'],
-    warning:
-      'O Deserto fica a oeste de Aethel. É mais perigoso que os Campos. ' +
-      'Leve poções e não subestime os escorpiões.',
     description:
-      'O Ferreiro precisa de materiais pra forjar um caldeirão especial pra Herbalista. Alguns só existem no Deserto. Vá até lá, colete o que ele pediu e leve de volta pra ele.',
+      'O Ferreiro precisa de materiais pra forjar um caldeirão especial pra Herbalista. Explore, colete o que ele pediu e leve de volta pra ele.',
     objectives: [
       {
         id: 'collect_goblin_tooth',
         text: 'Dente de Goblin',
-        target: 1,
+        target: 2,
         type: 'collect',
         filter: 'goblin_tooth',
       },
@@ -154,18 +153,11 @@ export const QUEST_DB = {
         filter: 'slime_gel',
       },
       {
-        id: 'collect_scorpion_pincer',
-        text: 'Pinça de Escorpião',
+        id: 'collect_rat_tails_2',
+        text: 'Caudas de Rato',
         target: 2,
         type: 'collect',
-        filter: 'scorpion_pincer',
-      },
-      {
-        id: 'collect_vulture_egg',
-        text: 'Ovo de Abutre',
-        target: 1,
-        type: 'collect',
-        filter: 'vulture_egg',
+        filter: 'rat_tail',
       },
     ],
     rewards: { xp: 80, gold: 60, items: [{ id: 'potion_medium', qty: 2 }] },
@@ -316,6 +308,41 @@ export const QUEST_DB = {
     next: 'story_to_akmira',
   },
 
+  story_to_akmira: {
+    id: 'story_to_akmira',
+    type: 'story',
+    chapter: 'fields',              // ainda fecha "campos" (a viagem é o epílogo)
+    title: 'O Chamado de Akmira',
+    giver: 'elder',
+    prereq: ['story_guardian_prep'],
+    description:
+      'Aethel está segura, mas o Ancião de Akmira pediu ajuda. ' +
+      'A cidade fica no deserto, a oeste — provavelmente alguns dias de viagem a pé. ' +
+      'Vá até lá e fale com o Ancião de Akmira.',
+    objectives: [
+      {
+        id: 'reach_akmira',
+        text: 'Chegue a Akmira (marcada no mapa)',
+        target: 1,
+        type: 'visit',
+        filter: { gx: -19, gy: -4 },
+      },
+      {
+        id: 'talk_akmira_elder',
+        text: 'Fale com o Ancião de Akmira',
+        target: 1,
+        type: 'interact',
+        filter: 'akmira_elder_talk',
+      },
+    ],
+    rewards: {
+      xp: 200,
+      gold: 150,
+      items: [{ id: 'potion_strong', qty: 1 }],
+    },
+    next: null,   // próxima virá no capítulo do deserto
+  },
+
 };
 
 // ---------- Estado ----------
@@ -456,6 +483,16 @@ export function activateQuest(id) {
     import('./world/rooms.js').then(mod => {
       mod.roomCache.delete('6,8');
     }).catch(console.error);
+  } else if (id === 'story_to_akmira') {
+    _revealRoom(-14, 0);
+    _addMarker({
+      id: 'marker_akmira',
+      type: 'poi',      // ← troca 'city' por 'poi'
+      gx: -19, gy: -4,
+      title: 'Cidade de Akmira',
+      revealed: true,
+    });
+    _revealMarker('marker_akmira');
   }
 
   return true;
@@ -637,6 +674,32 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     }).catch(console.error);
   }
 
+  if (q.id === 'story_to_akmira') {
+    _removeMarker('marker_akmira');
+    playerStats.fastTravelUnlocked = true;
+    playerStats._knownCities = playerStats._knownCities || new Set(['aethel']);
+    playerStats._knownCities.add('akmira');
+
+    // ---- NOVO: invalida o cache das salas do deserto ----
+    // As salas do deserto foram geradas na viagem até Akmira, ANTES de
+    // `areDesertDungeonsUnlocked()` ficar true. Sem isso, elas nunca
+    // vão ter gruta (ficariam no cache "velho").
+    import('./world/rooms.js').then(mod => {
+      // Limpa SÓ as salas do deserto (gx <= -6), preservando as outras
+      // (Aethel, Campos, cavernas etc.) pra não forçar regeneração
+      // desnecessária.
+      for (const key of [...mod.roomCache.keys()]) {
+        const [gx] = key.split(',').map(Number);
+        if (gx <= -6) mod.roomCache.delete(key);
+      }
+    }).catch(console.error);
+
+    import('../src/core/progression.js').then(mod => {
+      mod.forceMilestone(playerStats);
+      if (mod.setMilestoneRespawn) mod.setMilestoneRespawn('fields', 'akmira');
+    }).catch(console.error);
+  }
+
   // ---- 3) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
@@ -757,6 +820,10 @@ export function getTurnInNpc(q) {
 
 export function areProceduralCavesUnlocked() {
   return state.completed.has('story_cave');
+}
+
+export function areDesertDungeonsUnlocked() {
+  return state.completed.has('story_to_akmira');
 }
 
 const chapterOf = (q) => q?.chapter ?? 'fields';   // sem tag = Campos

@@ -6,7 +6,8 @@ import { worldSeed, setCurrentRoom, markRoomVisited, saveGame,
          currentRoom, player, playerStats, setTransitionCooldown, setDungeonRoom } from '../core/state.js';
 import { createInterior } from './interiors.js';
 import { setMusicMode } from '../audio/audio.js';
-import { isQuestActive, isQuestCompleted, areProceduralCavesUnlocked } from '../quests.js';
+import { isQuestActive, isQuestCompleted, areProceduralCavesUnlocked, areDesertDungeonsUnlocked } from '../quests.js';
+import { CITIES, getCityId, getAllCityCoords, isCityCoords, musicForCity } from './cities.js';
 
 // ============================================================
 // REGRA DE PORTAS
@@ -108,7 +109,7 @@ export function hasDoor(gx, gy, side) {
 }
 
 // Gera uma sala de dungeon procedural
-function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
+function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural, theme = 'cave') {
   const rng = makeRng(seed + depth);
   const mid = Math.floor(GRID_SIZE / 2);
   const map = [];
@@ -126,22 +127,27 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
     map[i][GRID_SIZE - 1] = T.WALL;
   }
 
-  const isLastRoom = depth === maxDepth - 1;   // ← MOVIDO PRA CIMA
+  const isLastRoom = depth === maxDepth - 1;
 
   // Porta de entrada (sempre no topo)
   map[0][mid] = T.DOOR;
 
   // Porta de saída (pra próxima sala), exceto na última
-  // CORREÇÃO: usa isLastRoom (funciona pra procedural E quest)
   if (!isLastRoom) {
     map[GRID_SIZE - 1][mid] = T.DOOR;
   }
+
+  // ---- Pool e bioma por tema ----
+  const isDesert = theme === 'desert';
+  const biomeId   = isDesert ? 'desert' : 'cave';
+  const enemyPool = isDesert
+    ? ['scorpion', 'vulture', 'mummy']
+    : ['bat', 'slime', 'goblin'];
 
   // Inimigos comuns
   const enemies = [];
   if (!isLastRoom) {
     const enemyCount = 2 + Math.min(depth, 3);
-    const enemyPool = ['bat', 'slime', 'goblin'];
     for (let i = 0; i < enemyCount; i++) {
       let tx, ty, attempts = 0;
       do {
@@ -166,12 +172,14 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
   const roomInteractables = [];
 
   if (isLastRoom) {
-    // Miniboss SEMPRE (quest e procedural) — só UMA vez
+    // Miniboss: goblin_sergeant (cave) ou scorpion_giant (desert)
+    const minibossId = isDesert ? 'scorpion_giant' : 'goblin_sergeant';
     enemies.push({
-      id: 'goblin_sergeant',
+      id: minibossId,
       tx: mid,
       ty: 10,
       defeated: false,
+      isMiniboss: true,
     });
 
     if (isProcedural) {
@@ -193,8 +201,6 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
   }
 
   // Decoração (pedras)
-  // IMPORTANTE: inclui baú e jaula no set de ocupados, senão uma pedra
-  // pode nascer no mesmo tile e bloquear a interação.
   const occupied = new Set(enemies.map(e => `${e.tx},${e.ty}`));
   function reserveAround(t, r) {
     if (!t) return;
@@ -218,21 +224,27 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
   }
 
   const depthLabel = depth + 1;
-  const name = isProcedural
-    ? `Caverna - Profundidade ${depthLabel}`
-    : (instanceId === 'cave_quest_5_2'
-        ? `Caverna Sombria - Profundidade ${depthLabel}`
-        : `Caverna (${instanceId}) - Profundidade ${depthLabel}`);
+  let name;
+  if (isDesert) {
+    name = `Gruta de Areia - Profundidade ${depthLabel}`;
+  } else {
+    name = isProcedural
+      ? `Caverna - Profundidade ${depthLabel}`
+      : (instanceId === 'cave_quest_5_2'
+          ? `Caverna Sombria - Profundidade ${depthLabel}`
+          : `Caverna (${instanceId}) - Profundidade ${depthLabel}`);
+  }
 
   return {
     map,
     doors: ['top', ...(!isLastRoom ? ['bottom'] : [])],
-    biomeId: 'cave',
+    biomeId,
     nameCoords: '',
     isDungeon: true,
     dungeonId: instanceId,
     dungeonDepth: depth,
     dungeonMaxDepth: maxDepth,
+    dungeonTheme: theme,
     name,
     enemies,
     hasTrees: false,
@@ -245,7 +257,7 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural) {
 }
 
 export function enterDungeon(instanceId, opts = {}) {
-  _hydrateDungeonIfNeeded(instanceId);   // ← NOVO
+  _hydrateDungeonIfNeeded(instanceId);
   let dungeon = dungeonCache.get(instanceId);
   if (!dungeon) {
     const seed = seedFrom(instanceId.length, instanceId.charCodeAt(0) + worldSeed);
@@ -258,16 +270,14 @@ export function enterDungeon(instanceId, opts = {}) {
   }
 
   const entryRoom = dungeon.rooms.get(0);
-  
-  // Usa setDungeonRoom para não mexer em startGX/startGY
   setDungeonRoom(entryRoom);
 
-  // troca pra música de caverna já na entrada
-  setMusicMode('cave');
+  // Música: caverna ou deserto?
+  setMusicMode(dungeon.theme === 'desert' ? 'desert_cave' : 'cave');
 
   const mid = Math.floor(GRID_SIZE / 2);
   player.x = mid * TILE_SIZE + TILE_SIZE / 2;
-  player.y = 3 * TILE_SIZE + TILE_SIZE / 2
+  player.y = 3 * TILE_SIZE + TILE_SIZE / 2;
 
   setTransitionCooldown(30);
   saveGame();
@@ -382,7 +392,7 @@ function createGuardianArena(gx, gy) {
 // ============================================================
 
 // Lista de cidades conhecidas (facilita o minimapa)
-export const CITY_COORDS = new Set(['0,0']);
+export const CITY_COORDS = new Set(getAllCityCoords().map(c => `${c.gx},${c.gy}`));
 
 export function isCity(gx, gy) {
   return CITY_COORDS.has(`${gx},${gy}`);
@@ -577,6 +587,9 @@ function createBannerCamp(gx, gy) {
 }
 
 function createCity(gx, gy) {
+  const cityId = getCityId(gx, gy);
+  const city = CITIES[cityId];
+
   const map = [];
   for (let y = 0; y < GRID_SIZE; y++) {
     const row = [];
@@ -592,7 +605,6 @@ function createCity(gx, gy) {
     map[i][GRID_SIZE - 1] = T.WALL;
   }
 
-  // 4 portas (nas 4 direções, sempre abertas)
   const mid = Math.floor(GRID_SIZE / 2);
   const doors = ['top', 'bottom', 'left', 'right'];
   for (let x = mid - 1; x <= mid + 1; x++) {
@@ -604,22 +616,11 @@ function createCity(gx, gy) {
     map[y][GRID_SIZE - 1] = T.DOOR;
   }
 
-  // ---- Declara AQUI as constantes compartilhadas ----
   const mid2 = Math.floor(GRID_SIZE / 2);
   const STREET_HALF_HEIGHT = 1;
 
-  // ============================================================
-  // PRÉDIOS (5 prédios: ferreiro, herbalista, armeiro, joalheiro, quest giver)
-  // Cada prédio é um retângulo 3x2 de T.HOUSE (bloqueia passagem)
-  // ============================================================
-  const cityObjects = [
-    // Placa à ESQUERDA da porta, 1 tile abaixo da casa
-    { id: 'blacksmith',  name: 'Ferreiro',    tx: 4,  ty: 5,  w: 5, h: 3, signTx: 4,  signTy: 8  }, // porta em tx:6
-    { id: 'herbalist',   name: 'Herbalista',  tx: 21, ty: 5,  w: 5, h: 3, signTx: 21, signTy: 8  }, // porta em tx:23
-    { id: 'armorer',     name: 'Armeiro',     tx: 4,  ty: 21, w: 5, h: 3, signTx: 4,  signTy: 24 }, // porta em tx:6
-    { id: 'bank',        name: 'Banco de Aethel', tx: 21, ty: 21, w: 5, h: 3, signTx: 21, signTy: 24 }, // porta em tx:23
-    { id: 'quest_giver', name: 'Ancião',      tx: 13, ty: 22, w: 5, h: 3, signTx: 13, signTy: 25 }, // porta em tx:15
-  ];
+  // ---- Prédios (vêm de cities.js) ----
+  const cityObjects = city.buildings.map(b => ({ ...b }));
 
   for (const obj of cityObjects) {
     for (let y = obj.ty; y < obj.ty + obj.h; y++) {
@@ -631,32 +632,21 @@ function createCity(gx, gy) {
     }
   }
 
-  // ============================================================
-  // CAMINHOS até as portas das casas
-  // 1 tile de largura, alinhado com a porta visual (centro da casa).
-  // Casas ACIMA da rua: caminho desce da base até a rua.
-  // Casas ABAIXO da rua: caminho sobe do topo da casa até a rua.
-  // ============================================================
+  // ---- Caminhos até as portas ----
   for (const obj of cityObjects) {
-    // Centro da porta (em coords de tile)
     const doorTx = obj.tx + Math.floor((obj.w - 1) / 2);
-
-    // Topo e base da casa (em tiles)
     const houseTopTy = obj.ty;
     const houseBotTy = obj.ty + obj.h;
-
     const streetTop = mid2 - STREET_HALF_HEIGHT;
     const streetBot = mid2 + STREET_HALF_HEIGHT;
 
     if (houseBotTy <= streetTop) {
-      // Casa está ACIMA da rua: desce da base da casa até a rua
       for (let y = houseBotTy; y < streetTop; y++) {
         if (map[y][doorTx] === T.FLOOR || map[y][doorTx] === T.CITY_FLOOR) {
           map[y][doorTx] = T.STREET;
         }
       }
     } else if (houseTopTy > streetBot) {
-      // Casa está ABAIXO da rua: sobe do topo da casa até a rua
       for (let y = streetBot + 1; y < houseTopTy; y++) {
         if (map[y][doorTx] === T.FLOOR || map[y][doorTx] === T.CITY_FLOOR) {
           map[y][doorTx] = T.STREET;
@@ -665,63 +655,48 @@ function createCity(gx, gy) {
     }
   }
 
-  // ============================================================
-  // RUAS PRINCIPAIS
-  // Calculadas primeiro, pra depois a praça sobrescrever.
-  // ============================================================
-  const streetTop = mid2 - STREET_HALF_HEIGHT;
-  const streetBot = mid2 + STREET_HALF_HEIGHT;
-
-  // Pinta a rua de T.STREET em todo o chão livre (T.FLOOR)
+  // ---- Rua horizontal ----
   for (let dy = -STREET_HALF_HEIGHT; dy <= STREET_HALF_HEIGHT; dy++) {
     const y = mid2 + dy;
     if (y < 0 || y >= GRID_SIZE) continue;
-    
     for (let x = 1; x < GRID_SIZE - 1; x++) {
-      if (map[y][x] === T.FLOOR) {
-        map[y][x] = T.STREET;
-      }
+      if (map[y][x] === T.FLOOR) map[y][x] = T.STREET;
     }
   }
 
-  // ============================================================
-  // PRAÇA + PORTAL
-  // A praça sobrescreve a rua, criando o visual de "rua -> praça -> rua".
-  // ============================================================
+  // ---- Praça (anel externo) + miolo ----
   const plazaRadius = 5;
   const innerPlazaRadius = 2;
-
   for (let y = mid2 - plazaRadius; y <= mid2 + plazaRadius; y++) {
     for (let x = mid2 - plazaRadius; x <= mid2 + plazaRadius; x++) {
       if (y < 0 || y >= GRID_SIZE || x < 0 || x >= GRID_SIZE) continue;
-
-      const dx = x - mid2;
-      const dy = y - mid2;
+      const dx = x - mid2, dy = y - mid2;
       const distSq = dx * dx + dy * dy;
 
-      // Se está dentro do raio da praça, a praça manda.
       if (distSq <= innerPlazaRadius * innerPlazaRadius) {
         map[y][x] = T.PLAZA;
       } else if (distSq <= plazaRadius * plazaRadius) {
         const outerRingInner = (plazaRadius - 1) * (plazaRadius - 1);
-        if (distSq >= outerRingInner) {
-          map[y][x] = T.PLAZA;  // anel externo
-        } else {
-          map[y][x] = T.FLOOR;  // miolo (grama)
-        }
+        map[y][x] = distSq >= outerRingInner ? T.PLAZA : T.FLOOR;
       }
     }
   }
 
-  // Portal (1x1) no centro exato (sobrescreve praça/rua)
-  const portal = { tx: mid2, ty: mid2, w: 1, h: 1 };
-  map[portal.ty][portal.tx] = T.PORTAL;
+  // ---- Marco central: portal (Aethel) OU oásis (Akmira) ----
+  // Usamos T.PORTAL nos dois casos pra colisão ser igual;
+  // o render decide o sprite conforme city.landmark.
+  const landmark = {
+    tx: mid2,
+    ty: mid2,
+    w: 1, h: 1,
+    kind: city.landmark,          // 'portal' | 'oasis'
+    label: city.landmarkLabel,
+  };
+  map[landmark.ty][landmark.tx] = T.PORTAL;
 
-  // ============================================================
-  // ÁRVORES decorativas espalhadas (fora da praça e das ruas)
-  // ============================================================
+  // ---- Árvores decorativas ----
   const treeRng = makeRng(seedFrom(gx + 1337, gy + 7331));
-  const numCityTrees = 14 + Math.floor(treeRng() * 8); // 14 a 21
+  const numCityTrees = 14 + Math.floor(treeRng() * 8);
   let cityTreesPlaced = 0, cityTreesAttempts = 0;
 
   while (cityTreesPlaced < numCityTrees && cityTreesAttempts < 400) {
@@ -730,22 +705,18 @@ function createCity(gx, gy) {
     const ty = 2 + Math.floor(treeRng() * (GRID_SIZE - 4));
 
     if (map[ty][tx] !== T.FLOOR) continue;
-    // Não plantar em cima da rua
-    if (ty >= mid2 - 2 && ty <= mid2 + 2) continue; // rua + folga
-    // Não plantar na praça
+    if (ty >= mid2 - 2 && ty <= mid2 + 2) continue;
     const dx = tx - mid2, dy = ty - mid2;
     if (dx * dx + dy * dy <= (plazaRadius + 1) * (plazaRadius + 1)) continue;
-    // Não plantar colado em casas (pra não cobrir as portas)
+
     let nearHouse = false;
     for (const obj of cityObjects) {
       if (tx >= obj.tx - 1 && tx <= obj.tx + obj.w &&
           ty >= obj.ty - 1 && ty <= obj.ty + obj.h + 1) {
-        nearHouse = true;
-        break;
+        nearHouse = true; break;
       }
     }
     if (nearHouse) continue;
-    // Não plantar em cima dos spawn (reserved não foi feito ainda; usa raio)
     if (Math.hypot(tx - 3, ty - mid2) < 3) continue;
 
     map[ty][tx] = T.TREE;
@@ -753,32 +724,28 @@ function createCity(gx, gy) {
   }
 
   const reserved = new Set();
-  // reserva área de spawn (entrada esquerda)
-  for (let dx = -1; dx <= 3; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
+  for (let dx = -1; dx <= 3; dx++)
+    for (let dy = -1; dy <= 1; dy++)
       reserved.add(`${3 + dx},${mid + dy}`);
-    }
-  }
-  // reserva também o centro (por segurança)
-  for (let y = mid - 2; y <= mid + 2; y++) {
-    for (let x = mid - 2; x <= mid + 2; x++) {
+  for (let y = mid - 2; y <= mid + 2; y++)
+    for (let x = mid - 2; x <= mid + 2; x++)
       reserved.add(`${x},${y}`);
-    }
-  }
 
   return {
     gx, gy,
     map,
     doors,
-    biomeId: 'fields', // usado só pra paleta das paredes; cidade tem paleta própria
-    name: 'Cidade de Aethel',
+    biomeId: city.biome,
+    name: city.name,
     nameCoords: `${gx}, ${gy}`,
     isCity: true,
+    cityId,
     cityObjects,
-    portal,
+    portal: landmark,           // mantém o nome `portal` pro resto do código
+    landmark,                   // e expõe `landmark` pra clareza
     reserved,
-    enemies: [], // cidade NUNCA tem inimigos
-    hasTrees: true,
+    enemies: [],
+    hasTrees: city.biome === 'fields',
   };
 }
 
@@ -1100,6 +1067,47 @@ export function createRoom(gx, gy) {
     }
   }
 
+  // ---- Dungeon do deserto (pós-quest story_to_akmira) ----
+  // Aparece em ~20% das salas do deserto, longe de Aethel e de Akmira.
+  // É a Fratura se desestabilizando: grutas de areia começam a abrir.
+  if (
+    areDesertDungeonsUnlocked() &&
+    biomeId === 'desert' &&
+    Math.hypot(gx, gy) > 3 &&
+    Math.hypot(gx - (-19), gy - (-4)) > 4 &&   // longe de Akmira
+    !interactables.some(it => it.kind === 'cave_entrance')
+  ) {
+    const caveRoll = rng();
+    if (caveRoll < 0.20) {
+      const mid = Math.floor(GRID_SIZE / 2);
+      let caveTx = -1, caveTy = -1;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const tx = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        const ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
+        if (map[ty][tx] !== T.FLOOR) continue;
+        if (reserved.has(`${tx},${ty}`)) continue;
+        if (Math.hypot(tx - mid, ty - mid) < 4) continue;
+        caveTx = tx; caveTy = ty;
+        break;
+      }
+      if (caveTx >= 0) {
+        map[caveTy][caveTx] = T.CAVE_ENTRANCE;
+        reserved.add(`${caveTx},${caveTy}`);
+        for (const [nx, ny] of [[caveTx-1,caveTy],[caveTx+1,caveTy],[caveTx,caveTy-1],[caveTx,caveTy+1]]) {
+          if (map[ny]?.[nx] === T.TREE) map[ny][nx] = T.FLOOR;
+        }
+        interactables.push({
+          tx: caveTx, ty: caveTy,
+          kind: 'cave_entrance',
+          title: 'Gruta de Areia',
+          text: 'Uma fenda na areia. Degraus de pedra descem pra escuridão.',
+          procedural: true,
+          dungeonTheme: 'desert',   // ← NOVO: tema da dungeon
+        });
+      }
+    }
+  }
+
   return {
     gx, gy, map, doors, biomeId,
     name: biome.name,
@@ -1151,13 +1159,19 @@ export function enterBuilding(buildingId) {
   const doorTy = obj ? obj.ty + obj.h : Math.floor(GRID_SIZE / 2);
 
   const interior = getInterior(gx, gy, buildingId);
+  interior.cityId = currentRoom.cityId || null;
   interior._returnRoom = currentRoom;
   interior._returnGx = gx;
   interior._returnGy = gy;
-  interior._returnDoor = { tx: doorTx, ty: doorTy };  // ← NOVO
+  interior._returnDoor = { tx: doorTx, ty: doorTy };
 
   setCurrentRoom(interior);
-  setMusicMode('aethel');  // interior de Aethel — mesma trilha calma
+  const origin = interior._returnRoom;
+  if (origin?.isCity) {
+    setMusicMode(musicForCity(origin.cityId));
+  } else {
+    setMusicMode(origin?.biomeId || 'aethel');
+  }
 
   // Spawn perto da porta inferior do interior
   const mid = Math.floor(interior.cols / 2);
@@ -1196,6 +1210,7 @@ export function clearCave() {
 // Retorna a sala de entrada da dungeon.
 export function createDungeonInstance(instanceId, seed, opts = {}) {
   const isProcedural = opts.procedural === true;
+  const theme = opts.theme || 'cave';   // 'cave' | 'desert'
   const depth = isProcedural ? 3 + (seed % 2) : 3;  // 3 ou 4 salas
   const dungeon = {
     id: instanceId,
@@ -1203,10 +1218,11 @@ export function createDungeonInstance(instanceId, seed, opts = {}) {
     rooms: new Map(),
     depth,
     procedural: isProcedural,
+    theme,
   };
 
   for (let d = 0; d < depth; d++) {
-    const room = createDungeonRoom(instanceId, d, seed, depth, isProcedural);
+    const room = createDungeonRoom(instanceId, d, seed, depth, isProcedural, theme);
     dungeon.rooms.set(d, room);
   }
 
@@ -1241,31 +1257,24 @@ export function serializeDungeons() {
       seed: dungeon.seed,
       depth: dungeon.depth,
       procedural: dungeon.procedural === true,
+      theme: dungeon.theme || 'cave',
       rooms,
     };
   }
   return out;
 }
 
-export function loadDungeons(data) {
-  // Mantido pra compat, mas agora só delega pro lazy.
-  setPendingDungeonsData(data);
-}
-
-// Reconstrói uma dungeon a partir dos dados pendentes, se ainda não
-// está no cache.
 function _hydrateDungeonIfNeeded(id) {
   if (dungeonCache.has(id)) return;
   if (!_pendingDungeonsData) return;
   const d = _pendingDungeonsData[id];
   if (!d || !Array.isArray(d.rooms)) return;
 
-  // Reconstrói com o MESMO seed
   const dungeon = createDungeonInstance(d.id, d.seed, {
     procedural: d.procedural === true,
+    theme: d.theme || 'cave',
   });
 
-  // Aplica estado persistido
   for (const r of d.rooms) {
     const room = dungeon.rooms.get(r.depth);
     if (!room) continue;
@@ -1278,8 +1287,12 @@ function _hydrateDungeonIfNeeded(id) {
     if (r.cageOpened)  room._cageOpened = true;
   }
 
-  // Remove dos pendentes (já está no cache)
   delete _pendingDungeonsData[id];
+}
+
+export function loadDungeons(data) {
+  // Mantido pra compat, mas agora só delega pro lazy.
+  setPendingDungeonsData(data);
 }
 
 // Substitui o uso direto de `dungeonCache.get(id)` no `enterDungeon`

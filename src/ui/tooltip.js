@@ -114,6 +114,12 @@ function renderContent(content) {
 }
 
 function onMouseMove(e) {
+  // Segurança: se o alvo saiu do DOM (re-render, troca de tela,
+  // modal abriu por cima), esconde.
+  if (currentTarget && !currentTarget.isConnected) {
+    hideTooltip();
+    return;
+  }
   positionTooltip(e);
 }
 

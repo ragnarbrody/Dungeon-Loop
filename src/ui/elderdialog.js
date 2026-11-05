@@ -8,30 +8,48 @@ import {
   getTurnInNpc, isQuestCompleted, isQuestActive, areProceduralCavesUnlocked, hasSeenCaveCollapseLore,
   markCaveCollapseLoreSeen, isBannerQuestViolent
 } from '../quests.js';
-import { addItemToInventory, removeItem  } from '../items.js';
+import { addItemToInventory, removeItem } from '../items.js';
 import { greeting, vocative } from './classvocative.js';
-import { addMarker, revealMarker } from '../world/knowledge.js';
+import { talkToAkmiraElder } from './akmira-elder.js';
 
-// Texto de lore da introdução. A saudação inicial é dinâmica (via greeting()),
-// então essa constante NÃO começa com "Bem-vindo" — ela é concatenada depois.
-// contexto clica em "O que aconteceu com o mundo?".
 const LORE_INTRO =
-  'Você chegou numa hora estranha. Aethel costumava ser só mais uma cidade no caminho — mas agora é a última parada antes do fim.\n\n' +
-  'Há algumas gerações, o mundo era inteiro. Um continente só, sem anéis. Então algo aconteceu — ninguém sabe o quê, nem por quê — e o mundo se partiu em círculos. Chamamos isso de Fratura.\n\n' +
-  'Aethel sobreviveu porque estava no lugar certo. O Portal Antigo na praça é a única coisa que restou de antes — e a única porta pra fora dos anéis.\n\n' +
+  'Você chegou numa hora estranha. Aethel é a última parada antes do fim — e o anel lá fora já começa a ceder.\n\n' +
   'Você chegou a pé. Ninguém chega a pé. A Fratura desfaz quem tenta. Você não foi desfeito — então ou você é um Andarilho, ou é a Fratura disfarçada. E a Fratura não conversa.';
 
-// Diálogo longo, opcional, atrás do botão "O que aconteceu com o mundo?".
-// Não substitui o LORE_INTRO — complementa.
 const LORE_DEEP =
-  'Você não sabe o que é a Fratura, sabe? Não nasceu aqui, eu suponho.\n\n' +
-  'A Fratura partiu o continente em anéis. Cada anel virou um lugar diferente — com clima, animais e regras próprias. Campos, Deserto, e mais além. Quanto mais perto do centro, mais instável. O espaço entre os anéis desfaz quem tenta atravessar a pé. Ninguém chega a Aethel a pé. Ninguém.\n\n' +
-  'Cada anel tem um Guardião. Uma criatura (ou uma pessoa — não sei mais) que carrega um Núcleo. Enquanto o Guardião vive, o anel fica estável. Se ele morre, o anel racha um pouco mais. Por isso ninguém vai lá. Por isso ninguém volta.\n\n' +
-  'O Portal Antigo era a base de uma torre. A Fratura rachou o continente, mas a base ficou. Oito encaixes. Oito Núcleos. Se os oito forem colocados, o caminho para o centro se abre. O que tem lá, eu não sei. Ninguém que foi voltou pra contar.\n\n' +
-  'Você é um Andarilho. Um dos raros que a Fratura não consegue consumir. Só você pode atravessar os anéis e voltar. Eu já vi outros como você. Nenhum voltou.';
+  'Cada anel tem um Guardião. Uma criatura — ou uma pessoa, não sei mais — que carrega um Núcleo, um pedaço da torre de antes. Enquanto o Guardião vive, o anel fica de pé. Se ele cai, o anel racha um pouco mais. Por isso ninguém vai atrás deles.\n\n' +
+  'O Portal na praça é o que restou da base da torre. Oito encaixes, oito Núcleos. Se os oito forem colocados, o caminho para o centro se abre. O que há lá, eu não sei.\n\n' +
+  'A Fratura marca você, mas não consegue consumir. Só um Andarilho atravessa os anéis e volta. Já vi outros como você partirem. Nenhum chegou a abrir o Portal.';
 
-export function talkToElder() {
-  // Primeira vez: diálogo curto, com botão opcional pra lore profunda
+// ============================================================
+// Helpers de estado narrativo
+// ============================================================
+function storyGuardianPrepCompletedButCoreNotInserted() {
+  return isQuestCompleted('story_guardian_prep')
+      && playerStats.portalInserted.size === 0;
+}
+
+function coreInsertedButNotYetSpoken() {
+  return isQuestCompleted('story_guardian_prep')
+      && playerStats.portalInserted.size >= 1
+      && !playerStats._elderSawCoreInserted;
+}
+
+// Já recebeu a fala pós-núcleo e ainda não foi pra Akmira
+function readyToOfferAkmira() {
+  return isQuestCompleted('story_guardian_prep')
+      && playerStats.portalInserted.size >= 1
+      && playerStats._elderSawCoreInserted
+      && !isQuestActive('story_to_akmira')
+      && !isQuestCompleted('story_to_akmira');
+}
+
+export function talkToElder(cityId = 'aethel') {
+  if (cityId === 'akmira') {
+    talkToAkmiraElder();
+    return;
+  }
+
   if (!hasSeenElderIntro()) {
     openDialogue({
       title: 'Ancião de Aethel',
@@ -40,7 +58,6 @@ export function talkToElder() {
         {
           label: 'O que aconteceu com o mundo?',
           action: () => {
-            // Marca como visto (não importa qual botão o jogador escolheu)
             markElderIntroSeen();
             saveGame();
             closeDialogue();
@@ -64,7 +81,6 @@ export function talkToElder() {
   offerQuests();
 }
 
-// Diálogo de lore profunda, acessível pelo botão no primeiro contato.
 function openLoreDeep() {
   openDialogue({
     title: 'A Fratura',
@@ -81,9 +97,77 @@ function openLoreDeep() {
   });
 }
 
-// Mostra a tela de oferta de quests (ou entrega, se a ativa estiver pronta).
 export function offerQuests() {
   const active = getActiveQuest();
+
+  // ============================================================
+  // PÓS-BOSS: pede pra inserir o núcleo primeiro
+  // ============================================================
+  if (storyGuardianPrepCompletedButCoreNotInserted()) {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Você voltou — e o Núcleo está com você.\n\n` +
+        `Antes de conversarmos mais, ${vocative()}, coloque o Núcleo no Portal. ` +
+        `Ele precisa voltar pro lugar de onde nunca deveria ter saído.\n\n` +
+        `Depois volte aqui. Precisamos falar sobre o que vem a seguir.`,
+    });
+    return;
+  }
+
+  // ============================================================
+  // PÓS-BOSS: núcleo inserido, primeira conversa (narrativa)
+  // ============================================================
+  if (coreInsertedButNotYetSpoken()) {
+    playerStats._elderSawCoreInserted = true;
+    saveGame();
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Sinto o anel. Sinto ele respirar de novo.\n\n` +
+        `Os Campos... ainda estão instáveis, ${vocative()}. Sem a Árvore Mãe, ` +
+        `o anel perdeu parte do que o mantinha de pé. Não vai cair hoje, nem amanhã. ` +
+        `Mas com o tempo, vai.\n\n` +
+        `Mas você trouxe a semente. Eu a senti quando você entrou em Aethel.\n\n` +
+        `Talvez — só talvez — haja uma forma de plantá-la. De fazer o anel voltar ` +
+        `a ter um Guardião. Não agora. Mas há esperança.\n\n` +
+        `Descanse, ${vocative()}. Você fez o que precisava. O que vem a seguir, ` +
+        `faremos juntos.`,
+    });
+    return;
+  }
+
+  // ============================================================
+  // PÓS-BOSS: oferece a viagem pra Akmira
+  // ============================================================
+  if (readyToOfferAkmira()) {
+    openDialogue({
+      title: 'Ancião de Aethel',
+      text:
+        `${greeting()} Antes de você partir, ${vocative()}, há algo que preciso te contar.\n\n` +
+        `Aethel está segura. Pela primeira vez em muito tempo, o anel respira. ` +
+        `Isso é obra sua — e não será esquecido.\n\n` +
+        `Mas recebi uma mensagem. O Ancião de Akmira, no deserto, pediu ajuda. ` +
+        `A cidade fica a oeste, além dos Campos, alguns dias de viagem a pé.\n\n` +
+        `Eu não posso ir. Mas você... você pode. Se Akmira cair, o deserto inteiro cai junto.\n\n` +
+        `Vá até lá. Fale com o Ancião de Akmira. E decida, mais uma vez, o que fazer.`,
+      actions: [
+        {
+          label: 'Aceitar',
+          action: () => {
+            activateQuest('story_to_akmira');
+            saveGame();
+            closeDialogue();
+          },
+        },
+        {
+          label: 'Agora não',
+          action: () => closeDialogue(),
+        },
+      ],
+    });
+    return;
+  }
 
   // ---- Lore pós-quest 5.2: cavernas procedurais liberadas ----
   if (areProceduralCavesUnlocked() && !hasSeenCaveCollapseLore()) {
@@ -102,7 +186,7 @@ export function offerQuests() {
           label: 'Entendi.',
           action: () => {
             closeDialogue();
-            offerQuests(); // continua o fluxo normal
+            offerQuests();
           },
         },
       ],
@@ -166,7 +250,7 @@ export function offerQuests() {
     return;
   }
 
-  // ---- Entrega da story_banner: final depende do flag violento ----
+  // ---- Entrega da story_banner ----
   if (
     active &&
     active.id === 'story_banner' &&
@@ -191,20 +275,12 @@ export function offerQuests() {
           {
             label: 'Receber recompensa',
             action: () => {
-              // Recompensa "ruim": sobrescreve o que a quest daria
               const q = getActiveQuest();
-              // aplica manualmente o gold e remove os itens bônus
               if (q) {
-                // Marca como concluída SEM chamar completeActiveQuest
-                // (que daria 100 + poções). Vamos simular a entrega.
                 completeActiveQuest(playerStats, addItemToInventory);
-                // Corrige o ouro: completeActiveQuest já somou 100.
-                // Subtrai 70 e tira as poções.
                 playerStats.gold -= 70;
-                // Remove as poções bônus que completeActiveQuest adicionou
                 removeItem(playerStats.inventory, 'potion_strong', 1);
                 removeItem(playerStats.inventory, 'potion_mana_medium', 1);
-                // Dá 30 de ouro (a diferença)
                 playerStats.gold += 30;
               }
               saveGame();
@@ -218,7 +294,6 @@ export function offerQuests() {
       return;
     }
 
-    // Final bom: deixa o fluxo padrão (mas com uma fala mais pessoal)
     openDialogue({
       title: 'Ancião de Aethel',
       text:
@@ -309,13 +384,10 @@ export function offerQuests() {
     return;
   }
 
-
-
   // ---- Sem quest ativa: oferece as disponíveis ----
   const available = getAvailableQuests();
 
-  // ---- Revelação especial: o Ancião encontra a mensagem atrás do pergaminho ----
-  // Só dispara UMA vez, na primeira vez que a 5.1 está disponível.
+  // ---- Revelação especial: mensagem atrás do pergaminho ----
   if (
     available[0]?.id === 'story_torch' &&
     !isQuestActive('story_torch') &&
@@ -384,7 +456,7 @@ export function offerQuests() {
     return;
   }
 
-  // Oferece a próxima (a primeira da lista, que respeita prereq)
+  // Oferece a próxima
   const q = available[0];
   openDialogue({
     title: 'Ancião de Aethel',
@@ -396,7 +468,7 @@ export function offerQuests() {
       {
         label: 'Aceitar',
         action: () => {
-          activateQuest(q.id); // A mágica acontece toda aqui agora
+          activateQuest(q.id);
           saveGame();
           closeDialogue();
         },

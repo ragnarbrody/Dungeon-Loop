@@ -3,6 +3,7 @@ import { makeScorpionFrames } from './scorpion.js';
 import { makeVultureFrames } from './vulture.js';
 import { makeMummyFrames } from './mummy.js';
 import { makeScarabFrames } from './scarab.js';
+import { makeScorpionGiantFrames } from './scorpion_giant.js';
 
 export function makeSlimeFrames() {
   const S = 32;
@@ -543,6 +544,7 @@ export const ENEMY_SPRITES = {
   rat: makeRatFrames(),
   goblin: makeGoblinFrames(),
   scorpion: makeScorpionFrames(),
+  scorpion_giant: makeScorpionGiantFrames(), 
   vulture: makeVultureFrames(),
   mummy: makeMummyFrames(),
   scarab: makeScarabFrames(), 

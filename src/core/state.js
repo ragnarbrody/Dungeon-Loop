@@ -5,13 +5,19 @@ import {
   SAVE_VERSION,
 } from './save.js';
 import { loadKnowledge, serializeKnowledge, revealRoom, addMarker, revealMarker, removeMarker } from '../world/knowledge.js';
-import { serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter, setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter  } from '../quests.js';
+import {
+  serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter,
+  setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter,
+  setRevealRoomFn,
+} from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
 import { serializeDungeons, loadDungeons, dungeonCache, setPendingDungeonsData } from '../world/rooms.js';
 import { normalizeInventory } from '../items.js';
 import { loadTime, serializeTime } from './timeofday.js';
-import { serializeProgression, loadProgression } from './progression.js';
-import { isQuestActive } from '../quests.js';
+import {
+  serializeProgression, loadProgression,
+  setCurrentRoomGetter as setProgressionRoomGetter,
+} from './progression.js';
 
 // ---------- Carrega o save ----------
 const savedData = loadSave() || getDefaultSave();
@@ -121,7 +127,10 @@ export const playerStats = {
   _escortPos: null,
   _collectedHerbs: new Set(savedData._collectedHerbs ?? []),
   portalCores: new Set(savedData.portalCores ?? []),
+  portalInserted: new Set(savedData.portalInserted ?? []),
   guardianFieldsDefeated: !!savedData.guardianFieldsDefeated,
+  fastTravelUnlocked: !!savedData.fastTravelUnlocked,
+  _knownCities: new Set(savedData._knownCities ?? ['aethel']),
 };
 
 normalizeInventory(playerStats.inventory);
@@ -192,6 +201,10 @@ export function buildSaveData() {
 
     // portal
     portalCores: Array.from(playerStats.portalCores),
+    portalInserted: Array.from(playerStats.portalInserted),
+
+    fastTravelUnlocked: !!playerStats.fastTravelUnlocked,
+    _knownCities: Array.from(playerStats._knownCities),
 
     meta: metaState,
 
@@ -280,6 +293,7 @@ export const battle = {
   tooltipSkill: null,
   tooltipPos: null,
   _escortActive: false,
+  _biomeId: 'fields',
 };
 
 // equipamento é null — se o save diz "sem bota", tem que ficar sem bota.
@@ -314,6 +328,8 @@ setVisitedRoomsGetter(() => visitedRooms);
 setKnowledgeFunctions(removeMarker, addMarker, revealMarker);
 setDungeonCacheGetter(() => dungeonCache);
 setCurrentRoomGetter(() => currentRoom);
+setRevealRoomFn(revealRoom);
+setProgressionRoomGetter(() => currentRoom);
 
 // Revela a sala inicial
 revealRoom(startGX, startGY);

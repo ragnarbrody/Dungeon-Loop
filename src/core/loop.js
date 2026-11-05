@@ -25,6 +25,7 @@ import { resolveDeath, showDeathSummary } from './death.js';
 import { STARTER_ITEMS, captureMilestoneIfNeeded, resetProgression } from './progression.js';
 import { resetVaultGreetingCache, resetShopGreetings } from '../ui/shopgreetings.js';
 import { startIntroCutscene, updateIntroCutscene } from '../ui/introcutscene.js';
+import { musicForCity } from '../world/cities.js';
 
 let lastDeath = null;
 let lastTime = performance.now();
@@ -183,9 +184,15 @@ function requestNewGame() {
         shadowActive: false,
         poisoned: null,
         portalCores: new Set(),
+        portalInserted: new Set(),
+        fastTravelUnlocked: false,
+        _knownCities: new Set(['aethel']),
         _escortActive: false,
         _escortPos: null, 
         _collectedHerbs: new Set(),
+        // ---- flags de mundo ----
+        guardianFieldsDefeated: false,
+        _elderSawCoreInserted: false,
       });
 
       // ---- 2.5) Reseta equipamento COMPLETO (senÃ£o armaduras antigas persistem) ----
@@ -311,9 +318,15 @@ function restartRunKeepingVault() {
         shadowActive: false,
         poisoned: null,
         portalCores: new Set(),
+        portalInserted: new Set(),
+        fastTravelUnlocked: false,
+        _knownCities: new Set(['aethel']),
         _escortActive: false,
         _escortPos: null, 
         _collectedHerbs: new Set(),
+        // ---- flags de mundo ----
+        guardianFieldsDefeated: false,
+        _elderSawCoreInserted: false,
       });
 
       resetEquipment();
@@ -384,12 +397,11 @@ function finishStart() {
 
   // garante que a mÃºsica bate com a sala atual.
   // (Se for cidade â 'aethel'; senÃ£o â biomeId.)
-  if (currentRoom) {
-    setMusicMode(currentRoom.isCity ? 'aethel' : currentRoom.biomeId);
+  if (currentRoom.isCity) {
+    setMusicMode(musicForCity(currentRoom.cityId));
   } else {
-    setMusicMode('aethel'); // fallback
+    setMusicMode(currentRoom.biomeId);
   }
-
   lastTime = performance.now();
 }
 

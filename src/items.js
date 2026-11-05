@@ -275,7 +275,7 @@ export const ITEMS_DB = {
     rarity: 'uncommon',
     stackable: false,
     icon: 'steel_sword',
-    stats: { str: 4 },
+    stats: { str: 3 },
     reqLevel: 4,
     reqStats: { str: 4 },
     draw: null,
@@ -311,7 +311,7 @@ export const ITEMS_DB = {
     rarity: 'rare',
     stackable: false,
     icon: 'war_axe',
-    stats: { str: 6, vit: 1 },
+    stats: { str: 5, vit: 1 },
     reqLevel: 6,
     reqStats: { str: 6, vit: 2 },
     draw: null,
@@ -615,14 +615,14 @@ export const ITEMS_DB = {
     slot: 'helmet',
     name: 'Elmo Rúnico',
     description: 'Elmo de aço escuro com runas gravadas na testa. Sussurra baixinho quando o perigo chega.',
-    price: 180,
+    price: 205,
     sellPrice: 72,
     rarity: 'uncommon',
     stackable: false,
     icon: 'runic_helmet',
     stats: { def: 3, magia: 1 },
-    reqLevel: 4,
-    reqStats: { def: 3 },
+    reqLevel: 5,
+    reqStats: { def: 4 },
     draw: null,
     set: 'runic',
   },
@@ -634,7 +634,7 @@ export const ITEMS_DB = {
     slot: 'armor',
     name: 'Peitoral Rúnico',
     description: 'Aço que parece ter memória. As runas no peito ficam mais nítidas perto de magia.',
-    price: 320,
+    price: 400,
     sellPrice: 128,
     rarity: 'rare',
     stackable: false,
@@ -653,7 +653,7 @@ export const ITEMS_DB = {
     slot: 'boots',
     name: 'Grevas Rúnicas',
     description: 'Grevas de aço com runas nos tornozelos. O chão range embaixo, mas você não escorrega.',
-    price: 180,
+    price: 220,
     sellPrice: 72,
     rarity: 'uncommon',
     stackable: false,
@@ -732,8 +732,8 @@ export const ITEMS_DB = {
     kind: 'material',
     name: 'Pinça de Escorpião',
     description: 'Uma pinça dura e pontuda. Dizem que esquenta bem no fogo.',
-    price: 15,
-    sellPrice: 6,
+    price: 32,
+    sellPrice: 12,
     rarity: 'common',
     stackable: true,
     stackCap: 20,
@@ -745,8 +745,8 @@ export const ITEMS_DB = {
     kind: 'material',
     name: 'Ovo de Abutre',
     description: 'Um ovo manchado, maior que a mão. incomum de achar — os abutres defendem bem o ninho.',
-    price: 25,
-    sellPrice: 9,
+    price: 40,
+    sellPrice: 16,
     rarity: 'uncommon',
     stackable: true,
     stackCap: 10,
@@ -856,6 +856,150 @@ export const ITEMS_DB = {
     rarity: 'rare',
     stackable: false,
     icon: 'seed_of_fields',   // placeholder (reusa o ícone da erva)
+  },
+
+  // ============================================================
+  // ARMAS DE AKMIRA (late game)
+  // ============================================================
+  akmira_sword: {
+    id: 'akmira_sword',
+    type: 'weapon', kind: 'weapon', slot: 'rightHand',
+    name: 'Cimitarra de Akmira',
+    description: 'Lâmina curva forjada no deserto. Corta como o vento de areia.',
+    price: 520, sellPrice: 200,
+    rarity: 'rare', stackable: false, icon: 'akmira_sword',
+    stats: { str: 5, agi: 2 },
+    reqLevel: 8, reqStats: { str: 8 },
+    draw: null, set: 'akmira',
+  },
+  akmira_staff: {
+    id: 'akmira_staff',
+    type: 'weapon', kind: 'weapon', slot: 'rightHand',
+    name: 'Cajado do Sol',
+    description: 'O topo carrega uma gema que absorve o calor do deserto. Pulsa mesmo à noite.',
+    price: 540, sellPrice: 210,
+    rarity: 'rare', stackable: false, icon: 'akmira_staff',
+    stats: { int: 5, magia: 3 },
+    reqLevel: 8, reqStats: { int: 8, magia: 4 },
+    draw: null, set: 'akmira',
+  },
+  akmira_dagger: {
+    id: 'akmira_dagger',
+    type: 'weapon', kind: 'weapon', slot: 'rightHand',
+    name: 'Adaga das Dunas',
+    description: 'Fina como uma agulha de areia. Deixa o mínimo de rastro.',
+    price: 480, sellPrice: 190,
+    rarity: 'rare', stackable: false, icon: 'akmira_dagger',
+    stats: { str: 2, agi: 5 },
+    reqLevel: 8, reqStats: { agi: 8 },
+    draw: null, set: 'akmira',
+  },
+  akmira_bow: {
+    id: 'akmira_bow',
+    type: 'weapon', kind: 'weapon', slot: 'rightHand',
+    name: 'Arco do Miragem',
+    description: 'Curvado com madeira de oásis. A corda parece feita de luz.',
+    price: 500, sellPrice: 200,
+    rarity: 'rare', stackable: false, icon: 'akmira_bow',
+    stats: { str: 1, agi: 6 },
+    reqLevel: 8, reqStats: { agi: 9 },
+    draw: null, set: 'akmira',
+  },
+
+  // ============================================================
+  // JOIAS DE AKMIRA
+  // ============================================================
+  ring_power: {
+    id: 'ring_power',
+    type: 'jewelry', kind: 'jewelry', slotType: 'ring',
+    name: 'Anel de Poder',
+    description: 'Um anel de ouro com uma pedra vermelha. Pulsa devagar, como um segundo coração.',
+    price: 400, sellPrice: 150,
+    rarity: 'rare', stackable: false, icon: 'ring_power',
+    stats: { str: 2 },
+    reqLevel: 6, reqStats: {},
+  },
+  ring_agility: {
+    id: 'ring_agility',
+    type: 'jewelry', kind: 'jewelry', slotType: 'ring',
+    name: 'Anel de Agilidade',
+    description: 'Fino, leve, quase invisível. Quem usa parece se mover antes de pensar.',
+    price: 400, sellPrice: 150,
+    rarity: 'rare', stackable: false, icon: 'ring_agility',
+    stats: { agi: 2 },
+    reqLevel: 6, reqStats: {},
+  },
+  amulet_mana: {
+    id: 'amulet_mana',
+    type: 'jewelry', kind: 'jewelry', slot: 'amulet',
+    name: 'Amuleto de Mana',
+    description: 'Uma gema azul presa em corrente fina. Sussurra quando você canaliza magia.',
+    price: 450, sellPrice: 170,
+    rarity: 'rare', stackable: false, icon: 'amulet_mana',
+    stats: { magia: 2 },
+    reqLevel: 6, reqStats: {},
+  },
+  ring_luck: {
+    id: 'ring_luck',
+    type: 'jewelry', kind: 'jewelry', slotType: 'ring',
+    name: 'Anel da Sorte',
+    description: 'Ninguém sabe de onde veio. Mas quem usa raramente reclama.',
+    price: 500, sellPrice: 190,
+    rarity: 'rare', stackable: false, icon: 'ring_luck',
+    stats: {},  // efeito especial (ver abaixo)
+    reqLevel: 6, reqStats: {},
+    special: 'luck',
+  },
+  amulet_guardian: {
+    id: 'amulet_guardian',
+    type: 'jewelry', kind: 'jewelry', slot: 'amulet',
+    name: 'Amuleto do Guardião',
+    description: 'Feito de uma pedra que não existe nos Campos. Protege quem carrega.',
+    price: 700, sellPrice: 260,
+    rarity: 'epic', stackable: false, icon: 'amulet_guardian',
+    stats: { def: 3, vit: 1 },
+    reqLevel: 8, reqStats: { vit: 5 },
+  },
+
+  // ============================================================
+  // POÇÕES DE AKMIRA
+  // ============================================================
+  potion_def: {
+    id: 'potion_def',
+    type: 'consumable', kind: 'consumable',
+    name: 'Poção de Defesa',
+    description: '+3 Defesa por 3 rounds de combate.',
+    price: 80, sellPrice: 30,
+    rarity: 'uncommon', stackable: true, stackCap: 3,
+    combatOnly: true, icon: 'potion_def',
+    use: (player) => {
+      player.buffs = player.buffs || {};
+      player.buffs.def = { amount: 3, rounds: 3 };
+      return {
+        message: 'Você sente a pele mais dura! +3 Defesa por 3 rounds.',
+        toast: { itemId: 'potion_def', title: 'Poção de Defesa', subtitle: '+3 Defesa (3 turnos)', color: '#3aa0ff' },
+      };
+    },
+  },
+  antidote: {
+    id: 'antidote',
+    type: 'consumable', kind: 'consumable',
+    name: 'Antídoto',
+    description: 'Remove veneno e sangramento imediatamente.',
+    price: 60, sellPrice: 22,
+    rarity: 'uncommon', stackable: true, stackCap: 5,
+    combatOnly: false, icon: 'antidote',
+    use: (player) => {
+      const had = [];
+      if (player.poisoned) { player.poisoned = null; had.push('veneno'); }
+      if (player.bleeding) { player.bleeding = null; had.push('sangramento'); }
+      return {
+        message: had.length > 0
+          ? `Você tomou o antídoto e removeu ${had.join(' e ')}.`
+          : 'Você tomou o antídoto, mas não havia nada para curar.',
+        toast: { itemId: 'antidote', title: 'Antídoto', subtitle: had.length ? had.join(' + ') : 'Nada a curar', color: '#6fbd63' },
+      };
+    },
   },
 };
 

@@ -14,6 +14,7 @@ const NPC_LABEL = {
   herbalist: 'Herbalista',
   blacksmith: 'Ferreiro',
   armorer: 'Armeiro',
+  jeweler: 'Joalheira',
   quest_giver: 'Ancião',
 };
 
@@ -28,7 +29,7 @@ export function getInteractables(room) {
       const npc = room.npc;
 
       // abre loja (shop_keep)
-      const SHOP_BUILDINGS = new Set(['herbalist', 'blacksmith', 'armorer']);
+      const SHOP_BUILDINGS = new Set(['herbalist', 'blacksmith', 'armorer', 'jeweler']);
       if (SHOP_BUILDINGS.has(npc.buildingId)) {
         // Herbalista sai da loja durante a quest
         if (npc.buildingId === 'herbalist' && isQuestActive('story_herbalist_escort')) {
@@ -73,7 +74,8 @@ export function getInteractables(room) {
         list.push({
           tx: npc.tx, ty: npc.ty,
           kind: 'elder',
-          title: 'Ancião de Aethel',
+          cityId: room.cityId || null,   // ← NOVO
+          title: room.cityId === 'akmira' ? 'Ancião de Akmira' : 'Ancião de Aethel',
         });
       }
 
@@ -103,11 +105,13 @@ export function getInteractables(room) {
       }
       // A entrada da caverna só existe enquanto a quest estiver ativa
       if (it.kind === 'cave_entrance') {
-        // Caverna procedural: independe de quest. Só precisa estar "desbloqueada".
         if (it.procedural) {
-          if (!areProceduralCavesUnlocked()) continue;
+          if (it.dungeonTheme === 'desert') {
+            if (!areDesertDungeonsUnlocked()) continue;
+          } else {
+            if (!areProceduralCavesUnlocked()) continue;
+          }
         } else {
-          // Caverna da quest: só existe enquanto a quest está ativa
           if (!isQuestActive('story_cave')) continue;
         }
       }
@@ -153,15 +157,16 @@ export function getInteractables(room) {
       kind: 'sign',
       objId: obj.id,
       title: obj.name,
-      text: signTextFor(obj.id),
+      text: signTextFor(obj.id, room.cityId),
     });
   }
 
+  const lm = room.landmark || room.portal;
   list.push({
-    tx: room.portal.tx,
-    ty: room.portal.ty,
-    kind: 'portal',
-    title: 'Portal Antigo',
+    tx: lm.tx,
+    ty: lm.ty,
+    kind: lm.kind,                 // 'portal' | 'oasis'
+    title: lm.label || (lm.kind === 'oasis' ? 'Oásis de Akmira' : 'Portal Antigo'),
   });
 
   for (const obj of room.cityObjects) {
@@ -180,7 +185,7 @@ export function getInteractables(room) {
   return list;
 }
 
-function signTextFor(id) {
+function signTextFor(id, cityId = 'aethel') {
   // Placa da Herbalista: muda o texto enquanto ela está fora (escolta).
   if (id === 'herbalist') {
     if (isQuestActive('story_herbalist_escort')) {
@@ -195,25 +200,35 @@ function signTextFor(id) {
     armorer:
       'Armeiro. Compra e vende escudos, peitorais, botas e capacetes. Também aceita materiais em troca de ouro.',
     jeweler:
-      'Joalheiro. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro. [EM BREVE]',
+      'Joalheira. Compra e vende anéis e amuletos. Joias boas mudam o destino de um aventureiro.',
     quest_giver:
       'Ancião da vila. Sabe de tudo o que acontece por aqui. Costuma dar missões a viajantes.',
-    bank:
-      'Banco de Aethel. Guarde ouro e itens aqui antes de partir. ' +
-      'O que está no cofre, a Fratura não leva. Slots adicionais à venda.',
+    bank: cityId === 'akmira'
+      ? 'Banco de Akmira. Guarde ouro e itens aqui antes de partir.'
+      : 'Banco de Aethel. Guarde ouro e itens aqui antes de partir. ' +
+        'O que está no cofre, a Fratura não leva. Slots adicionais à venda.',
   };
   return texts[id] || 'Uma placa desgastada. Não dá pra ler direito.';
 }
 
 // Texto dinâmico do portal (muda conforme núcleos coletados)
-export function portalText() {
+export function portalText(room) {
+  const lm = room?.landmark || room?.portal;
+  if (lm?.kind === 'oasis') {
+    return `Um pequeno oásis no meio do deserto. A água é limpa, e as palmeiras balançam com o vento seco.\n\nNão há portal aqui — Akmira foi construída ao redor da única fonte de água da região.`;
+  }
   const total = 8;
-  const have = playerStats.portalCores.size;
-  if (have === 0) {
+  const inserted = playerStats.portalInserted.size;
+  const owned = playerStats.portalCores.size;
+
+  if (inserted === 0 && owned === 0) {
     return `O portal está inerte. Há 8 encaixes ao redor, e nenhum deles tem um núcleo.\n\nOs núcleos são obtidos derrotando os guardiões dos biomas. Volte quando tiver pelo menos alguns.`;
   }
-  if (have < total) {
-    return `O portal pulsa fracamente. Você colocou ${have} de ${total} núcleos.\n\nAinda faltam ${total - have}.`;
+  if (inserted === 0 && owned > 0) {
+    return `O portal pulsa fracamente. Você tem ${owned} núcleo(s) na mochila, mas nenhum foi colocado ainda.\n\n`;
+  }
+  if (inserted < total) {
+    return `O portal pulsa. Você colocou ${inserted} de ${total} núcleos.\n\nAinda faltam ${total - inserted}.${owned > 0 ? `\n\n(Você ainda tem ${owned} núcleo(s) na mochila para encaixar.)` : ''}`;
   }
   return `O portal está completo! Os 8 núcleos brilham em uníssono.\n\nAo pisar no centro, você será levado ao confronto final. (em breve)`;
 }
@@ -242,6 +257,7 @@ export function findNearbyInteractable(room) {
     caged_villager:    1,
     lost_backpack:     1,
     portal:            1,
+    oasis:             1,
     treasure_chest:    1,
     sign:              2,
   };

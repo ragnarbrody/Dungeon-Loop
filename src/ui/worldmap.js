@@ -3,18 +3,21 @@
 // Estado em module scope. Abre/fecha via input.js.
 // ============================================================
 import { ctx, CANVAS_W, CANVAS_H } from '../core/canvas.js';
-import { currentRoom, player } from '../core/state.js';
+import { currentRoom, player, playerStats, STATE, setGameState} from '../core/state.js';
 import { isCity } from '../world/rooms.js';
 import {
   isRevealed, getMarkers, getTileColor,
 } from '../world/knowledge.js';
 import { pickBiome } from '../world/biomes.js';
+import { getCityId, getCityData, isCityCoords } from '../world/cities.js';
+import { canUseFastTravel, fastTravelTo, getFastTravelDestinations } from './fasttravel.js';
+import { openDialogue, closeDialogue } from './dialogue.js';
 
 const MIN_ZOOM = 8;    // px por tile
 const MAX_ZOOM = 40;
 const DEFAULT_ZOOM = 18;
 
-const cam = {
+const cam = { 
   // centro da câmera em coords de tile (pode ser fracionário)
   cx: 0,
   cy: 0,
@@ -31,8 +34,8 @@ const hudEl = document.getElementById('hud');
 
 export function openWorldMap() {
   open = true;
+  cam._moved = false;
   if (hudEl) hudEl.style.display = 'none';
-  // Centraliza no jogador
   if (currentRoom) {
     cam.cx = currentRoom.gx + 0.5;
     cam.cy = currentRoom.gy + 0.5;
@@ -47,13 +50,14 @@ export function closeWorldMap() {
 }
 
 // ---------- Conversões screen <-> tile ----------
-function screenToTile(mx, my) {
+export function screenToTile(mx, my) {
   return {
     tx: (mx - CANVAS_W / 2) / cam.zoom + cam.cx,
     ty: (my - CANVAS_H / 2) / cam.zoom + cam.cy,
   };
 }
-function tileToScreen(tx, ty) {
+
+export function tileToScreen(tx, ty) {
   return {
     x: (tx - cam.cx) * cam.zoom + CANVAS_W / 2,
     y: (ty - cam.cy) * cam.zoom + CANVAS_H / 2,
@@ -62,16 +66,22 @@ function tileToScreen(tx, ty) {
 
 // ---------- Input handlers (chamados pelo input.js) ----------
 export function handleMapClick(mx, my, e) {
-  // arrastar (mesmo botão) — o input.js já segura o estado
   cam.drag = { startX: mx, startY: my, startCx: cam.cx, startCy: cam.cy };
+  cam._moved = false;
 }
 
+export function wasMapDrag() { return !!cam._moved; }
+
 export function handleMapMove(mx, my) {
-  if (!cam.drag) return;
+  if (!cam.drag) return false;
   const dxTiles = (mx - cam.drag.startX) / cam.zoom;
   const dyTiles = (my - cam.drag.startY) / cam.zoom;
   cam.cx = cam.drag.startCx - dxTiles;
   cam.cy = cam.drag.startCy - dyTiles;
+  // Considera "arrastou" se moveu mais de 2px
+  const moved = Math.abs(mx - cam.drag.startX) > 2 || Math.abs(my - cam.drag.startY) > 2;
+  if (moved) cam._moved = true;
+  return moved;
 }
 
 export function handleMapRelease() {
@@ -88,6 +98,66 @@ export function centerOnPlayer() {
     cam.cx = currentRoom.gx + 0.5;
     cam.cy = currentRoom.gy + 0.5;
   }
+}
+
+// Retorna a cidade sob o cursor (se houver), pra ser usada no hover/click
+export function getCityAtScreen(mx, my) {
+  const { tx, ty } = screenToTile(mx, my);
+  // Tolerância: 0.5 tile
+  const gx = Math.round(tx - 0.5);
+  const gy = Math.round(ty - 0.5);
+  if (!isCityCoords(gx, gy)) return null;
+  return { gx, gy, ...getCityData(getCityId(gx, gy)) };
+}
+
+// Chamado pelo input.js no clique do mapa-múndi
+export function handleCityClick(mx, my) {
+  const city = getCityAtScreen(mx, my);
+  if (!city) return false;
+  if (!canUseFastTravel()) return false;
+
+  const currentCityId = currentRoom?.cityId || 'aethel';
+  if (city.id === currentCityId) return false;
+
+  const known = playerStats._knownCities || new Set(['aethel']);
+  if (!known.has(city.id)) return false;
+
+  // Confirma com diálogo (evita fast travel acidental)
+  import('./dialogue.js').then(mod => {
+    mod.openDialogue({
+      title: 'Viagem rápida',
+      text: `Deseja viajar para ${city.name.replace('Cidade de ', '')}?\n\nA viagem é instantânea e segura — o caminho entre cidades já foi desbravado.`,
+      actions: [
+        {
+          label: 'Viajar',
+          action: () => {
+            mod.closeDialogue();
+            if (fastTravelTo(city.id)) {
+              closeWorldMap();
+              setGameState(STATE.EXPLORE);
+            }
+          },
+        },
+        {
+          label: 'Cancelar',
+          action: () => mod.closeDialogue(),
+        },
+      ],
+    });
+  });
+  return true;
+}
+
+// Hover: retorna texto pra mostrar, ou null
+export function getCityHoverText(mx, my) {
+  const city = getCityAtScreen(mx, my);
+  if (!city) return null;
+  if (!canUseFastTravel()) return null;
+  const currentCityId = currentRoom?.cityId || 'aethel';
+  if (city.id === currentCityId) return 'Você está aqui';
+  const known = playerStats._knownCities || new Set(['aethel']);
+  if (!known.has(city.id)) return 'Cidade desconhecida';
+  return `Viajar para ${city.name.replace('Cidade de ', '')}`;
 }
 
 // ---------- Render ----------
@@ -133,6 +203,18 @@ export function renderWorldMap() {
 
       // Cidades (ícone de casinha) — desenhadas por cima
       if (revealed && isCity(gx, gy) && cam.zoom >= 10) {
+        const cityId = getCityId(gx, gy);
+        const known = playerStats._knownCities || new Set(['aethel']);
+        const isKnown = known.has(cityId);
+        const isCurrent = currentRoom && gx === currentRoom.gx && gy === currentRoom.gy;
+        // Cidades "viajáveis" ganham um anel dourado
+        if (isKnown && !isCurrent && canUseFastTravel()) {
+          ctx.strokeStyle = '#8ad8ff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x + cam.zoom / 2, y + cam.zoom / 2, cam.zoom * 0.55, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         drawHouseIcon(x + cam.zoom / 2, y + cam.zoom / 2, cam.zoom * 0.7);
       }
 
@@ -153,7 +235,8 @@ export function renderWorldMap() {
         if (!isRevealed(gx, gy)) continue;
         if (!isCity(gx, gy)) continue;
         const { x, y } = tileToScreen(gx, gy);
-        drawCityLabel(x + cam.zoom / 2, y + cam.zoom / 2, cam.zoom);
+        const cityId = getCityId(gx, gy);
+        drawCityLabel(x + cam.zoom / 2, y + cam.zoom / 2, cam.zoom, cityId);
       }
     }
   }
@@ -287,7 +370,6 @@ function drawHUD() {
     { color: '#6A6A8A', label: 'Cidade' },
     { color: '#4F9A4A', label: 'Campos' },
     { color: '#d9b96b', label: 'Deserto' },
-    { color: '#c93030', label: 'Boss' },
     { color: '#eaecea', label: 'Quest' },
     { color: '#ffb703', label: 'Caverna concluída' },
   ];
@@ -323,37 +405,48 @@ function drawHUD() {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(hint, 20, CANVAS_H - 26);
+
+  // drawHUD, depois do hint normal
+  if (canUseFastTravel()) {
+    const hint2 = 'Clique numa cidade para viajar';
+    ctx.font = '11px "Courier New", monospace';
+    const w = ctx.measureText(hint2).width + 20;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(10, CANVAS_H - 72, w, 28);
+    ctx.fillStyle = '#8ad8ff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(hint2, 20, CANVAS_H - 58);
+  }
 }
 
 // Desenha o nome da cidade abaixo da casinha.
 // Só aparece com zoom alto (chamado com cam.zoom >= 18).
-function drawCityLabel(cx, cy, zoom) {
-  const name = 'Aethel'; // no futuro: derivar de getCityName(gx, gy)
-  const fontSize = Math.max(10, Math.round(zoom * 0.55));
+function drawCityLabel(cx, cy, zoom, cityId) {
+  const city = getCityData(cityId);
+  const name = city ? city.name.replace('Cidade de ', '') : 'Aethel';
+  const isDesert = city?.biome === 'desert';
 
+  const fontSize = Math.max(10, Math.round(zoom * 0.55));
   ctx.font = `bold ${fontSize}px "Courier New", monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
-  const padX = 6;
-  const padY = 3;
+  const padX = 6, padY = 3;
   const textW = ctx.measureText(name).width;
   const boxW = textW + padX * 2;
   const boxH = fontSize + padY * 2;
   const boxX = cx - boxW / 2;
-  const boxY = cy + zoom * 0.5;   // logo abaixo da casinha
+  const boxY = cy + zoom * 0.5;
 
-  // Fundo (preto semi-transparente)
   ctx.fillStyle = 'rgba(0,0,0,0.75)';
   ctx.fillRect(boxX, boxY, boxW, boxH);
 
-  // Borda dourada (mesmo estilo do HUD)
-  ctx.strokeStyle = '#c9a24d';
+  ctx.strokeStyle = isDesert ? '#d9b96b' : '#c9a24d';   // areia vs dourado
   ctx.lineWidth = 1;
   ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1);
 
-  // Texto
-  ctx.fillStyle = '#feca57';
+  ctx.fillStyle = isDesert ? '#f5d98a' : '#feca57';
   ctx.fillText(name, cx, boxY + padY);
 }
 

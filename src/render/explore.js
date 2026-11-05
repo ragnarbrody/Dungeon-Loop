@@ -206,7 +206,7 @@ export function renderExplore() {
         ctx.fillStyle = '#a07e2f';
         ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
       } else if (t === T.CAVE_ENTRANCE) {
-        drawCaveEntrance(px, py);
+        drawCaveEntrance(px, py, currentRoom);
       }
     }
   }
@@ -591,6 +591,29 @@ function wrapLines(text, maxW) {
   return lines.length ? lines : [''];
 }
 
+function drawSandTile(room, x, y, px, py) {
+  const base = '#c9a870';
+  const dark = '#b89660';
+  const light = '#d9bd88';
+
+  // Hash determinístico por tile
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177 | 0;
+  const r = ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+
+  ctx.fillStyle = base;
+  ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+  // Ruído fino
+  if (r < 0.10) {
+    ctx.fillStyle = dark;
+    ctx.fillRect(px + 4 + Math.floor((r * 97) % 12), py + 6, 1, 1);
+  } else if (r > 0.90) {
+    ctx.fillStyle = light;
+    ctx.fillRect(px + 8 + Math.floor((r * 71) % 10), py + 11, 1, 1);
+  }
+}
+
 // ---------- CHÃO DE AREIA PROCEDURAL ----------
 // Desenha cada tile de areia com ruído + algumas "dunas" (linhas longas)
 // O seed garante que a mesma sala sempre tem a mesma areia.
@@ -672,16 +695,92 @@ function drawSandFloor(room, rng) {
   }
 }
 
+function drawOasis(landmark) {
+  const cx = landmark.tx * TILE_SIZE + TILE_SIZE / 2;
+  const cy = landmark.ty * TILE_SIZE + TILE_SIZE / 2;
+  const t = performance.now() / 1000;
+
+  // Base de areia molhada
+  ctx.fillStyle = 'rgba(90, 70, 40, 0.7)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 22, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Água (elipse azul-esverdeada, com ondinha)
+  const wave = Math.sin(t * 1.5) * 0.5;
+  ctx.fillStyle = `rgba(74, 160, 180, ${0.85 + wave * 0.1})`;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 16, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Reflexo claro no centro
+  ctx.fillStyle = `rgba(200, 240, 255, ${0.35 + wave * 0.1})`;
+  ctx.beginPath();
+  ctx.ellipse(cx - 3, cy - 2, 6, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4 palmeiras em volta (2 pequenas, 2 altas)
+  const palms = [
+    { dx: -18, dy: -10, h: 26 },
+    { dx:  16, dy: -12, h: 30 },
+    { dx: -14, dy:  14, h: 22 },
+    { dx:  18, dy:  12, h: 24 },
+  ];
+  for (const p of palms) {
+    const px = cx + p.dx;
+    const baseY = cy + p.dy;
+    // tronco
+    ctx.strokeStyle = '#6b4a2a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, baseY);
+    ctx.lineTo(px + 2, baseY - p.h);
+    ctx.stroke();
+    // folhas (leque)
+    ctx.strokeStyle = '#3a7a3a';
+    ctx.lineWidth = 2;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(px + 2, baseY - p.h);
+      ctx.quadraticCurveTo(
+        px + 2 + i * 6,
+        baseY - p.h - 6 - Math.abs(i) * 2,
+        px + 2 + i * 10,
+        baseY - p.h + 4
+      );
+      ctx.stroke();
+    }
+  }
+
+  // Borda dourada (marco da cidade)
+  ctx.strokeStyle = 'rgba(201, 162, 77, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 22, 16, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 // ============================================================
 // RENDERIZAÇÃO DA CIDADE
 // ============================================================
 function renderCity(room) {
   const mid = Math.floor(GRID_SIZE / 2);
 
+  // Precisa bater com `plazaRadius` em `rooms.js` → `createCity`.
+  // Usado pra decidir onde é grama (miolo da praça) vs areia (resto).
+  const PLAZA_RADIUS = 5;
+
   // ============================================================
   // CHÃO (grama, rua, praça)
   // ============================================================
   const grassRng = makeRng(seedFrom(room.gx * 3, room.gy * 11));
+
+  // cidade do deserto pinta o chão de areia IGUAL às salas
+  // do deserto (textura + dunas + pedrinhas). O loop abaixo pula
+  // T.FLOOR/T.TREE pra não sobrescrever.
+  if (room.biomeId === 'desert') {
+    drawSandFloor(room, grassRng);
+  }
 
   for (let y = 0; y < GRID_SIZE; y++) {
     for (let x = 0; x < GRID_SIZE; x++) {
@@ -690,23 +789,56 @@ function renderCity(room) {
       const py = y * TILE_SIZE;
 
       if (t === T.FLOOR || t === T.TREE) {
-        const roll = grassRng();
-        let gType = 0;
-        if (roll < 0.02)      gType = 2;
-        else if (roll < 0.04) gType = 3;
-        else if (roll < 0.06) gType = 4;
-        else if (roll < 0.25) gType = 1;
-        ctx.drawImage(grassTiles[gType], px, py);
-      } else if (t === T.STREET) {
-        ctx.fillStyle = '#a8845a';
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        if (((x * 7 + y * 13) % 5) === 0) {
-          ctx.fillStyle = '#8a6a40';
-          ctx.fillRect(px + 4, py + 6, 2, 2);
+        // Cidade do deserto: chão já foi pintado por drawSandFloor.
+        // Só o miolo da praça (perto do oásis) ganha grama por cima.
+        if (room.biomeId === 'desert') {
+          const dx = x - mid, dy = y - mid;
+          const isPlazaInner = (dx*dx + dy*dy) <= (PLAZA_RADIUS - 1) * (PLAZA_RADIUS - 1);
+          if (isPlazaInner) {
+            const roll = grassRng();
+            let gType = 0;
+            if (roll < 0.02)      gType = 2;
+            else if (roll < 0.04) gType = 3;
+            else if (roll < 0.06) gType = 4;
+            else if (roll < 0.25) gType = 1;
+            ctx.drawImage(grassTiles[gType], px, py);
+          }
+          // else: já é areia do drawSandFloor, não pinta nada
+        } else {
+          const roll = grassRng();
+          let gType = 0;
+          if (roll < 0.02)      gType = 2;
+          else if (roll < 0.04) gType = 3;
+          else if (roll < 0.06) gType = 4;
+          else if (roll < 0.25) gType = 1;
+          ctx.drawImage(grassTiles[gType], px, py);
         }
-        if (((x * 11 + y * 3) % 7) === 0) {
-          ctx.fillStyle = '#c4a06a';
-          ctx.fillRect(px + 12, py + 14, 2, 1);
+      } else if (t === T.STREET) {
+        // Rua: cor diferente por bioma pra contrastar com o chão
+        if (room.biomeId === 'desert') {
+          // Deserto: rua de terra batida escura (contrasta com areia)
+          ctx.fillStyle = '#8a6a48';
+          ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+          if (((x * 7 + y * 13) % 5) === 0) {
+            ctx.fillStyle = '#6a4a30';
+            ctx.fillRect(px + 4, py + 6, 2, 2);
+          }
+          if (((x * 11 + y * 3) % 7) === 0) {
+            ctx.fillStyle = '#a07a50';
+            ctx.fillRect(px + 12, py + 14, 2, 1);
+          }
+        } else {
+          // Campos: rua clara (como já era)
+          ctx.fillStyle = '#a8845a';
+          ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+          if (((x * 7 + y * 13) % 5) === 0) {
+            ctx.fillStyle = '#8a6a40';
+            ctx.fillRect(px + 4, py + 6, 2, 2);
+          }
+          if (((x * 11 + y * 3) % 7) === 0) {
+            ctx.fillStyle = '#c4a06a';
+            ctx.fillRect(px + 12, py + 14, 2, 1);
+          }
         }
       } else if (t === T.PLAZA) {
         ctx.fillStyle = '#a8a8b8';
@@ -735,21 +867,24 @@ function renderCity(room) {
     }
   }
 
-  // Grade
-  ctx.strokeStyle = '#5a5a6a';
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.25;
-  for (let i = 0; i <= GRID_SIZE; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * TILE_SIZE, 0);
-    ctx.lineTo(i * TILE_SIZE, CANVAS_H);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, i * TILE_SIZE);
-    ctx.lineTo(CANVAS_W, i * TILE_SIZE);
-    ctx.stroke();
+  // Grade (só em cidades de campo — no deserto ela "desenha" bordas
+  // em cima da areia e da rua, que já têm textura própria)
+  if (room.biomeId == 'vulcan') {
+    ctx.strokeStyle = '#5a5a6a';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.25;
+    for (let i = 0; i <= GRID_SIZE; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * TILE_SIZE, 0);
+      ctx.lineTo(i * TILE_SIZE, CANVAS_H);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * TILE_SIZE);
+      ctx.lineTo(CANVAS_W, i * TILE_SIZE);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
 
   // Sombras das casas
   for (const obj of room.cityObjects) {
@@ -768,7 +903,11 @@ function renderCity(room) {
   }
 
   // ---------- PORTAL ----------
-  drawPortalStatue(room.portal, mid);
+  if (room.landmark?.kind === 'oasis' || room.portal?.kind === 'oasis') {
+    drawOasis(room.landmark || room.portal);
+  } else {
+    drawPortalStatue(room.portal, mid);
+  }
 
   // ---------- ESTANDARTES ----------
   for (const obj of room.cityObjects) {
@@ -793,14 +932,21 @@ function renderCity(room) {
     ctx.fillRect(signX - 6, signY + 3, 12, 1);
   }
 
-  // Árvores
+  // Árvores (ou cactos, se for cidade do deserto)
   for (let y = 0; y < GRID_SIZE; y++) {
     for (let x = 0; x < GRID_SIZE; x++) {
       if (room.map[y][x] !== T.TREE) continue;
-      const frame = treeFrames[Math.floor(performance.now() / 450 + (x + y)) % 2];
-      const dx = x * TILE_SIZE + TILE_SIZE / 2 - treeFrames[0].width / 2;
-      const dy = y * TILE_SIZE + TILE_SIZE - treeFrames[0].height;
-      ctx.drawImage(frame, dx, dy);
+      if (room.biomeId === 'desert') {
+        const frame = cactusFrames[Math.floor(performance.now() / 600 + (x + y)) % 2];
+        const dx = x * TILE_SIZE + TILE_SIZE / 2 - cactusFrames[0].width / 2;
+        const dy = y * TILE_SIZE + TILE_SIZE - cactusFrames[0].height;
+        ctx.drawImage(frame, dx, dy);
+      } else {
+        const frame = treeFrames[Math.floor(performance.now() / 450 + (x + y)) % 2];
+        const dx = x * TILE_SIZE + TILE_SIZE / 2 - treeFrames[0].width / 2;
+        const dy = y * TILE_SIZE + TILE_SIZE - treeFrames[0].height;
+        ctx.drawImage(frame, dx, dy);
+      }
     }
   }
 
@@ -1241,12 +1387,27 @@ function drawBannerNextToDoor(obj) {
 
 // ============================================================
 // PORTAL ESTILIZADO (estátua + portal no centro)
+//
+// Visual dinâmico: o brilho e os orbes circulando escalam com
+// quantos núcleos foram INSERIDOS no portal.
+//   - 0 inseridos  → estado "inerte" (roxo fraco, sem orbes)
+//   - 1..7         → N orbes em órbita achatada, brilho cresce
+//   - 8            → brilho máximo, 8 orbes, halo dourado
 // ============================================================
 function drawPortalStatue(portal, mid) {
   const cx = portal.tx * TILE_SIZE + TILE_SIZE / 2;
   const cy = portal.ty * TILE_SIZE + TILE_SIZE / 2;
 
-  // Base da estátua (pedra clara, circular)
+  const inserted = playerStats.portalInserted.size;
+  const intensity = inserted / 8;   // 0..1
+
+  // Tempo compartilhado pra pulso/orbes
+  const t = performance.now() / 600;
+  const pulse = 0.5 + Math.sin(t) * 0.25;
+
+  // ------------------------------------------------------------
+  // 1) BASE DA ESTÁTUA (pedra)
+  // ------------------------------------------------------------
   ctx.fillStyle = '#8a8a9a';
   ctx.beginPath();
   ctx.arc(cx, cy, 20, 0, Math.PI * 2);
@@ -1265,41 +1426,123 @@ function drawPortalStatue(portal, mid) {
   ctx.arc(cx, cy, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // Portal mágico (dentro da base) — brilho pulsante
-  const t = performance.now() / 600;
-  const pulse = 0.5 + Math.sin(t) * 0.25;
+  // ------------------------------------------------------------
+  // 2) HALO EXTERNO (cresce com intensidade)
+  //    Desenhado ANTES do núcleo pra ficar por baixo.
+  // ------------------------------------------------------------
+  if (inserted > 0) {
+    const haloRadius = 22 + intensity * 16 + Math.sin(t * 1.5) * 1.5;
+    const haloGrd = ctx.createRadialGradient(cx, cy, 4, cx, cy, haloRadius);
+    // Cor: roxo → azul conforme intensidade sobe (fica mais "frio" e brilhante)
+    const r = Math.round(200 - intensity * 40);
+    const g = Math.round(150 + intensity * 60);
+    const b = Math.round(255);
+    haloGrd.addColorStop(0,   `rgba(${r}, ${g}, ${b}, ${0.45 + intensity * 0.35})`);
+    haloGrd.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${0.15 + intensity * 0.2})`);
+    haloGrd.addColorStop(1,   `rgba(${r}, ${g}, ${b}, 0)`);
+    ctx.fillStyle = haloGrd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, haloRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-  const grd = ctx.createRadialGradient(cx, cy, 2, cx, cy, 12);
-  grd.addColorStop(0, `rgba(255, 255, 255, ${pulse})`);
-  grd.addColorStop(0.3, `rgba(200, 150, 255, ${pulse * 0.9})`);
-  grd.addColorStop(1, 'rgba(120, 60, 180, 0)');
-  ctx.fillStyle = grd;
+  // ------------------------------------------------------------
+  // 3) NÚCLEO DO PORTAL (gradiente radial pulsante)
+  // ------------------------------------------------------------
+  const coreGrd = ctx.createRadialGradient(cx, cy, 2, cx, cy, 12);
+  if (inserted === 0) {
+    // inerte: roxo fraco
+    coreGrd.addColorStop(0, `rgba(180, 160, 220, ${pulse * 0.5})`);
+    coreGrd.addColorStop(0.3, `rgba(140, 110, 200, ${pulse * 0.4})`);
+    coreGrd.addColorStop(1, 'rgba(80, 50, 140, 0)');
+  } else {
+    // ativo: branco-quente no centro, roxo/azul na borda
+    coreGrd.addColorStop(0,   `rgba(255, 255, 255, ${0.65 + intensity * 0.35})`);
+    coreGrd.addColorStop(0.3, `rgba(210, 170, 255, ${0.55 + intensity * 0.35})`);
+    coreGrd.addColorStop(1,   'rgba(120, 60, 180, 0)');
+  }
+  ctx.fillStyle = coreGrd;
   ctx.beginPath();
   ctx.arc(cx, cy, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // Anel mágico girando
-  ctx.strokeStyle = `rgba(200, 150, 255, ${pulse})`;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 9, t * 2, t * 2 + Math.PI * 1.5);
-  ctx.stroke();
-
-  // Partículas pequenas ao redor
-  for (let i = 0; i < 4; i++) {
-    const angle = (t + i * Math.PI / 2) % (Math.PI * 2);
-    const px = cx + Math.cos(angle) * 11;
-    const py = cy + Math.sin(angle) * 11;
-    ctx.fillStyle = `rgba(220, 180, 255, ${pulse})`;
-    ctx.fillRect(px - 1, py - 1, 2, 2);
+  // Anel mágico girando (só se tem pelo menos 1)
+  if (inserted > 0) {
+    ctx.strokeStyle = `rgba(220, 180, 255, ${0.5 + intensity * 0.4})`;
+    ctx.lineWidth = 1.5 + intensity * 0.8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9 + intensity * 1.5, t * 2, t * 2 + Math.PI * 1.5);
+    ctx.stroke();
   }
 
-  // Borda dourada da base
-  ctx.strokeStyle = '#c9a24d';
-  ctx.lineWidth = 1.5;
+  // ------------------------------------------------------------
+  // 4) ORBES CIRCULANDO — um por núcleo inserido
+  //    Órbita achatada (perspectiva), velocidade cresce com intensidade
+  // ------------------------------------------------------------
+  if (inserted > 0) {
+    const orbitRadius = 11 + intensity * 4;
+    const orbitSquash = 0.5;   // 0.5 = metade da altura (elipse achatada)
+    const orbitSpeed  = 1.2 + intensity * 0.9;
+    const orbSize     = 1.5 + intensity * 0.8;
+
+    for (let i = 0; i < inserted; i++) {
+      const angle = t * orbitSpeed + (i / inserted) * Math.PI * 2;
+      const ox = cx + Math.cos(angle) * orbitRadius;
+      const oy = cy + Math.sin(angle) * orbitRadius * orbitSquash;
+
+      // Brilho do orbe
+      const og = ctx.createRadialGradient(ox, oy, 0, ox, oy, 5);
+      og.addColorStop(0, 'rgba(230, 240, 255, 1)');
+      og.addColorStop(0.5, `rgba(180, 200, 255, ${0.7})`);
+      og.addColorStop(1, 'rgba(140, 160, 255, 0)');
+      ctx.fillStyle = og;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ponto sólido (núcleo do orbe)
+      ctx.fillStyle = '#eaf4ff';
+      ctx.beginPath();
+      ctx.arc(ox, oy, orbSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Partículas pequenas ao redor (só quando tem pelo menos 1)
+  if (inserted > 0) {
+    for (let i = 0; i < 4; i++) {
+      const angle = (t * 1.4 + i * Math.PI / 2) % (Math.PI * 2);
+      const px = cx + Math.cos(angle) * (14 + intensity * 2);
+      const py = cy + Math.sin(angle) * (14 + intensity * 2);
+      ctx.fillStyle = `rgba(220, 190, 255, ${0.4 + intensity * 0.4})`;
+      ctx.fillRect(px - 1, py - 1, 2, 2);
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 5) BORDA DOURADA DA BASE
+  //    Quando todos os 8 núcleos estão inseridos, fica mais grossa
+  //    e com brilho (sinal visual de "completo").
+  // ------------------------------------------------------------
+  const completed = inserted >= 8;
+  ctx.strokeStyle = completed
+    ? `rgba(254, 202, 87, ${0.9 + Math.sin(t * 3) * 0.1})`   // dourado pulsante
+    : '#c9a24d';
+  ctx.lineWidth = completed ? 2.5 : 1.5;
   ctx.beginPath();
   ctx.arc(cx, cy, 20, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Halo dourado extra quando completo
+  if (completed) {
+    const extraGrd = ctx.createRadialGradient(cx, cy, 18, cx, cy, 30);
+    extraGrd.addColorStop(0, 'rgba(254, 202, 87, 0.35)');
+    extraGrd.addColorStop(1, 'rgba(254, 202, 87, 0)');
+    ctx.fillStyle = extraGrd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // ============================================================
@@ -1672,13 +1915,26 @@ function drawHerbalistEscort(room) {
   ctx.globalAlpha = 1;
 }
 
+function drawCaveEntrance(px, py, room) {
+  // Decide o estilo: 'desert' (gruta de areia) ou 'cave' (buraco rochoso)
+  const theme = room?.dungeonTheme
+    || (room?.interactables?.find(it => it.kind === 'cave_entrance' && it.tx * TILE_SIZE === px)?.dungeonTheme)
+    || 'cave';
+
+  if (theme === 'desert') {
+    drawDesertCaveEntrance(px, py);
+  } else {
+    drawRockyCaveEntrance(px, py);
+  }
+}
+
 // ============================================================
 // ENTRADA DA CAVERNA
 // Desenhada num tile de 20x20, mas com um "morcego" e um brilho
 // pra chamar atenção. A entrada em si é um buraco escuro.
 // ============================================================
 
-function drawCaveEntrance(px, py) {
+function drawRockyCaveEntrance(px, py) {
   const cx = px + TILE_SIZE / 2;
   const cy = py + TILE_SIZE / 2;
 
@@ -1754,6 +2010,98 @@ function drawCaveEntrance(px, py) {
   }
 
   // 4. Restaura o contexto
+  ctx.restore();
+}
+
+// ============================================================
+// ENTRADA DA GRUTA DE AREIA (deserto)
+// Degraus de pedra descendo, areia compactada, brilho dourado.
+// Sem morcegos, sem grama. É uma "boca de pirâmide".
+// ============================================================
+function drawDesertCaveEntrance(px, py) {
+  const cx = px + TILE_SIZE / 2;
+  const cy = py + TILE_SIZE / 2;
+
+  ctx.save();
+
+  // 1) Base de areia compactada (limpa o chão do deserto)
+  ctx.fillStyle = '#c9a870';
+  ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+  // Ruído de areia compactada
+  ctx.fillStyle = '#a8854a';
+  ctx.fillRect(px + 2, py + 3, 1, 1);
+  ctx.fillRect(px + 14, py + 5, 1, 1);
+  ctx.fillRect(px + 7, py + 15, 1, 1);
+
+  // 2) Aro de pedra (borda externa, mais escura)
+  ctx.fillStyle = '#6b4a2a';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 3, 10, 6.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3) Aro interno (pedra mais clara)
+  ctx.fillStyle = '#a07a50';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 3, 8.5, 5.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4) Degraus de pedra descendo (3 faixas horizontais)
+  // Faixa 1 (topo, mais larga)
+  ctx.fillStyle = '#8a6a48';
+  ctx.fillRect(cx - 6, cy + 1, 12, 1);
+  ctx.fillStyle = '#5a4020';
+  ctx.fillRect(cx - 6, cy + 2, 12, 1);
+
+  // Faixa 2 (meio)
+  ctx.fillStyle = '#7a5a3a';
+  ctx.fillRect(cx - 4.5, cy + 3, 9, 1);
+  ctx.fillStyle = '#4a3018';
+  ctx.fillRect(cx - 4.5, cy + 4, 9, 1);
+
+  // Faixa 3 (fundo, mais estreita, escura)
+  ctx.fillStyle = '#5a4020';
+  ctx.fillRect(cx - 3, cy + 5, 6, 1);
+  ctx.fillStyle = '#1a0e08';
+  ctx.fillRect(cx - 3, cy + 6, 6, 1);
+
+  // 5) Buraco escuro no centro (fundo da gruta)
+  ctx.fillStyle = '#0a0806';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 5, 4.5, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 6) Brilho dourado pulsante subindo do buraco
+  const t = performance.now() / 600;
+  const pulse = 0.3 + Math.sin(t) * 0.15;
+  const grd = ctx.createRadialGradient(cx, cy + 4, 1, cx, cy + 2, 9);
+  grd.addColorStop(0, `rgba(254, 202, 87, ${pulse})`);
+  grd.addColorStop(1, 'rgba(254, 202, 87, 0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.rect(px, py, TILE_SIZE, TILE_SIZE);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.arc(cx, cy + 2, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 7) Partículas de areia subindo em espiral (vento)
+  for (let i = 0; i < 3; i++) {
+    const phase = (t * 0.8 + i * 0.33) % 1;
+    const angle = phase * Math.PI * 2 + i;
+    const sx = cx + Math.cos(angle) * (2 + phase * 4);
+    const sy = cy + 2 - phase * 8;
+    const alpha = (1 - phase) * 0.7;
+    ctx.fillStyle = `rgba(220, 190, 130, ${alpha})`;
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+
+  // 8) Hieróglifo sutil no topo (2-3 pixels, marca de tumba antiga)
+  ctx.fillStyle = `rgba(254, 202, 87, ${0.4 + pulse * 0.3})`;
+  ctx.fillRect(cx - 2, cy - 5, 1, 1);
+  ctx.fillRect(cx - 1, cy - 6, 2, 1);
+  ctx.fillRect(cx + 1, cy - 5, 1, 1);
+
   ctx.restore();
 }
 
