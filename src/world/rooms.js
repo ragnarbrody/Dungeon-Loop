@@ -223,6 +223,37 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural, them
     map[ty][tx] = T.TREE;
   }
 
+  // ---- Pilares com tochas (tema deserto) ----
+  // Colisão é 1×1 (T.TREE no próprio tile), mas o sprite é alto (2 tiles).
+  // Os vizinhos são reservados pra ninguém nascer em cima da base.
+  // Tocha é de PAREDE (suporte de ferro pregado na lateral do pilar).
+  const pillars = [];
+  if (isDesert) {
+    const pillarSpots = [
+      { tx: mid - 4, ty: 6 },
+      { tx: mid + 4, ty: 6 },
+      { tx: mid - 4, ty: GRID_SIZE - 7 },
+      { tx: mid + 4, ty: GRID_SIZE - 7 },
+    ];
+    let torchCount = 0;
+    for (const p of pillarSpots) {
+      if (p.ty < 2 || p.ty >= GRID_SIZE - 2) continue;
+      if (p.tx < 2 || p.tx >= GRID_SIZE - 2) continue;
+      if (map[p.ty][p.tx] !== T.CAVE_FLOOR) continue;
+      if (occupied.has(`${p.tx},${p.ty}`)) continue;
+
+      map[p.ty][p.tx] = T.TREE;
+      const hasTorch = torchCount < 2; // os dois pilares de cima
+      pillars.push({ tx: p.tx, ty: p.ty, hasTorch });
+      occupied.add(`${p.tx},${p.ty}`);
+      // reserva o "corpo" do pilar (1 tile acima) e os lados,
+      // pra inimigos/báu/decoração não sobreporem o sprite alto
+      reserveAround({ tx: p.tx, ty: p.ty });
+      reserveAround({ tx: p.tx, ty: p.ty - 1 });
+      if (hasTorch) torchCount++;
+    }
+  }
+
   const depthLabel = depth + 1;
   let name;
   if (isDesert) {
@@ -253,6 +284,7 @@ function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural, them
     cage,
     treasureChest,
     floorTorch,
+    pillars,                    // ← NOVO
   };
 }
 
@@ -285,12 +317,6 @@ export function enterDungeon(instanceId, opts = {}) {
 
 // ============================================================
 // ARENA DO GUARDIÃO DOS CAMPOS — sala fixa da quest story_guardian_prep
-//
-// Layout:
-//   - Círculo de pedras (T.TREE) em volta do centro
-//   - Boss no centro
-//   - Porta única no sul (o jogador vem de baixo)
-//   - Sem encontros aleatórios (isFixed = true)
 // ============================================================
 function createGuardianArena(gx, gy) {
   const map = [];
@@ -300,7 +326,6 @@ function createGuardianArena(gx, gy) {
     map.push(row);
   }
 
-  // Bordas
   for (let i = 0; i < GRID_SIZE; i++) {
     map[0][i] = T.WALL;
     map[GRID_SIZE - 1][i] = T.WALL;
@@ -309,12 +334,8 @@ function createGuardianArena(gx, gy) {
   }
 
   const mid = Math.floor(GRID_SIZE / 2);
-
-  // ---- Portas: usa o MESMO sistema de reciprocidade das outras salas ----
   const allSides = ['top', 'bottom', 'left', 'right'];
   const doors = allSides.filter(side => hasDoor(gx, gy, side));
-
-  // Garantia: pelo menos uma porta (a sala precisa ser acessível)
   if (doors.length === 0) doors.push('bottom');
 
   const carve = (side) => {
@@ -325,7 +346,6 @@ function createGuardianArena(gx, gy) {
   };
   doors.forEach(carve);
 
-  // Círculo de pedras (T.TREE) — 8 pedras ao redor do centro (raio 5)
   const stoneCoords = [
     [mid, mid - 5], [mid + 3, mid - 4], [mid + 5, mid - 1],
     [mid + 4, mid + 3], [mid + 1, mid + 5],
@@ -337,7 +357,6 @@ function createGuardianArena(gx, gy) {
     }
   }
 
-   // Boss no centro — SÓ se ele ainda não foi derrotado
   const bossDefeated = !!playerStats.guardianFieldsDefeated;
   const enemies = [];
   const reserved = new Set();
@@ -350,14 +369,9 @@ function createGuardianArena(gx, gy) {
       defeated: false,
       isBoss: true,
     });
-    reserved.add(`${mid},${mid}`);
-  } else {
-    // Mesmo derrotado, o centro fica reservado (pra nenhum outro
-    // inimigo nascer em cima do "toco").
-    reserved.add(`${mid},${mid}`);
   }
-  
-  // Reserva também a área de spawn perto de cada porta (2 tiles pra dentro)
+  reserved.add(`${mid},${mid}`);
+
   for (const s of doors) {
     if (s === 'top') {
       for (let x = mid - 1; x <= mid + 1; x++) reserved.add(`${x},2`);
@@ -380,7 +394,7 @@ function createGuardianArena(gx, gy) {
     isFixed: true,
     isGuardianArena: true,
     reserved,
-    enemies,                    // ← usa o array `enemies` (que já está certo)
+    enemies,
     hasTrees: true,
     interactables: [],
     guardianId: 'fields',
@@ -388,10 +402,8 @@ function createGuardianArena(gx, gy) {
 }
 
 // ============================================================
-// CIDADES — salas fixas, sem inimigos, com layout memorável
+// CIDADES
 // ============================================================
-
-// Lista de cidades conhecidas (facilita o minimapa)
 export const CITY_COORDS = new Set(getAllCityCoords().map(c => `${c.gx},${c.gy}`));
 
 export function isCity(gx, gy) {
@@ -399,20 +411,7 @@ export function isCity(gx, gy) {
 }
 
 // ============================================================
-// ACAMPAMENTO DOS GOBLINS — sala fixa da quest story_banner
-//
-// Layout:
-//   - 2 tendas (T.TREE com sprite próprio no explore.js)
-//   - 1 fogueira no centro (com floorTorch, acesa à noite)
-//   - Estandarte ao lado da fogueira (interactable)
-//   - 4 goblins:
-//       * sentinela da entrada (perto da porta oeste, ~4 tiles
-//         pra dentro, olhando pra fora)
-//       * ronda A ↔ B (vaivém em linha reta)
-//       * 2 guardas do estandarte (olhando pro estandarte)
-//
-// NÃO tem encontros aleatórios (isFixed = true).
-// NÃO tem inimigos procedurais do bioma.
+// ACAMPAMENTO DOS GOBLINS
 // ============================================================
 function createBannerCamp(gx, gy) {
   const map = [];
@@ -422,7 +421,6 @@ function createBannerCamp(gx, gy) {
     map.push(row);
   }
 
-  // Bordas
   for (let i = 0; i < GRID_SIZE; i++) {
     map[0][i] = T.WALL;
     map[GRID_SIZE - 1][i] = T.WALL;
@@ -435,10 +433,8 @@ function createBannerCamp(gx, gy) {
   for (let y = mid - 1; y <= mid + 1; y++) map[y][0] = T.DOOR;
   for (let x = mid - 1; x <= mid + 1; x++) map[0][x] = T.DOOR;
 
-  // ---- Tendas (T.TREE, sprite de tenda) ----
-  // Mais próximas da fogueira (mid, mid+1)
-  const tent1 = { tx: mid - 3, ty: mid - 3, w: 2, h: 2 };   // 9..10
-  const tent2 = { tx: mid + 2, ty: mid - 3, w: 2, h: 2 };   // 17..18
+  const tent1 = { tx: mid - 3, ty: mid - 3, w: 2, h: 2 };
+  const tent2 = { tx: mid + 2, ty: mid - 3, w: 2, h: 2 };
   for (const t of [tent1, tent2]) {
     for (let y = t.ty; y < t.ty + t.h; y++) {
       for (let x = t.tx; x < t.tx + t.w; x++) {
@@ -447,39 +443,25 @@ function createBannerCamp(gx, gy) {
     }
   }
 
-  // ---- Fogueira (floorTorch) ----
   const floorTorch = { tx: mid, ty: mid + 1 };
-
-  // ---- Estandarte (afastado da fogueira, 2 tiles à direita) ----
   const banner = { tx: mid + 3, ty: mid + 1 };
 
-  // ---- Árvores decorativas (fora da área do acampamento) ----
-  // Coloca 8-10 árvores em volta, sem atrapalhar o layout.
   const treeCandidates = [
-    // Cantos superiores (longe das tendas)
     [2, 2], [3, 2], [2, 3],
     [GRID_SIZE - 3, 2], [GRID_SIZE - 4, 2], [GRID_SIZE - 3, 3],
-    // Cantos inferiores
     [2, GRID_SIZE - 3], [3, GRID_SIZE - 3], [2, GRID_SIZE - 4],
     [GRID_SIZE - 3, GRID_SIZE - 3], [GRID_SIZE - 4, GRID_SIZE - 3],
-    // Laterais (longe das portas)
     [2, mid - 4], [2, mid + 4],
     [GRID_SIZE - 3, mid - 4], [GRID_SIZE - 3, mid + 4],
   ];
-  // Filtra os que colidem com tendas/fogueira/banner/portas/goblins
   const isOccupied = (tx, ty) => {
-    // Tendas
     for (const t of [tent1, tent2]) {
       if (tx >= t.tx - 1 && tx <= t.tx + t.w && ty >= t.ty - 1 && ty <= t.ty + t.h) return true;
     }
-    // Fogueira
     if (Math.abs(tx - floorTorch.tx) <= 2 && Math.abs(ty - floorTorch.ty) <= 2) return true;
-    // Banner
     if (Math.abs(tx - banner.tx) <= 1 && Math.abs(ty - banner.ty) <= 1) return true;
-    // Portas
-    if (tx <= 1 && ty >= mid - 2 && ty <= mid + 2) return true;   // porta oeste
-    if (ty <= 1 && tx >= mid - 2 && tx <= mid + 2) return true;   // porta norte
-    // Centro (jogador spawna em tx=3, mid)
+    if (tx <= 1 && ty >= mid - 2 && ty <= mid + 2) return true;
+    if (ty <= 1 && tx >= mid - 2 && tx <= mid + 2) return true;
     if (Math.hypot(tx - 3, ty - mid) < 3) return true;
     return false;
   };
@@ -488,10 +470,7 @@ function createBannerCamp(gx, gy) {
     map[ty][tx] = T.TREE;
   }
 
-  // ---- Goblins ----
   const enemies = [
-    // Sentinela: mais pra baixo (3 tiles abaixo do mid) e olhando PRA BAIXO.
-    // Fica longe da entrada oeste, mas ainda cobre o corredor central.
     {
       id: 'goblin',
       tx: 6, ty: mid + 3,
@@ -501,7 +480,6 @@ function createBannerCamp(gx, gy) {
       questGoblin: true,
       cone: { angle: 90, range: 5 },
     },
-    // Ronda: A ↔ B no eixo do meio (ty: mid), entre tx 10 e 14.
     {
       id: 'goblin',
       tx: mid - 2, ty: mid - 5,
@@ -518,7 +496,6 @@ function createBannerCamp(gx, gy) {
         speed: 0.6,
       },
     },
-    // Guarda do estandarte (esquerda): mais afastado do banner (mid+3, mid+1)
     {
       id: 'goblin',
       tx: mid - 2, ty: mid + 1,
@@ -528,7 +505,6 @@ function createBannerCamp(gx, gy) {
       questGoblin: true,
       cone: { angle: 90, range: 4 },
     },
-    // Guarda do estandarte (direita): mais afastado (mid+5)
     {
       id: 'goblin',
       tx: mid + 5, ty: mid + 1,
@@ -540,18 +516,15 @@ function createBannerCamp(gx, gy) {
     },
   ];
 
-  // Reserved
   const reserved = new Set();
   for (const e of enemies) reserved.add(`${e.tx},${e.ty}`);
   reserved.add(`${floorTorch.tx},${floorTorch.ty}`);
   reserved.add(`${banner.tx},${banner.ty}`);
-  // Área de spawn (entrada oeste)
   for (let dx = 1; dx <= 4; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
       reserved.add(`${dx},${mid + dy}`);
     }
   }
-  // Tendas
   for (const t of [tent1, tent2]) {
     for (let y = t.ty; y < t.ty + t.h; y++) {
       for (let x = t.tx; x < t.tx + t.w; x++) {
@@ -569,7 +542,7 @@ function createBannerCamp(gx, gy) {
     nameCoords: `${gx}, ${gy}`,
     reserved,
     enemies,
-    hasTrees: true,    // ← permite renderizar árvores
+    hasTrees: true,
     isFixed: true,
     interactables: [
       {
@@ -597,7 +570,6 @@ function createCity(gx, gy) {
     map.push(row);
   }
 
-  // Bordas (muro)
   for (let i = 0; i < GRID_SIZE; i++) {
     map[0][i] = T.WALL;
     map[GRID_SIZE - 1][i] = T.WALL;
@@ -619,7 +591,6 @@ function createCity(gx, gy) {
   const mid2 = Math.floor(GRID_SIZE / 2);
   const STREET_HALF_HEIGHT = 1;
 
-  // ---- Prédios (vêm de cities.js) ----
   const cityObjects = city.buildings.map(b => ({ ...b }));
 
   for (const obj of cityObjects) {
@@ -632,7 +603,6 @@ function createCity(gx, gy) {
     }
   }
 
-  // ---- Caminhos até as portas ----
   for (const obj of cityObjects) {
     const doorTx = obj.tx + Math.floor((obj.w - 1) / 2);
     const houseTopTy = obj.ty;
@@ -655,7 +625,6 @@ function createCity(gx, gy) {
     }
   }
 
-  // ---- Rua horizontal ----
   for (let dy = -STREET_HALF_HEIGHT; dy <= STREET_HALF_HEIGHT; dy++) {
     const y = mid2 + dy;
     if (y < 0 || y >= GRID_SIZE) continue;
@@ -664,7 +633,6 @@ function createCity(gx, gy) {
     }
   }
 
-  // ---- Praça (anel externo) + miolo ----
   const plazaRadius = 5;
   const innerPlazaRadius = 2;
   for (let y = mid2 - plazaRadius; y <= mid2 + plazaRadius; y++) {
@@ -682,19 +650,15 @@ function createCity(gx, gy) {
     }
   }
 
-  // ---- Marco central: portal (Aethel) OU oásis (Akmira) ----
-  // Usamos T.PORTAL nos dois casos pra colisão ser igual;
-  // o render decide o sprite conforme city.landmark.
   const landmark = {
     tx: mid2,
     ty: mid2,
     w: 1, h: 1,
-    kind: city.landmark,          // 'portal' | 'oasis'
+    kind: city.landmark,
     label: city.landmarkLabel,
   };
   map[landmark.ty][landmark.tx] = T.PORTAL;
 
-  // ---- Árvores decorativas ----
   const treeRng = makeRng(seedFrom(gx + 1337, gy + 7331));
   const numCityTrees = 14 + Math.floor(treeRng() * 8);
   let cityTreesPlaced = 0, cityTreesAttempts = 0;
@@ -741,8 +705,8 @@ function createCity(gx, gy) {
     isCity: true,
     cityId,
     cityObjects,
-    portal: landmark,           // mantém o nome `portal` pro resto do código
-    landmark,                   // e expõe `landmark` pra clareza
+    portal: landmark,
+    landmark,
     reserved,
     enemies: [],
     hasTrees: city.biome === 'fields',
@@ -751,18 +715,13 @@ function createCity(gx, gy) {
 
 export function createRoom(gx, gy) {
 
-  // Cidade? Retorna sala fixa.
   if (isCity(gx, gy)) {
     return createCity(gx, gy);
   }
-  // Acampamento dos goblins (quest story_banner)
   if (gx === 4 && gy === 6) {
     return createBannerCamp(gx, gy);
   }
 
-  // Arena do Guardião dos Campos (story_guardian_prep)
-  // A arena continua existindo mesmo depois da quest concluída — só
-  // o boss deixa de nascer (controlado em createGuardianArena).
   if (
     gx === 6 && gy === 8 &&
     (isQuestActive('story_guardian_prep') || isQuestCompleted('story_guardian_prep'))
@@ -778,7 +737,6 @@ export function createRoom(gx, gy) {
     map.push(row);
   }
 
-  // Bordas
   for (let i = 0; i < GRID_SIZE; i++) {
     map[0][i] = T.WALL;
     map[GRID_SIZE - 1][i] = T.WALL;
@@ -786,13 +744,10 @@ export function createRoom(gx, gy) {
     map[i][GRID_SIZE - 1] = T.WALL;
   }
 
-  // Portas
   const allSides = ['top', 'bottom', 'left', 'right'];
   const doors = allSides.filter(side => hasDoor(gx, gy, side));
 
-  // Garantia: pelo menos uma porta (senão a sala é inacessível)
   if (doors.length === 0) {
-    // força "left" (sempre tem vizinha a oeste) — ou sorteia 1
     doors.push('left');
   }
 
@@ -805,11 +760,9 @@ export function createRoom(gx, gy) {
   };
   doors.forEach(carve);
 
-  // Reserva a área central de spawn (onde o jogador pode nascer ao entrar por portas)
   const reserved = new Set();
   const key = (x, y) => `${x},${y}`;
 
-  // 1. Reserva das portas (como já estava)
   for (const s of doors) {
     const sidesToReserve = [s, DIRS[s].opposite];
     for (const sd of sidesToReserve) {
@@ -825,27 +778,21 @@ export function createRoom(gx, gy) {
     }
   }
 
-  // 2. Reserva o centro exato (onde o jogador nasce no começo do jogo)
-  // Um quadrado de 5x5 no centro
   for (let y = mid - 2; y <= mid + 2; y++) {
     for (let x = mid - 2; x <= mid + 2; x++) {
       reserved.add(key(x, y));
     }
   }
 
-  // 3. Coloca "obstáculos" conforme o bioma
-  //    - fields: árvores (T.TREE)
-  //    - desert: cactos (também T.TREE — colidem e ocupam o tile; só o sprite muda)
   const placedTrees = [];
   const biomeId = pickBiome(gx, gy);
   const biome = BIOMES[biomeId];
   const hasTrees = biomeId === 'fields';
 
   if (biome.trees || biomeId === 'desert') {
-    // Desert usa cactos, então também spawna "obstáculos", mas com outra densidade.
     const numTrees = biomeId === 'desert'
-      ? 4 + Math.floor(rng() * 6)      // deserto: 4 a 9 cactos
-      : 8 + Math.floor(rng() * 12);    // campo: 8 a 19 árvores
+      ? 4 + Math.floor(rng() * 6)
+      : 8 + Math.floor(rng() * 12);
 
     const centerX = mid, centerY = mid;
     let placed = 0, attempts = 0;
@@ -874,7 +821,7 @@ export function createRoom(gx, gy) {
       if (tooClose) continue;
 
       if (map[y][x] === T.FLOOR && !reserved.has(key(x, y))) {
-        map[y][x] = T.TREE; // reaproveita o tipo "obstáculo"
+        map[y][x] = T.TREE;
         placedTrees.push({ x, y });
         placed++;
       }
@@ -885,7 +832,6 @@ export function createRoom(gx, gy) {
   const enemiesPool = (biome.enemies && biome.enemies.length > 0)
     ? biome.enemies
     : (biomeId === 'fields' ? FALLBACK_FIELDS_ENEMIES : []);
-  // Se o bioma não tem inimigos definidos, ele fica vazio (ex: deserto por enquanto)
 
   const numMapEnemies = enemiesPool.length > 0
     ? 1 + Math.floor(rng() * 3)
@@ -899,7 +845,7 @@ export function createRoom(gx, gy) {
       ty = 3 + Math.floor(rng() * (GRID_SIZE - 6));
       if (map[ty][tx] !== T.FLOOR) continue;
       if (reserved.has(`${tx},${ty}`)) continue;
-      if (Math.hypot(tx - mid, ty - mid) < 4) continue; // não muito perto do spawn
+      if (Math.hypot(tx - mid, ty - mid) < 4) continue;
       const tooClose = roomEnemies.some(e => Math.hypot(e.tx - tx, e.ty - ty) < 3);
       if (tooClose) continue;
       break;
@@ -912,11 +858,8 @@ export function createRoom(gx, gy) {
     });
   }
 
-  // ---- Sala especial: mochila do aldeão perdido ----
-  // (só existe em gx=-2, gy=-4)
   let interactables = [];
   if (gx === -2 && gy === -4) {
-    // Coloca a mochila em um tile fixo perto do centro, sem colidir com árvores.
     const mid = Math.floor(GRID_SIZE / 2);
     let packTx = mid;
     let packTy = mid;
@@ -937,15 +880,10 @@ export function createRoom(gx, gy) {
     });
   }
 
-  // ---- Sala especial: entrada da caverna (quest 5.2) ----
-  // Só existe se a quest 'story_cave' estiver ativa no momento da geração.
-  // Quando a quest for concluída, a caverna "desaparece" (o tile e o
-  // interactable são removidos da sala em memória — ver clearCave).
   if (gx === -2 && gy === 8 && isQuestActive('story_cave')) {
     const mid = Math.floor(GRID_SIZE / 2);
     let caveTx = mid, caveTy = mid;
-    
-    // Verifica se o centro está livre (usando a convenção correta map[Y][X])
+
     if (map[caveTy]?.[caveTx] !== T.FLOOR) {
       const candidates = [
         [mid+1, mid], [mid-1, mid], [mid, mid+1], [mid, mid-1],
@@ -955,13 +893,10 @@ export function createRoom(gx, gy) {
         if (map[cy]?.[cx] === T.FLOOR) { caveTx = cx; caveTy = cy; break; }
       }
     }
-    
-    // CORREÇÃO: O mapa é acessado por map[Y][X], então deve ser caveTy primeiro!
-    map[caveTy][caveTx] = T.CAVE_ENTRANCE; 
+
+    map[caveTy][caveTx] = T.CAVE_ENTRANCE;
     reserved.add(`${caveTx},${caveTy}`);
 
-    // Garante que a entrada seja acessível: limpa os tiles vizinhos
-    // (se forem árvores) para o jogador poder chegar perto.
     const neighbors = [
       [caveTx-1, caveTy], [caveTx+1, caveTy],
       [caveTx, caveTy-1], [caveTx, caveTy+1],
@@ -978,11 +913,9 @@ export function createRoom(gx, gy) {
     });
   }
 
-  // ---- Sala especial: Herbalista coletando ervas (quest) ----
   if (gx === -5 && gy === -2 && isQuestActive('story_herbalist_escort')) {
     const mid = Math.floor(GRID_SIZE / 2);
 
-    // Herbalista parada no centro
     const hTx = mid;
     const hTy = mid;
     reserved.add(`${hTx},${hTy}`);
@@ -993,18 +926,15 @@ export function createRoom(gx, gy) {
       id: 'herbalist_escort_talk',
     });
 
-    // 3 ervas em cantos diferentes
     const herbSpots = [
-      [5, 8],                       // topo esquerdo, 2 tiles abaixo do HUD
-      [GRID_SIZE - 6, 6],           // topo direito
-      [mid, GRID_SIZE - 6],         // base central (longe das portas)
+      [5, 8],
+      [GRID_SIZE - 6, 6],
+      [mid, GRID_SIZE - 6],
     ];
     for (let i = 0; i < herbSpots.length; i++) {
       const [tx, ty] = herbSpots[i];
       const herbId = `herb_${i + 1}`;
 
-      // Se o jogador já coletou esta erva (em sessão anterior), pula.
-      // `playerStats._collectedHerbs` é injetado via `state.js`.
       if (playerStats._collectedHerbs?.has(herbId)) continue;
 
       if (map[ty]?.[tx] === T.TREE || map[ty]?.[tx] === T.WALL) {
@@ -1022,21 +952,15 @@ export function createRoom(gx, gy) {
     }
   }
 
-
-
-  // ---- Caverna procedural (pós-quest 5.2) ----
-  // Aparece em ~8% das salas do anel externo (Campos), longe de Aethel.
-  // NÃO aparece na sala da caverna da quest (-2,8), nem perto da cidade.
   if (
     areProceduralCavesUnlocked() &&
     biomeId === 'fields' &&
-    !(gx === -2 && gy === 8) &&           // não colide com a caverna da quest
-    Math.hypot(gx, gy) > 2 &&             // longe de Aethel
+    !(gx === -2 && gy === 8) &&
+    Math.hypot(gx, gy) > 2 &&
     !interactables.some(it => it.kind === 'cave_entrance')
   ) {
-    const caveRoll = rng();               // usa o RNG seedado da sala (determinístico)
+    const caveRoll = rng();
     if (caveRoll < 0.20) {
-      // Acha um tile FLOOR livre, longe do centro e das portas
       const mid = Math.floor(GRID_SIZE / 2);
       let caveTx = -1, caveTy = -1;
       for (let attempt = 0; attempt < 40; attempt++) {
@@ -1051,7 +975,6 @@ export function createRoom(gx, gy) {
       if (caveTx >= 0) {
         map[caveTy][caveTx] = T.CAVE_ENTRANCE;
         reserved.add(`${caveTx},${caveTy}`);
-        // limpa vizinhos se forem árvores
         for (const [nx, ny] of [[caveTx-1,caveTy],[caveTx+1,caveTy],[caveTx,caveTy-1],[caveTx,caveTy+1]]) {
           if (map[ny]?.[nx] === T.TREE) map[ny][nx] = T.FLOOR;
         }
@@ -1060,21 +983,17 @@ export function createRoom(gx, gy) {
           kind: 'cave_entrance',
           title: 'Caverna',
           text: 'Uma fenda escura na terra. O ar sai frio de dentro.',
-          // marca como procedural pra lógica de entrada saber
           procedural: true,
         });
       }
     }
   }
 
-  // ---- Dungeon do deserto (pós-quest story_to_akmira) ----
-  // Aparece em ~20% das salas do deserto, longe de Aethel e de Akmira.
-  // É a Fratura se desestabilizando: grutas de areia começam a abrir.
   if (
     areDesertDungeonsUnlocked() &&
     biomeId === 'desert' &&
     Math.hypot(gx, gy) > 3 &&
-    Math.hypot(gx - (-19), gy - (-4)) > 4 &&   // longe de Akmira
+    Math.hypot(gx - (-19), gy - (-4)) > 4 &&
     !interactables.some(it => it.kind === 'cave_entrance')
   ) {
     const caveRoll = rng();
@@ -1102,7 +1021,7 @@ export function createRoom(gx, gy) {
           title: 'Gruta de Areia',
           text: 'Uma fenda na areia. Degraus de pedra descem pra escuridão.',
           procedural: true,
-          dungeonTheme: 'desert',   // ← NOVO: tema da dungeon
+          dungeonTheme: 'desert',
         });
       }
     }
@@ -1134,10 +1053,9 @@ export function getRoom(gx, gy) {
 
 export function getCitySpawn() {
   const mid = Math.floor(GRID_SIZE / 2);
-  return { tx: 3, ty: mid };  // logo à direita da porta esquerda
+  return { tx: 3, ty: mid };
 }
 
-// Chave: `${gx},${gy},${buildingId}`
 export const interiorCache = new Map();
 export function getInterior(gx, gy, buildingId) {
   const key = `${gx},${gy},${buildingId}`;
@@ -1153,7 +1071,6 @@ export function enterBuilding(buildingId) {
 
   const gx = currentRoom.gx, gy = currentRoom.gy;
 
-  // Acha o cityObject para saber a tile da porta (mesma usada em getInteractables)
   const obj = currentRoom.cityObjects?.find(o => o.id === buildingId);
   const doorTx = obj ? obj.tx + Math.floor(obj.w / 2) : Math.floor(GRID_SIZE / 2);
   const doorTy = obj ? obj.ty + obj.h : Math.floor(GRID_SIZE / 2);
@@ -1173,25 +1090,17 @@ export function enterBuilding(buildingId) {
     setMusicMode(origin?.biomeId || 'aethel');
   }
 
-  // Spawn perto da porta inferior do interior
   const mid = Math.floor(interior.cols / 2);
   player.x = mid * TILE_SIZE + TILE_SIZE / 2;
   player.y = (interior.rows - 2) * TILE_SIZE + TILE_SIZE / 2;
   saveGame();
 }
 
-// ============================================================
-// Remove a caverna da sala (se ela estiver no cache).
-// Chamado quando a quest 'story_cave' é concluída, pra que a
-// entrada desapareça do mapa. Se o jogador voltar à sala, ela
-// é regenerada sem a caverna.
-// ============================================================
 export function clearCave() {
   const key = '-2,8';
   const room = roomCache.get(key);
   if (!room) return;
 
-  // Remove o tile CAVE_ENTRANCE do mapa (volta a ser FLOOR)
   for (let y = 0; y < room.map.length; y++) {
     for (let x = 0; x < room.map[y].length; x++) {
       if (room.map[y][x] === T.CAVE_ENTRANCE) {
@@ -1200,18 +1109,15 @@ export function clearCave() {
     }
   }
 
-  // Remove o interactable
   if (room.interactables) {
     room.interactables = room.interactables.filter(it => it.kind !== 'cave_entrance');
   }
 }
 
-// Gera uma dungeon procedural e a armazena no cache.
-// Retorna a sala de entrada da dungeon.
 export function createDungeonInstance(instanceId, seed, opts = {}) {
   const isProcedural = opts.procedural === true;
-  const theme = opts.theme || 'cave';   // 'cave' | 'desert'
-  const depth = isProcedural ? 3 + (seed % 2) : 3;  // 3 ou 4 salas
+  const theme = opts.theme || 'cave';
+  const depth = isProcedural ? 3 + (seed % 2) : 3;
   const dungeon = {
     id: instanceId,
     seed,
@@ -1230,14 +1136,6 @@ export function createDungeonInstance(instanceId, seed, opts = {}) {
   return dungeon;
 }
 
-// ============================================================
-// SERIALIZAÇÃO DAS DUNGEONS
-// Só o que precisa persistir entre sessões:
-//   - quais inimigos já foram derrotados (por tx,ty)
-//   - se o baú já foi aberto
-//   - se a jaula já foi aberta
-// (O mapa em si é regenerado igual, porque o seed é determinístico.)
-// ============================================================
 export function serializeDungeons() {
   const out = {};
   for (const [id, dungeon] of dungeonCache) {
@@ -1291,12 +1189,9 @@ function _hydrateDungeonIfNeeded(id) {
 }
 
 export function loadDungeons(data) {
-  // Mantido pra compat, mas agora só delega pro lazy.
   setPendingDungeonsData(data);
 }
 
-// Substitui o uso direto de `dungeonCache.get(id)` no `enterDungeon`
-// e no `player.js` (via um getter).
 export function getDungeon(id) {
   _hydrateDungeonIfNeeded(id);
   return dungeonCache.get(id);

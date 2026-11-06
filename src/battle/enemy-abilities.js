@@ -8,7 +8,9 @@
 // registre em ABILITIES pelo id do inimigo.
 // ============================================================
 import { battle, playerStats } from '../core/state.js';
-import { flashEnemyAt } from './battle-helpers.js';
+import { flashEnemyAt, flashPlayer, spawnFloatingTextAt } from './battle-helpers.js';
+import { sfx } from '../audio/audio.js';
+import { CANVAS_W, CANVAS_H } from '../core/canvas.js';
 
 // ---- Rato: entrar na toca ----
 export function ratHide(enemy) {
@@ -130,7 +132,7 @@ export function scorpionGiantFerrão(enemy) {
   if (!playerStats.poisoned) return false;
   enemy._ferrãoCd = 0;
 
-  const dmg = Math.max(3, Math.floor(enemy.atk * 1.4));
+  const dmg = Math.max(3, Math.floor(enemy.atk * 1.32));
   playerStats.hp = Math.max(0, playerStats.hp - dmg);
   // Renova o veneno
   playerStats.poisoned.turns = 2;

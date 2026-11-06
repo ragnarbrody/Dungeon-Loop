@@ -1,7 +1,7 @@
 import { playerStats, player, addGold } from '../core/state.js';
 import { ITEMS_DB } from '../items.js';
 import { TILE_SIZE } from '../core/canvas.js';
-import { getActiveQuest, isQuestActive, isQuestCompleted, areProceduralCavesUnlocked } from '../quests.js';
+import { getActiveQuest, isQuestActive, isQuestCompleted, areProceduralCavesUnlocked, areDesertDungeonsUnlocked } from '../quests.js';
 
 // ============================================================
 // INTERACTABLES

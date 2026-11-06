@@ -21,7 +21,11 @@ const BIOME_SCALE_BONUS = {
 };
 
 export function getScaledEnemy(template, playerLevel, biomeId = 'fields') {
-  const biomeBonus = BIOME_SCALE_BONUS[biomeId] || 0;
+  // Miniboss: NÃO aplica o bônus de bioma. O miniboss já tem
+  // stats-base mais altos que o inimigo comum — o bônus empilhado
+  // o tornava injusto (ex.: 306 HP e 40 ATK no nv 9 no deserto).
+  const biomeBonus = template.isMiniboss ? 0 : (BIOME_SCALE_BONUS[biomeId] || 0);
+
   const scale = (playerLevel - 1) * (SCALE_PER_LEVEL + biomeBonus);
   const hpBonus  = Math.floor(template.hp  * scale);
   const atkBonus = Math.floor(template.atk * scale);

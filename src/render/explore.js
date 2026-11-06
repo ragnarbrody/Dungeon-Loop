@@ -22,7 +22,6 @@ export function renderExplore() {
   if (!currentRoom) return;
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Se for cidade, renderiza diferente
   if (currentRoom.isCity) {
     renderCity(currentRoom);
     return;
@@ -36,19 +35,21 @@ export function renderExplore() {
   const biomeId = currentRoom.biomeId;
   const biome = BIOMES[biomeId];
 
+  // Dungeon do deserto: usa chão e paredes de caverna (pedra escura),
+  // não areia clara. E os obstáculos são pilares, não cactos.
+  const isDesertDungeon = currentRoom.isDungeon && currentRoom.dungeonTheme === 'desert';
+  const floorStyle = isDesertDungeon ? 'cave' : biome.floorStyle;
+
   const roomRng = makeRng(seedFrom(currentRoom.gx, currentRoom.gy));
 
-  // Hash determinístico 2D (embaralha bem, sem padrões diagonais).
-  // Baseado em "integer hash" — rápido e estável por tile.
   function tileHash(x, y) {
     let h = (x * 374761393 + y * 668265263) | 0;
     h = (h ^ (h >>> 13)) * 1274126177 | 0;
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
 
-  // Layout da grama (usado só no campo)
   const grassLayout = [];
-  if (biome.floorStyle === 'grass') {
+  if (floorStyle === 'grass') {
     for (let y = 0; y < GRID_SIZE; y++) {
       const row = [];
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -64,17 +65,13 @@ export function renderExplore() {
   }
 
   // ---------- DESENHO DO CHÃO ----------
-  // Campos: tiles de grama
-  // Deserto: areia + dunas procedurais (seedado pela sala)
-  if (biome.floorStyle === 'sand') {
+  if (floorStyle === 'sand') {
     drawSandFloor(currentRoom, roomRng);
-  } else if (biome.floorStyle === 'cave') {
+  } else if (floorStyle === 'cave') {
     // --- Chão de Caverna ---
-    // Base uniforme
     ctx.fillStyle = '#26262e';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Paleta de tons de pedra (variação sutil, não "checker")
     const caveTones = ['#2a2a33', '#2d2d36', '#282830', '#2f2f38', '#25252d'];
 
     for (let y = 0; y < GRID_SIZE; y++) {
@@ -83,12 +80,10 @@ export function renderExplore() {
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
 
-        // Tom base do tile (ruído, sem direção preferida)
         const r1 = tileHash(x, y);
         ctx.fillStyle = caveTones[Math.floor(r1 * caveTones.length)];
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-        // Grão fino: 3-4 pontinhos por tile, posição e tom determinísticos
         const r2 = tileHash(x + 91, y - 17);
         const r3 = tileHash(x - 33, y + 61);
         const r4 = tileHash(x + 7, y + 7);
@@ -103,8 +98,6 @@ export function renderExplore() {
       }
     }
 
-    // Rachaduras: desenham em ~8% dos tiles, em direções variadas.
-    // Desenhadas por cima pra parecer "pedra rachada".
     ctx.strokeStyle = '#181820';
     ctx.lineWidth = 1;
     for (let y = 0; y < GRID_SIZE; y++) {
@@ -114,7 +107,6 @@ export function renderExplore() {
         if (r > 0.92) {
           const px = x * TILE_SIZE;
           const py = y * TILE_SIZE;
-          // Rachadura em "V" ou "L", sempre dentro do tile
           const cx0 = px + 4 + Math.floor(tileHash(x + 1, y + 1) * 8);
           const cy0 = py + 4 + Math.floor(tileHash(x + 2, y + 2) * 8);
           ctx.beginPath();
@@ -125,7 +117,6 @@ export function renderExplore() {
       }
     }
 
-    // Manchas escuras grandes (poças de umidade/umidade) — 4% dos tiles
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
@@ -145,7 +136,6 @@ export function renderExplore() {
       }
     }
 
-    // Pequenos musgos verdes (raros, pra dar cor) — 2% dos tiles
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.CAVE_FLOOR) continue;
@@ -160,7 +150,7 @@ export function renderExplore() {
         }
       }
     }
-  } else  {
+  } else {
     // Chão de grama padrão
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
@@ -173,7 +163,7 @@ export function renderExplore() {
     }
   }
 
-  // ---------- PAREDES E PORTAS (iguais em todos os biomas) ----------
+  // ---------- PAREDES E PORTAS ----------
   for (let y = 0; y < GRID_SIZE; y++) {
     for (let x = 0; x < GRID_SIZE; x++) {
       const t = currentRoom.map[y][x];
@@ -182,9 +172,9 @@ export function renderExplore() {
 
       if (t === T.WALL) {
         let wallColor, wallEdge;
-        if (biomeId === 'desert')      { wallColor = '#a08050'; wallEdge = '#6b5030'; }
-        else if (biomeId === 'cave')   { wallColor = '#3a3a44'; wallEdge = '#1e1e26'; }
-        else                           { wallColor = '#5a4a3a'; wallEdge = '#3a2f24'; }
+        if (biomeId === 'cave' || isDesertDungeon) { wallColor = '#3a3a44'; wallEdge = '#1e1e26'; }
+        else if (biomeId === 'desert')             { wallColor = '#a08050'; wallEdge = '#6b5030'; }
+        else                                       { wallColor = '#5a4a3a'; wallEdge = '#3a2f24'; }
 
         ctx.fillStyle = wallColor;
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
@@ -192,8 +182,7 @@ export function renderExplore() {
         ctx.lineWidth = 1;
         ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
 
-        // pedra rachada nas paredes da caverna (uma linha horizontal)
-        if (biomeId === 'cave') {
+        if (biomeId === 'cave' || isDesertDungeon) {
           ctx.strokeStyle = '#25252d';
           ctx.beginPath();
           ctx.moveTo(px, py + TILE_SIZE * 0.5);
@@ -211,9 +200,9 @@ export function renderExplore() {
     }
   }
 
-  // ---------- OBSTÁCULOS (árvores ou cactos) ----------
-  if (biomeId === 'desert') {
-    // Cactos
+  // ---------- OBSTÁCULOS (cactos / pedras de caverna / pilares) ----------
+  if (biomeId === 'desert' && !isDesertDungeon) {
+    // Cactos (apenas no mundo aberto do deserto)
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.TREE) continue;
@@ -223,85 +212,23 @@ export function renderExplore() {
         ctx.drawImage(frame, dx, dy);
       }
     }
-  } else if (biomeId === 'cave') {
-    // --- Pedras grandes (obstáculos) ---
-    // Desenhadas em 2 tiles de altura, com forma irregular, sombra e highlight.
-    // A colisão continua sendo 1x1 (o tile T.TREE), mas o visual "sobe"
-    // pra cima do tile — igual às árvores. Assim o jogador vê claramente
-    // no que está esbarrando.
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        if (currentRoom.map[y][x] !== T.TREE) continue;
+  } else if (biomeId === 'cave' || isDesertDungeon) {
+    // Dungeon do deserto: primeiro desenha os pilares (com as tochas),
+    // depois as pedras. O `drawCaveRocks` pula os tiles de pilar.
 
-        if (currentRoom.cage && x === currentRoom.cage.tx && y === currentRoom.cage.ty) continue;
+    const pillarTiles = new Set(
+      (currentRoom.pillars || []).map(p => `${p.tx},${p.ty}`)
+    );
 
-        const cx = x * TILE_SIZE + TILE_SIZE / 2;
-        const baseY = y * TILE_SIZE + TILE_SIZE;  // base do tile (chão)
-        const topY  = baseY - 34;                 // sobe ~1.7 tiles
-        const px = x * TILE_SIZE;
-
-        // Sombra elíptica (base da pedra no chão)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-        ctx.beginPath();
-        ctx.ellipse(cx, baseY - 2, TILE_SIZE * 0.75, 5, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Corpo da pedra — forma "poligonal" com cantos suavizados
-        // Base mais escura, topo mais claro (luz vinda de cima)
-        const bodyGrad = ctx.createLinearGradient(0, topY, 0, baseY);
-        bodyGrad.addColorStop(0, '#6e6e7a');
-        bodyGrad.addColorStop(0.45, '#55555f');
-        bodyGrad.addColorStop(1, '#3a3a44');
-
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        // Ponto a ponto: pedra irregular (pseudo-aleatória por tile)
-        const seed = tileHash(x, y); // já existe no bloco do chão
-        ctx.moveTo(px + 2,             baseY - 3);
-        ctx.lineTo(px + 1,             baseY - 14);
-        ctx.lineTo(px + 4,             topY + 8);
-        ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
-        ctx.lineTo(px + TILE_SIZE*0.65, topY + 1 + (seed * 4));
-        ctx.lineTo(px + TILE_SIZE - 4, topY + 9);
-        ctx.lineTo(px + TILE_SIZE - 1, baseY - 14);
-        ctx.lineTo(px + TILE_SIZE - 2, baseY - 3);
-        ctx.closePath();
-        ctx.fill();
-
-        // Borda escura (contorno da pedra) — dá definição
-        ctx.strokeStyle = '#181820';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Highlight (luz batendo no topo-esquerdo)
-        ctx.fillStyle = 'rgba(200, 200, 220, 0.18)';
-        ctx.beginPath();
-        ctx.moveTo(px + 4,           topY + 8);
-        ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
-        ctx.lineTo(px + TILE_SIZE*0.5,  topY + 4);
-        ctx.lineTo(px + TILE_SIZE*0.3,  topY + 11);
-        ctx.closePath();
-        ctx.fill();
-
-        // Rachaduras na pedra (linhas escuras)
-        ctx.strokeStyle = 'rgba(15, 15, 22, 0.7)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(px + TILE_SIZE*0.4, topY + 12);
-        ctx.lineTo(px + TILE_SIZE*0.5, baseY - 8);
-        ctx.lineTo(px + TILE_SIZE*0.45, baseY - 4);
-        ctx.stroke();
-
-        // Musgo ou fungo no canto (detalhe sutil)
-        if (seed > 0.7) {
-          ctx.fillStyle = 'rgba(55, 85, 55, 0.6)';
-          ctx.fillRect(px + TILE_SIZE - 6, baseY - 6, 3, 2);
-        }
+    if (isDesertDungeon) {
+      for (const p of (currentRoom.pillars || [])) {
+        drawPillar(p.tx * TILE_SIZE, p.ty * TILE_SIZE, p.hasTorch);
       }
     }
+
+    drawCaveRocks(currentRoom, tileHash, pillarTiles);
   } else if (biome.trees) {
-    // Árvores
-    // Pula tiles que pertencem a tendas (quest story_banner)
+    // Árvores (pula tendas do acampamento)
     const tentTiles = new Set();
     if (currentRoom.tents) {
       for (const t of currentRoom.tents) {
@@ -316,7 +243,7 @@ export function renderExplore() {
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.TREE) continue;
-        if (tentTiles.has(`${x},${y}`)) continue;   // ← NOVO
+        if (tentTiles.has(`${x},${y}`)) continue;
         const frame = treeFrames[Math.floor(performance.now() / 450 + (x + y)) % 2];
         const dx = x * TILE_SIZE + TILE_SIZE / 2 - treeFrames[0].width / 2;
         const dy = y * TILE_SIZE + TILE_SIZE - treeFrames[0].height;
@@ -338,22 +265,18 @@ export function renderExplore() {
     }
   }
 
-  // ---- Acampamento dos goblins (quest story_banner) ----
+  // ---- Acampamento dos goblins ----
   if (currentRoom.isFixed && currentRoom.tents) {
-    // Tendas: desenha por cima do T.TREE, mas só nos tiles das tendas
     for (const t of currentRoom.tents) {
       const tx = t.tx * TILE_SIZE;
       const ty = t.ty * TILE_SIZE;
-      // A tenda ocupa 2x2 tiles; desenha 1 sprite de 40x40 no canto
       ctx.drawImage(tentFrames[0], tx, ty, TILE_SIZE * 2, TILE_SIZE * 2);
     }
 
-    // Fogueira: usa o floorTorch, mas com sprite próprio
     if (currentRoom.floorTorch) {
       drawCampfire(currentRoom.floorTorch);
     }
 
-    // Estandarte: só desenha se ainda existir o interactable
     if (currentRoom.bannerPos) {
       const hasBanner = (currentRoom.interactables || [])
         .some(it => it.kind === 'banner');
@@ -416,11 +339,11 @@ export function renderExplore() {
     ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
-  // Companion (Herbalista) — desenha atrás do jogador
+  // Companion (Herbalista)
   if (playerStats._escortActive && playerStats._escortPos && isQuestActive('story_herbalist_escort')) {
     const c = playerStats._escortPos;
     const frame = NPC_SPRITES.herbalist.idle[0];
-    const scale = (player.size + 4) / 32;   // ← mesma escala do player
+    const scale = (player.size + 4) / 32;
     const w = 32 * scale;
     const h = 32 * scale;
     ctx.globalAlpha = 0.9;
@@ -443,7 +366,7 @@ export function renderExplore() {
   );
 
   // ---------- ILUMINAÇÃO ----------
-  if (biomeId === 'cave') {
+  if (biomeId === 'cave' || isDesertDungeon) {
     const lights = [];
     if (playerEquip.leftHand === 'torch') {
       lights.push({ x: player.x, y: player.y, radius: 120, strength: 1, inner: 0.3,
@@ -454,33 +377,58 @@ export function renderExplore() {
       lights.push({ x: ft.tx * TILE_SIZE + TILE_SIZE / 2, y: ft.ty * TILE_SIZE + TILE_SIZE / 2,
                     radius: 80, strength: 0.75, color: [255, 170, 80], warm: 0.12, flicker: true });
     }
-    applyLighting({ color: [0, 0, 0], alpha: 0.95, lights });
+
+    // ---- Tochas de parede dos pilares (dungeon do deserto) ----
+    if (isDesertDungeon && currentRoom.pillars) {
+      for (const p of currentRoom.pillars) {
+        if (!p.hasTorch) continue;
+        lights.push({
+          x: p.tx * TILE_SIZE + TILE_SIZE / 2,
+          y: p.ty * TILE_SIZE + TILE_SIZE / 2 - 26,
+          radius: 140, strength: 0.85, inner: 0.25,
+          color: [255, 170, 80], warm: 0.30, flicker: true,
+        });
+      }
+    }
+
+    // ---- Escuridão por tema ----
+    // Caverna normal: breu quase total (preto puro).
+    // Dungeon do deserto: penumbra quente (marrom-azulada), pra dar
+    // pra enxergar o chão de pedra mesmo longe das tochas. As tochas
+    // dos pilares continuam marcando os "pontos de luz" da sala.
+    let darknessColor, darknessAlpha;
+    if (isDesertDungeon) {
+      // overlay marrom-azulado (R alto, G médio, B baixo-médio)
+      darknessColor = [22, 16, 28];
+      darknessAlpha = 0.74;
+    } else {
+      darknessColor = [0, 0, 0];
+      darknessAlpha = 0.95;
+    }
+
+    applyLighting({ color: darknessColor, alpha: darknessAlpha, lights });
   } else {
     const lights = [];
 
-    // Tocha do jogador (se equipada e for noite/entardecer)
     const torch = torchLight(player.x, player.y);
     if (torch) lights.push(torch);
 
-    // ---- Fogueira do acampamento (quest story_banner) ----
-    // Só ilumina quando está acesa (noite) e a sala é o acampamento.
     if (
       currentRoom.isFixed &&
       currentRoom.floorTorch &&
       getTimeState().darkness > 0.15
     ) {
       const ft = currentRoom.floorTorch;
-      // Centro da fogueira (o sprite ocupa 2×2 a partir de ft.tx/ft.ty)
-      const cx = ft.tx * TILE_SIZE + TILE_SIZE;   // +1 tile = centro do 2×2
+      const cx = ft.tx * TILE_SIZE + TILE_SIZE;
       const cy = ft.ty * TILE_SIZE + TILE_SIZE;
       lights.push({
         x: cx, y: cy,
-        radius: 140,        // raio grande pra iluminar a área
-        strength: 0.95,     // quase remove toda a escuridão
+        radius: 140,
+        strength: 0.95,
         inner: 0.15,
         color: [255, 170, 80],
         warm: 0.35,
-        flicker: true,      // mesma animação da tocha (dá vida)
+        flicker: true,
       });
     }
 
@@ -488,36 +436,244 @@ export function renderExplore() {
   }
 
   drawFloorTorch(currentRoom);
-  // ---------- HUD DE QUEST (canto inferior esquerdo) ----------
   drawQuestTracker();
 }
 
+/* ------------------------------------------------------------------ */
+/*  drawCaveRocks / drawPillar — extraídos/novos                       */
+/* ------------------------------------------------------------------ */
+
+// Extrai o bloco de "pedras grandes" da caverna em função própria.
+// Pula os tiles que são pilares (eles são desenhados por drawPillar).
+function drawCaveRocks(room, tileHash, skipSet) {
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      if (room.map[y][x] !== T.TREE) continue;
+      if (skipSet && skipSet.has(`${x},${y}`)) continue;
+      if (room.cage && x === room.cage.tx && y === room.cage.ty) continue;
+
+      const cx = x * TILE_SIZE + TILE_SIZE / 2;
+      const baseY = y * TILE_SIZE + TILE_SIZE;
+      const topY  = baseY - 34;
+      const px = x * TILE_SIZE;
+
+      // Sombra elíptica
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 2, TILE_SIZE * 0.75, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Corpo da pedra
+      const bodyGrad = ctx.createLinearGradient(0, topY, 0, baseY);
+      bodyGrad.addColorStop(0, '#6e6e7a');
+      bodyGrad.addColorStop(0.45, '#55555f');
+      bodyGrad.addColorStop(1, '#3a3a44');
+
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      const seed = tileHash(x, y);
+      ctx.moveTo(px + 2,             baseY - 3);
+      ctx.lineTo(px + 1,             baseY - 14);
+      ctx.lineTo(px + 4,             topY + 8);
+      ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
+      ctx.lineTo(px + TILE_SIZE*0.65, topY + 1 + (seed * 4));
+      ctx.lineTo(px + TILE_SIZE - 4, topY + 9);
+      ctx.lineTo(px + TILE_SIZE - 1, baseY - 14);
+      ctx.lineTo(px + TILE_SIZE - 2, baseY - 3);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#181820';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(200, 200, 220, 0.18)';
+      ctx.beginPath();
+      ctx.moveTo(px + 4,           topY + 8);
+      ctx.lineTo(px + TILE_SIZE*0.35, topY + 2 + (seed * 3));
+      ctx.lineTo(px + TILE_SIZE*0.5,  topY + 4);
+      ctx.lineTo(px + TILE_SIZE*0.3,  topY + 11);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(15, 15, 22, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + TILE_SIZE*0.4, topY + 12);
+      ctx.lineTo(px + TILE_SIZE*0.5, baseY - 8);
+      ctx.lineTo(px + TILE_SIZE*0.45, baseY - 4);
+      ctx.stroke();
+
+      if (seed > 0.7) {
+        ctx.fillStyle = 'rgba(55, 85, 55, 0.6)';
+        ctx.fillRect(px + TILE_SIZE - 6, baseY - 6, 3, 2);
+      }
+    }
+  }
+}
+
 // ============================================================
-// HUD DE QUEST — desenha a quest rastreada no canto inferior esquerdo.
-// Chamado por renderExplore e renderCity.
+// PILAR DE PEDRA (dungeon do deserto)
+//
+// - Colisão 1×1 no tile (p.ty), mas o sprite "sobe" ~2 tiles.
+// - Tocha é de PAREDE (suporte de ferro pregado na lateral do pilar),
+//   não de chão: a chama sai da lateral, na altura dos "olhos".
+// - Fumaça/flicker levemente animados.
 // ============================================================
+function drawPillar(px, py, hasTorch) {
+  const cx = px + TILE_SIZE / 2;
+  const baseY = py + TILE_SIZE;       // base do tile (chão)
+  const topY  = baseY - 40;           // pilar sobe ~2 tiles
+  const W = TILE_SIZE;                // largura do pilar = 1 tile
+
+  // -------- Sombra elíptica no chão --------
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - 2, W * 0.72, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // -------- Base (bloco mais largo) --------
+  ctx.fillStyle = '#4a4a55';
+  ctx.fillRect(px + 1, baseY - 8, W - 2, 8);
+  ctx.strokeStyle = '#1e1e26';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + 1.5, baseY - 7.5, W - 3, 7);
+  // brilho superior da base
+  ctx.fillStyle = 'rgba(180, 180, 200, 0.15)';
+  ctx.fillRect(px + 2, baseY - 8, W - 4, 1);
+
+  // -------- Fuste (coluna) --------
+  const shaftX = px + 3;
+  const shaftW = W - 6;
+  const shaftTopY = topY + 8;
+  const shaftBotY = baseY - 8;
+
+  const shaftGrad = ctx.createLinearGradient(shaftX, 0, shaftX + shaftW, 0);
+  shaftGrad.addColorStop(0,   '#3a3a44');
+  shaftGrad.addColorStop(0.5, '#5a5a66');
+  shaftGrad.addColorStop(1,   '#3a3a44');
+  ctx.fillStyle = shaftGrad;
+  ctx.fillRect(shaftX, shaftTopY, shaftW, shaftBotY - shaftTopY);
+
+  // Linhas de "junta" horizontais
+  ctx.strokeStyle = 'rgba(20, 20, 28, 0.65)';
+  ctx.lineWidth = 1;
+  for (let ly = shaftTopY + 6; ly < shaftBotY; ly += 8) {
+    ctx.beginPath();
+    ctx.moveTo(shaftX, ly + 0.5);
+    ctx.lineTo(shaftX + shaftW, ly + 0.5);
+    ctx.stroke();
+  }
+
+  // Rachaduras sutis
+  ctx.strokeStyle = 'rgba(15, 15, 22, 0.7)';
+  ctx.beginPath();
+  ctx.moveTo(cx - 2, shaftTopY + 10);
+  ctx.lineTo(cx - 1, shaftTopY + 16);
+  ctx.lineTo(cx - 2, shaftBotY - 6);
+  ctx.stroke();
+
+  // -------- Capitel (topo, mais largo) --------
+  ctx.fillStyle = '#5a5a66';
+  ctx.fillRect(px + 1, topY + 2, W - 2, 7);
+  ctx.strokeStyle = '#1e1e26';
+  ctx.strokeRect(px + 1.5, topY + 2.5, W - 3, 6);
+  // brilho do capitel
+  ctx.fillStyle = 'rgba(200, 200, 220, 0.18)';
+  ctx.fillRect(px + 2, topY + 2, W - 4, 1);
+
+  // -------- Tocha de parede --------
+  if (hasTorch) {
+    const now = performance.now() / 1000;
+    const flicker = 0.85 + Math.sin(now * 9) * 0.1 + Math.sin(now * 23) * 0.05;
+
+    // Suporte de ferro: uma "braçadeira" horizontal saindo da lateral
+    // esquerda do pilar, com um pequeno cesto na ponta.
+    // (Fica na altura dos olhos — ~26px acima da base.)
+    const bracketY = baseY - 26;
+    const bracketLen = 7;
+
+    // braçadeira presa na lateral esquerda
+    ctx.fillStyle = '#2a1a10';
+    ctx.fillRect(px - bracketLen, bracketY, bracketLen, 2);
+    // "abraçadeira" vertical no pilar (fixação)
+    ctx.fillRect(px + 1, bracketY - 2, 2, 6);
+    // brilho sutil no ferro
+    ctx.fillStyle = 'rgba(160, 120, 80, 0.4)';
+    ctx.fillRect(px - bracketLen, bracketY, bracketLen, 1);
+
+    // Cesto (pequeno cone invertido) na ponta do suporte
+    const basketX = px - bracketLen;
+    const basketY = bracketY + 2;
+    ctx.fillStyle = '#2a1a10';
+    ctx.beginPath();
+    ctx.moveTo(basketX - 3, basketY);
+    ctx.lineTo(basketX + 3, basketY);
+    ctx.lineTo(basketX + 2, basketY + 4);
+    ctx.lineTo(basketX - 2, basketY + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Chama saindo do cesto (3 camadas)
+    const flameH = 7 * flicker;
+    const fx = basketX;
+    const fy = basketY - 1;
+
+    // camada externa (laranja)
+    ctx.fillStyle = 'rgba(255, 120, 30, 0.9)';
+    ctx.beginPath();
+    ctx.moveTo(fx - 3, fy);
+    ctx.quadraticCurveTo(fx, fy - flameH * 1.3, fx + 3, fy);
+    ctx.quadraticCurveTo(fx, fy + 2, fx - 3, fy);
+    ctx.fill();
+
+    // camada média (amarelo)
+    ctx.fillStyle = 'rgba(255, 200, 60, 0.95)';
+    ctx.beginPath();
+    ctx.moveTo(fx - 2, fy);
+    ctx.quadraticCurveTo(fx, fy - flameH * 0.95, fx + 2, fy);
+    ctx.quadraticCurveTo(fx, fy + 1, fx - 2, fy);
+    ctx.fill();
+
+    // núcleo (branco-quente)
+    ctx.fillStyle = '#fff5c0';
+    ctx.beginPath();
+    ctx.moveTo(fx - 1, fy);
+    ctx.quadraticCurveTo(fx, fy - flameH * 0.6, fx + 1, fy);
+    ctx.quadraticCurveTo(fx, fy + 0.5, fx - 1, fy);
+    ctx.fill();
+
+    // pequenas brasas/faíscas (opcional: 1–2 pontinhos)
+    const spark = Math.sin(now * 13) > 0.6;
+    if (spark) {
+      ctx.fillStyle = 'rgba(255, 220, 120, 0.85)';
+      ctx.fillRect(fx + 4 + Math.sin(now * 7) * 2, fy - 8 - (now * 20 % 6), 1, 1);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  (resto do arquivo — inalterado)                                   */
+/* ------------------------------------------------------------------ */
+
 // ============================================================
-// HUD DE QUEST — desenha a quest rastreada no canto inferior esquerdo.
-// Quebra o texto em múltiplas linhas para não atravessar a tela.
+// HUD DE QUEST
 // ============================================================
 function drawQuestTracker() {
   const tracked = getTrackedQuest();
   if (!tracked) return;
 
-  const MAX_W = CANVAS_W - 40;      // largura máxima da caixa (deixa margem)
-  const LINE_H = 14;                // altura de cada linha de detalhe
+  const MAX_W = CANVAS_W - 40;
+  const LINE_H = 14;
   const PAD_X = 10;
   const PAD_Y = 8;
   const TITLE_H = 16;
 
-  // Monta os pedaços de texto (título + cada objetivo)
   const title = `★ ${tracked.title}`;
 
-  // ---- 1) Mede e quebra o título ----
   ctx.font = 'bold 11px "Courier New", monospace';
   const titleLines = wrapLines(title, MAX_W - PAD_X * 2);
 
-  // ---- 2) Mede e quebra cada objetivo ----
   ctx.font = '10px "Courier New", monospace';
   const detailLines = [];
   for (const obj of tracked.objectives) {
@@ -533,23 +689,17 @@ function drawQuestTracker() {
     for (const w of wrapped) detailLines.push(w);
   }
 
-  // ---- 3) Calcula altura total ----
-  const totalLines = titleLines.length + detailLines.length;
-  // altura: título (TITLE_H) + linhas de detalhe + padding
   const boxH = PAD_Y * 2 + TITLE_H + (detailLines.length * LINE_H);
 
-  // ---- 4) Posiciona a caixa ----
   const bx = 10;
   const by = CANVAS_H - boxH - 10;
 
-  // ---- 5) Desenha fundo ----
   ctx.fillStyle = 'rgba(0,0,0,0.72)';
   ctx.fillRect(bx, by, MAX_W, boxH);
   ctx.strokeStyle = '#c9a24d';
   ctx.lineWidth = 1;
   ctx.strokeRect(bx + 0.5, by + 0.5, MAX_W - 1, boxH - 1);
 
-  // ---- 6) Desenha título (dourado) ----
   ctx.fillStyle = '#feca57';
   ctx.font = 'bold 11px "Courier New", monospace';
   ctx.textAlign = 'left';
@@ -560,7 +710,6 @@ function drawQuestTracker() {
     ty += TITLE_H;
   }
 
-  // ---- 7) Desenha detalhes (branco/cinza + verde se pronto) ----
   ctx.font = '10px "Courier New", monospace';
   ty = by + PAD_Y + TITLE_H + LINE_H / 2;
   for (let i = 0; i < detailLines.length; i++) {
@@ -571,8 +720,6 @@ function drawQuestTracker() {
   }
 }
 
-// Quebra um texto em linhas que caibam em maxW, respeitando palavras.
-// Retorna array de strings (sempre >= 1 linha).
 function wrapLines(text, maxW) {
   const words = text.split(' ');
   const lines = [];
@@ -596,7 +743,6 @@ function drawSandTile(room, x, y, px, py) {
   const dark = '#b89660';
   const light = '#d9bd88';
 
-  // Hash determinístico por tile
   let h = (x * 374761393 + y * 668265263) | 0;
   h = (h ^ (h >>> 13)) * 1274126177 | 0;
   const r = ((h ^ (h >>> 16)) >>> 0) / 4294967296;
@@ -604,7 +750,6 @@ function drawSandTile(room, x, y, px, py) {
   ctx.fillStyle = base;
   ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-  // Ruído fino
   if (r < 0.10) {
     ctx.fillStyle = dark;
     ctx.fillRect(px + 4 + Math.floor((r * 97) % 12), py + 6, 1, 1);
@@ -614,22 +759,16 @@ function drawSandTile(room, x, y, px, py) {
   }
 }
 
-// ---------- CHÃO DE AREIA PROCEDURAL ----------
-// Desenha cada tile de areia com ruído + algumas "dunas" (linhas longas)
-// O seed garante que a mesma sala sempre tem a mesma areia.
 function drawSandFloor(room, rng) {
-  // Paleta base
   const base      = '#c9a870';
   const baseDark  = '#b89660';
   const baseLight = '#d9bd88';
   const duneEdge  = '#a07f4f';
   const duneLight = '#e0c890';
 
-  // 1. Pinta o fundo todo de areia base
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // 2. Grão de areia (ruído fino)
   for (let y = 0; y < CANVAS_H; y += 2) {
     for (let x = 0; x < CANVAS_W; x += 2) {
       const r = rng();
@@ -643,17 +782,14 @@ function drawSandFloor(room, rng) {
     }
   }
 
-  // 3. Dunas: desenha algumas "linhas" com curva leve, seedado pela sala.
-  //    Espalhamos ~6 dunas por sala, com direções variadas.
   const numDunes = 5 + Math.floor(rng() * 4);
   for (let i = 0; i < numDunes; i++) {
     const startX = rng() * CANVAS_W;
     const startY = rng() * CANVAS_H;
     const len    = 60 + rng() * 120;
-    const angle  = (rng() - 0.5) * 0.8; // leve inclinação
+    const angle  = (rng() - 0.5) * 0.8;
     const curve  = (rng() - 0.5) * 20;
 
-    // Borda da duna (sombra)
     ctx.strokeStyle = duneEdge;
     ctx.lineWidth = 1;
     ctx.globalAlpha = 0.55;
@@ -667,7 +803,6 @@ function drawSandFloor(room, rng) {
     );
     ctx.stroke();
 
-    // Topo iluminado da duna (deslocado 1px pra cima)
     ctx.strokeStyle = duneLight;
     ctx.globalAlpha = 0.6;
     ctx.beginPath();
@@ -683,7 +818,6 @@ function drawSandFloor(room, rng) {
     ctx.globalAlpha = 1;
   }
 
-  // 4. "Pedrinhas" espalhadas (detalhe de textura)
   const numRocks = 8 + Math.floor(rng() * 8);
   for (let i = 0; i < numRocks; i++) {
     const x = rng() * CANVAS_W;
@@ -700,26 +834,22 @@ function drawOasis(landmark) {
   const cy = landmark.ty * TILE_SIZE + TILE_SIZE / 2;
   const t = performance.now() / 1000;
 
-  // Base de areia molhada
   ctx.fillStyle = 'rgba(90, 70, 40, 0.7)';
   ctx.beginPath();
   ctx.ellipse(cx, cy, 22, 16, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Água (elipse azul-esverdeada, com ondinha)
   const wave = Math.sin(t * 1.5) * 0.5;
   ctx.fillStyle = `rgba(74, 160, 180, ${0.85 + wave * 0.1})`;
   ctx.beginPath();
   ctx.ellipse(cx, cy, 16, 11, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Reflexo claro no centro
   ctx.fillStyle = `rgba(200, 240, 255, ${0.35 + wave * 0.1})`;
   ctx.beginPath();
   ctx.ellipse(cx - 3, cy - 2, 6, 3, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 4 palmeiras em volta (2 pequenas, 2 altas)
   const palms = [
     { dx: -18, dy: -10, h: 26 },
     { dx:  16, dy: -12, h: 30 },
@@ -729,14 +859,12 @@ function drawOasis(landmark) {
   for (const p of palms) {
     const px = cx + p.dx;
     const baseY = cy + p.dy;
-    // tronco
     ctx.strokeStyle = '#6b4a2a';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(px, baseY);
     ctx.lineTo(px + 2, baseY - p.h);
     ctx.stroke();
-    // folhas (leque)
     ctx.strokeStyle = '#3a7a3a';
     ctx.lineWidth = 2;
     for (let i = -2; i <= 2; i++) {
@@ -752,7 +880,6 @@ function drawOasis(landmark) {
     }
   }
 
-  // Borda dourada (marco da cidade)
   ctx.strokeStyle = 'rgba(201, 162, 77, 0.6)';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -760,24 +887,12 @@ function drawOasis(landmark) {
   ctx.stroke();
 }
 
-// ============================================================
-// RENDERIZAÇÃO DA CIDADE
-// ============================================================
 function renderCity(room) {
   const mid = Math.floor(GRID_SIZE / 2);
-
-  // Precisa bater com `plazaRadius` em `rooms.js` → `createCity`.
-  // Usado pra decidir onde é grama (miolo da praça) vs areia (resto).
   const PLAZA_RADIUS = 5;
 
-  // ============================================================
-  // CHÃO (grama, rua, praça)
-  // ============================================================
   const grassRng = makeRng(seedFrom(room.gx * 3, room.gy * 11));
 
-  // cidade do deserto pinta o chão de areia IGUAL às salas
-  // do deserto (textura + dunas + pedrinhas). O loop abaixo pula
-  // T.FLOOR/T.TREE pra não sobrescrever.
   if (room.biomeId === 'desert') {
     drawSandFloor(room, grassRng);
   }
@@ -789,8 +904,6 @@ function renderCity(room) {
       const py = y * TILE_SIZE;
 
       if (t === T.FLOOR || t === T.TREE) {
-        // Cidade do deserto: chão já foi pintado por drawSandFloor.
-        // Só o miolo da praça (perto do oásis) ganha grama por cima.
         if (room.biomeId === 'desert') {
           const dx = x - mid, dy = y - mid;
           const isPlazaInner = (dx*dx + dy*dy) <= (PLAZA_RADIUS - 1) * (PLAZA_RADIUS - 1);
@@ -803,7 +916,6 @@ function renderCity(room) {
             else if (roll < 0.25) gType = 1;
             ctx.drawImage(grassTiles[gType], px, py);
           }
-          // else: já é areia do drawSandFloor, não pinta nada
         } else {
           const roll = grassRng();
           let gType = 0;
@@ -814,9 +926,7 @@ function renderCity(room) {
           ctx.drawImage(grassTiles[gType], px, py);
         }
       } else if (t === T.STREET) {
-        // Rua: cor diferente por bioma pra contrastar com o chão
         if (room.biomeId === 'desert') {
-          // Deserto: rua de terra batida escura (contrasta com areia)
           ctx.fillStyle = '#8a6a48';
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
           if (((x * 7 + y * 13) % 5) === 0) {
@@ -828,7 +938,6 @@ function renderCity(room) {
             ctx.fillRect(px + 12, py + 14, 2, 1);
           }
         } else {
-          // Campos: rua clara (como já era)
           ctx.fillStyle = '#a8845a';
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
           if (((x * 7 + y * 13) % 5) === 0) {
@@ -867,8 +976,6 @@ function renderCity(room) {
     }
   }
 
-  // Grade (só em cidades de campo — no deserto ela "desenha" bordas
-  // em cima da areia e da rua, que já têm textura própria)
   if (room.biomeId == 'vulcan') {
     ctx.strokeStyle = '#5a5a6a';
     ctx.lineWidth = 1;
@@ -886,7 +993,6 @@ function renderCity(room) {
     ctx.globalAlpha = 1;
   }
 
-  // Sombras das casas
   for (const obj of room.cityObjects) {
     const sx = obj.tx * TILE_SIZE;
     const sy = obj.ty * TILE_SIZE;
@@ -897,24 +1003,20 @@ function renderCity(room) {
     ctx.fillRect(sx + 4, sy - 4, sw, 4);
   }
 
-  // ---------- CASAS ----------
   for (const obj of room.cityObjects) {
     drawBuilding(obj, room);
   }
 
-  // ---------- PORTAL ----------
   if (room.landmark?.kind === 'oasis' || room.portal?.kind === 'oasis') {
     drawOasis(room.landmark || room.portal);
   } else {
     drawPortalStatue(room.portal, mid);
   }
 
-  // ---------- ESTANDARTES ----------
   for (const obj of room.cityObjects) {
     drawBannerNextToDoor(obj);
   }
 
-  // ---------- PLACAS ----------
   for (const obj of room.cityObjects) {
     const signX = obj.signTx * TILE_SIZE + TILE_SIZE / 2;
     const signY = obj.signTy * TILE_SIZE + TILE_SIZE / 2;
@@ -932,7 +1034,6 @@ function renderCity(room) {
     ctx.fillRect(signX - 6, signY + 3, 12, 1);
   }
 
-  // Árvores (ou cactos, se for cidade do deserto)
   for (let y = 0; y < GRID_SIZE; y++) {
     for (let x = 0; x < GRID_SIZE; x++) {
       if (room.map[y][x] !== T.TREE) continue;
@@ -950,7 +1051,6 @@ function renderCity(room) {
     }
   }
 
-  // Folhas
   for (const L of getActiveLeaves()) {
     const tt = L.age / L.life;
     let color;
@@ -961,7 +1061,6 @@ function renderCity(room) {
     ctx.fillRect(Math.floor(L.x), Math.floor(L.y), 2, 2);
   }
 
-  // ---------- ILUMINAÇÃO NOTURNA (agora ANTES do prompt) ----------
   if (getTimeState().darkness > 0.01) {
     const lit = nightFactor();
     const lights = [];
@@ -989,7 +1088,6 @@ function renderCity(room) {
 
     applyDayNight(lights, player);
 
-    // Janelas emissivas redesenhadas POR CIMA da escuridão
     if (lit > 0) {
       ctx.fillStyle = windowColor(lit);
       for (const obj of room.cityObjects) {
@@ -998,7 +1096,6 @@ function renderCity(room) {
     }
   }
 
-  // ---------- PROMPT DE INTERAÇÃO (agora por cima de TUDO) ----------
   const it = playerStats._nearInteractable;
   if (it) {
     const cx = it.tx * TILE_SIZE + TILE_SIZE / 2;
@@ -1022,11 +1119,10 @@ function renderCity(room) {
     ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
-  // Companion (Herbalista) — desenha atrás do jogador
   if (playerStats._escortActive && playerStats._escortPos && isQuestActive('story_herbalist_escort')) {
     const c = playerStats._escortPos;
     const frame = NPC_SPRITES.herbalist.idle[0];
-    const scale = (player.size + 4) / 32;   // ← mesma escala do player
+    const scale = (player.size + 4) / 32;
     const w = 32 * scale;
     const h = 32 * scale;
     ctx.globalAlpha = 0.9;
@@ -1038,7 +1134,6 @@ function renderCity(room) {
     ctx.globalAlpha = 1;
   }
 
-  // ---------- JOGADOR ----------
   const composed = composeFrame(player.facing, player.step);
   const scale = (player.size + 4) / 32;
   ctx.drawImage(
@@ -1048,25 +1143,18 @@ function renderCity(room) {
     32 * scale, 32 * scale
   );
 
-  // ---------- HUD DE QUEST ----------
   drawQuestTracker();
 }
 
-// ============================================================
-// CASA COMPLETA (telhado + parede + porta + chaminé)
-// Desenhada por cima dos tiles de T.HOUSE.
-// ============================================================
 function drawBuilding(obj, room) {
   const x = obj.tx * TILE_SIZE;
   const y = obj.ty * TILE_SIZE;
   const w = obj.w * TILE_SIZE;
   const h = obj.h * TILE_SIZE;
 
-  // ---- PAREDE (madeira clara com tábuas horizontais) ----
   ctx.fillStyle = '#8a5a3a';
   ctx.fillRect(x, y + 4, w, h - 4);
 
-  // Tábuas horizontais
   ctx.strokeStyle = '#5a3a24';
   ctx.lineWidth = 1;
   for (let ty = y + 4; ty < y + h; ty += 8) {
@@ -1076,49 +1164,35 @@ function drawBuilding(obj, room) {
     ctx.stroke();
   }
 
-  // Sombra interna (lado direito e inferior)
   ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
   ctx.fillRect(x + w - 4, y + 4, 4, h - 4);
   ctx.fillRect(x, y + h - 4, w, 4);
 
-  // ---- TELHADO (inclinado, estilo chalé) ----
-  // Base do telhado (beiral)
   ctx.fillStyle = '#7a1a1a';
   ctx.fillRect(x - 4, y, w + 8, 14);
-  // Brilho do beiral
   ctx.fillStyle = '#9a2a2a';
   ctx.fillRect(x - 4, y, w + 8, 2);
-  // Sombra do beiral
   ctx.fillStyle = '#5a0a0a';
   ctx.fillRect(x - 4, y + 12, w + 8, 2);
 
-  // Telhas (fileiras verticais alternadas)
   ctx.fillStyle = '#6a0a0a';
   for (let tx = x - 4; tx < x + w + 4; tx += 6) {
     ctx.fillRect(tx, y + 2, 1, 10);
   }
 
-  // Crista do telhado (linha horizontal no topo)
   ctx.fillStyle = '#4a0a0a';
   ctx.fillRect(x - 4, y, w + 8, 2);
 
-  // ---- CHAMINÉ ----
-  // Posição: canto direito do telhado
   const chimX = x + w - 20;
   const chimY = y - 18;
-  // Corpo da chaminé
   ctx.fillStyle = '#5a4a3a';
   ctx.fillRect(chimX, chimY, 10, 22);
-  // Brilho
   ctx.fillStyle = '#7a6a5a';
   ctx.fillRect(chimX, chimY, 2, 22);
-  // Sombra
   ctx.fillStyle = '#3a2a1a';
   ctx.fillRect(chimX + 8, chimY, 2, 22);
-  // Topo da chaminé
   ctx.fillStyle = '#4a3a2a';
   ctx.fillRect(chimX - 2, chimY - 3, 14, 4);
-  // "Fumaça" (2-3 bolinhas semi-transparentes que sobem)
   const time = performance.now() / 1000;
   for (let i = 0; i < 3; i++) {
     const phase = (time + i * 0.6) % 2;
@@ -1131,7 +1205,6 @@ function drawBuilding(obj, room) {
     ctx.fill();
   }
 
-  // ---- JANELAS (2 por casa, sem porta) ----
   const lit = nightFactor();
   for (const r of windowRects(obj)) {
     ctx.fillStyle = '#2a2a3a';
@@ -1140,25 +1213,19 @@ function drawBuilding(obj, room) {
     ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
   }
 
-  // ---- PORTA (arco central, base) ----
   const doorW = 18;
   const doorH = 22;
   const doorX = x + w / 2 - doorW / 2;
   const doorY = y + h - doorH;
-  // Moldura
   ctx.fillStyle = '#4a2a1a';
   ctx.fillRect(doorX - 2, doorY - 2, doorW + 4, doorH + 2);
-  // Porta de madeira
   ctx.fillStyle = '#6b4a2b';
   ctx.fillRect(doorX, doorY, doorW, doorH);
-  // Tábuas verticais
   ctx.fillStyle = '#4a3018';
   ctx.fillRect(doorX + 5, doorY + 2, 1, doorH - 4);
   ctx.fillRect(doorX + 11, doorY + 2, 1, doorH - 4);
-  // Batente (maçaneta dourada)
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(doorX + doorW - 5, doorY + doorH / 2, 2, 2);
-  // Arco superior (semicírculo)
   ctx.fillStyle = '#4a2a1a';
   ctx.beginPath();
   ctx.arc(doorX + doorW / 2, doorY, doorW / 2 + 2, Math.PI, 0);
@@ -1172,20 +1239,15 @@ function drawBuilding(obj, room) {
 function windowRects(obj) {
   const x = obj.tx * TILE_SIZE, y = obj.ty * TILE_SIZE, w = obj.w * TILE_SIZE;
   const winW = 10, winH = 8, winY = y + 30;
-  // Só a janela esquerda: a direita é ocupada pelo estandarte da loja
   return [{ x: x + w * 0.25 - winW / 2, y: winY, w: winW, h: winH }];
 }
 
-// cinza-azulado de dia → dourado de noite
 function windowColor(lit) {
   const a = [90, 106, 122], b = [254, 202, 87];
   return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * lit)).join(',')})`;
 }
 
-// Adicionar no final de explore.js (ou antes de drawBannerNextToDoor):
 function drawBannerIcon(objId, cx, cy) {
-  // Desenha em coordenadas absolutas, com "centro" em (cx, cy).
-  // Usa fillRect com offset já arredondado pra garantir centro.
   const rect = (x, y, w, h, color) => {
     ctx.fillStyle = color;
     ctx.fillRect(Math.round(cx + x), Math.round(cy + y), w, h);
@@ -1193,44 +1255,39 @@ function drawBannerIcon(objId, cx, cy) {
 
   switch (objId) {
     case 'blacksmith': {
-      // Martelo + bigorna (7x7, centro em 0,0)
-      rect(-3, 3, 6, 1, '#1a1a1a');   // base da bigorna
-      rect(-2, 1, 4, 2, '#555');      // corpo da bigorna
-      rect(-1, -3, 1, 4, '#5a3a1a');  // cabo
-      rect(-2, -4, 3, 2, '#c0c8d0');  // cabeça do martelo
+      rect(-3, 3, 6, 1, '#1a1a1a');
+      rect(-2, 1, 4, 2, '#555');
+      rect(-1, -3, 1, 4, '#5a3a1a');
+      rect(-2, -4, 3, 2, '#c0c8d0');
       break;
     }
     case 'armorer': {
-      // Escudo (6x7, centro em 0,0)
-      rect(-3, -3, 6, 4, '#c9a24d');  // topo dourado
-      rect(-3, 1,  6, 2, '#9b1c1c');  // corpo
-      rect(-2, 3,  4, 1, '#9b1c1c');  // ponta inferior
-      rect(-1, -2, 2, 1, '#e0e0e0');  // emblema centralizado
+      rect(-3, -3, 6, 4, '#c9a24d');
+      rect(-3, 1,  6, 2, '#9b1c1c');
+      rect(-2, 3,  4, 1, '#9b1c1c');
+      rect(-1, -2, 2, 1, '#e0e0e0');
       break;
     }
     case 'herbalist': {
-      // Frasco (5x6, centro em 0,0)
-      rect(-2, -3, 4, 5, '#c8d8e8');  // vidro
-      rect(-2, -3, 4, 1, '#8a6b5a');  // tampa
-      rect(-1, -2, 2, 3, '#2a7a3a');  // líquido verde
-      rect( 1,  1, 2, 2, '#4f9a4a');  // folha (canto inf dir, OK)
+      rect(-2, -3, 4, 5, '#c8d8e8');
+      rect(-2, -3, 4, 1, '#8a6b5a');
+      rect(-1, -2, 2, 3, '#2a7a3a');
+      rect( 1,  1, 2, 2, '#4f9a4a');
       break;
     }
     case 'jeweler': {
-      // Gema losango (5x5, centro em 0,0)
-      rect(-1, -3, 2, 1, '#e8f6ff');  // topo
-      rect(-2, -2, 4, 1, '#8ad8ff');  // linha superior
-      rect(-2, -1, 4, 3, '#8ad8ff');  // corpo
-      rect(-1,  2, 2, 1, '#3aa0ff');  // linha inferior
-      rect( 0,  3, 1, 1, '#2a5fa0');  // ponta
+      rect(-1, -3, 2, 1, '#e8f6ff');
+      rect(-2, -2, 4, 1, '#8ad8ff');
+      rect(-2, -1, 4, 3, '#8ad8ff');
+      rect(-1,  2, 2, 1, '#3aa0ff');
+      rect( 0,  3, 1, 1, '#2a5fa0');
       break;
     }
     case 'quest_giver': {
-      // Pergaminho (5x7, centro em 0,0)
-      rect(-2, -3, 4, 7, '#f0e0c0');  // papel
-      rect(-1, -2, 2, 1, '#5a3a24');  // linha "texto" 1
-      rect(-1,  0, 2, 1, '#5a3a24');  // linha "texto" 2
-      rect(-1,  2, 2, 1, '#5a3a24');  // linha "texto" 3
+      rect(-2, -3, 4, 7, '#f0e0c0');
+      rect(-1, -2, 2, 1, '#5a3a24');
+      rect(-1,  0, 2, 1, '#5a3a24');
+      rect(-1,  2, 2, 1, '#5a3a24');
       break;
     }
     case 'bank': {
@@ -1246,9 +1303,6 @@ function drawBannerIcon(objId, cx, cy) {
   }
 }
 
-// ============================================================
-// ESTANDARTE AO LADO DA PORTA
-// ============================================================
 function drawBannerNextToDoor(obj) {
   const x = obj.tx * TILE_SIZE;
   const y = obj.ty * TILE_SIZE;
@@ -1261,13 +1315,11 @@ function drawBannerNextToDoor(obj) {
 
   const t = performance.now() / 1000;
 
-  // Mastro (fica parado — só o pano balança)
   ctx.fillStyle = '#5a3a1a';
   ctx.fillRect(bannerX - 2, bannerY, 12, 2);
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(bannerX + 10, bannerY - 1, 2, 4);
 
-  // Dimensões do pano
   const bannerW = 14;
   const bannerH = 20;
   const bx = bannerX - 1;
@@ -1283,71 +1335,45 @@ function drawBannerNextToDoor(obj) {
   };
   const bannerColor = bannerColors[obj.id] || '#8a1a1a';
 
-  // ------------------------------------------------------------
-  // Onda do pano:
-  //   - amplitude cresce com a distância do topo (ponta balança mais)
-  //   - phase global faz a onda "viajar" de cima pra baixo
-  //   - usamos segments de 1px pra ter um resultado suave
-  // ------------------------------------------------------------
-  const amplitudeMax = 1.8;   // px (quanto a ponta se desloca)
-  const waveSpeed = 1.8;      // velocidade da onda
+  const amplitudeMax = 1.8;
+  const waveSpeed = 1.8;
 
-  // Pré-calcula o deslocamento de cada linha (y local 0..bannerH)
   const offsets = [];
   for (let ly = 0; ly < bannerH; ly++) {
-    // fator 0 no topo (preso ao mastro), 1 na base
     const factor = ly / (bannerH - 1);
-    // onda viajando pra baixo + balanço lento
     const wave =
       Math.sin(t * waveSpeed - ly * 0.45) * amplitudeMax * factor +
       Math.sin(t * 1.1) * 0.4 * factor;
     offsets.push(wave);
   }
 
-  // ------------------------------------------------------------
-  // Desenha o pano como faixas horizontais de 1px, cada uma
-  // deslocada horizontalmente pelo `offsets[ly]`.
-  // ------------------------------------------------------------
   for (let ly = 0; ly < bannerH; ly++) {
     const ox = Math.round(offsets[ly]);
     ctx.fillStyle = bannerColor;
     ctx.fillRect(bx + ox, by + ly, bannerW, 1);
 
-    // sombra/borda interna: escurece as laterais do pano
-    // (só desenha nas 2 colunas mais externas, com alpha)
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(bx + ox, by + ly, 1, 1);
     ctx.fillRect(bx + ox + bannerW - 1, by + ly, 1, 1);
 
-    // brilho central (dá volume)
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     ctx.fillRect(bx + ox + 2, by + ly, bannerW - 4, 1);
   }
 
-  // ------------------------------------------------------------
-  // Borda dourada (também ondula, seguindo o mesmo offsets)
-  // ------------------------------------------------------------
   const borderColor = obj.id === 'bank' ? '#8a6a2a' : '#c9a24d';
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  // lado esquerdo de cima pra baixo
   ctx.moveTo(bx + Math.round(offsets[0]) + 0.5, by + 0.5);
   for (let ly = 1; ly < bannerH; ly++) {
     ctx.lineTo(bx + Math.round(offsets[ly]) + 0.5, by + ly + 0.5);
   }
-  // base esquerda → base direita (a "boca" do V ainda vem depois)
-  // lado direito de baixo pra cima
   for (let ly = bannerH - 1; ly >= 0; ly--) {
     ctx.lineTo(bx + Math.round(offsets[ly]) + bannerW - 0.5, by + ly + 0.5);
   }
   ctx.closePath();
   ctx.stroke();
 
-  // ------------------------------------------------------------
-  // Ponta inferior (V): o ponto central "cai" um pouco
-  // e também ondula lateralmente junto com a última linha.
-  // ------------------------------------------------------------
   const tipOffset = Math.round(offsets[bannerH - 1] + Math.sin(t * 2.2) * 0.8);
   const leftX  = bx + Math.round(offsets[bannerH - 1]);
   const rightX = leftX + bannerW;
@@ -1361,7 +1387,6 @@ function drawBannerNextToDoor(obj) {
   ctx.closePath();
   ctx.fill();
 
-  // Borda dourada do V
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -1370,12 +1395,8 @@ function drawBannerNextToDoor(obj) {
   ctx.lineTo(rightX - 0.5, by + bannerH + 0.5);
   ctx.stroke();
 
-  // ------------------------------------------------------------
-  // Ícone no centro — PARADO (não ondula, pra ficar legível).
-  // Centralizado na posição média das linhas, pra não "descolar".
-  // ------------------------------------------------------------
   let midSum = 0;
-  for (let ly = 6; ly < 16; ly++) midSum += offsets[ly]; // faixa do meio
+  for (let ly = 6; ly < 16; ly++) midSum += offsets[ly];
   const midOffset = midSum / 10;
 
   drawBannerIcon(
@@ -1385,29 +1406,16 @@ function drawBannerNextToDoor(obj) {
   );
 }
 
-// ============================================================
-// PORTAL ESTILIZADO (estátua + portal no centro)
-//
-// Visual dinâmico: o brilho e os orbes circulando escalam com
-// quantos núcleos foram INSERIDOS no portal.
-//   - 0 inseridos  → estado "inerte" (roxo fraco, sem orbes)
-//   - 1..7         → N orbes em órbita achatada, brilho cresce
-//   - 8            → brilho máximo, 8 orbes, halo dourado
-// ============================================================
 function drawPortalStatue(portal, mid) {
   const cx = portal.tx * TILE_SIZE + TILE_SIZE / 2;
   const cy = portal.ty * TILE_SIZE + TILE_SIZE / 2;
 
   const inserted = playerStats.portalInserted.size;
-  const intensity = inserted / 8;   // 0..1
+  const intensity = inserted / 8;
 
-  // Tempo compartilhado pra pulso/orbes
   const t = performance.now() / 600;
   const pulse = 0.5 + Math.sin(t) * 0.25;
 
-  // ------------------------------------------------------------
-  // 1) BASE DA ESTÁTUA (pedra)
-  // ------------------------------------------------------------
   ctx.fillStyle = '#8a8a9a';
   ctx.beginPath();
   ctx.arc(cx, cy, 20, 0, Math.PI * 2);
@@ -1416,7 +1424,6 @@ function drawPortalStatue(portal, mid) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Degraus concêntricos
   ctx.fillStyle = '#9a9aaa';
   ctx.beginPath();
   ctx.arc(cx, cy, 16, 0, Math.PI * 2);
@@ -1426,14 +1433,9 @@ function drawPortalStatue(portal, mid) {
   ctx.arc(cx, cy, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // ------------------------------------------------------------
-  // 2) HALO EXTERNO (cresce com intensidade)
-  //    Desenhado ANTES do núcleo pra ficar por baixo.
-  // ------------------------------------------------------------
   if (inserted > 0) {
     const haloRadius = 22 + intensity * 16 + Math.sin(t * 1.5) * 1.5;
     const haloGrd = ctx.createRadialGradient(cx, cy, 4, cx, cy, haloRadius);
-    // Cor: roxo → azul conforme intensidade sobe (fica mais "frio" e brilhante)
     const r = Math.round(200 - intensity * 40);
     const g = Math.round(150 + intensity * 60);
     const b = Math.round(255);
@@ -1446,17 +1448,12 @@ function drawPortalStatue(portal, mid) {
     ctx.fill();
   }
 
-  // ------------------------------------------------------------
-  // 3) NÚCLEO DO PORTAL (gradiente radial pulsante)
-  // ------------------------------------------------------------
   const coreGrd = ctx.createRadialGradient(cx, cy, 2, cx, cy, 12);
   if (inserted === 0) {
-    // inerte: roxo fraco
     coreGrd.addColorStop(0, `rgba(180, 160, 220, ${pulse * 0.5})`);
     coreGrd.addColorStop(0.3, `rgba(140, 110, 200, ${pulse * 0.4})`);
     coreGrd.addColorStop(1, 'rgba(80, 50, 140, 0)');
   } else {
-    // ativo: branco-quente no centro, roxo/azul na borda
     coreGrd.addColorStop(0,   `rgba(255, 255, 255, ${0.65 + intensity * 0.35})`);
     coreGrd.addColorStop(0.3, `rgba(210, 170, 255, ${0.55 + intensity * 0.35})`);
     coreGrd.addColorStop(1,   'rgba(120, 60, 180, 0)');
@@ -1466,7 +1463,6 @@ function drawPortalStatue(portal, mid) {
   ctx.arc(cx, cy, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // Anel mágico girando (só se tem pelo menos 1)
   if (inserted > 0) {
     ctx.strokeStyle = `rgba(220, 180, 255, ${0.5 + intensity * 0.4})`;
     ctx.lineWidth = 1.5 + intensity * 0.8;
@@ -1475,13 +1471,9 @@ function drawPortalStatue(portal, mid) {
     ctx.stroke();
   }
 
-  // ------------------------------------------------------------
-  // 4) ORBES CIRCULANDO — um por núcleo inserido
-  //    Órbita achatada (perspectiva), velocidade cresce com intensidade
-  // ------------------------------------------------------------
   if (inserted > 0) {
     const orbitRadius = 11 + intensity * 4;
-    const orbitSquash = 0.5;   // 0.5 = metade da altura (elipse achatada)
+    const orbitSquash = 0.5;
     const orbitSpeed  = 1.2 + intensity * 0.9;
     const orbSize     = 1.5 + intensity * 0.8;
 
@@ -1490,7 +1482,6 @@ function drawPortalStatue(portal, mid) {
       const ox = cx + Math.cos(angle) * orbitRadius;
       const oy = cy + Math.sin(angle) * orbitRadius * orbitSquash;
 
-      // Brilho do orbe
       const og = ctx.createRadialGradient(ox, oy, 0, ox, oy, 5);
       og.addColorStop(0, 'rgba(230, 240, 255, 1)');
       og.addColorStop(0.5, `rgba(180, 200, 255, ${0.7})`);
@@ -1500,7 +1491,6 @@ function drawPortalStatue(portal, mid) {
       ctx.arc(ox, oy, 5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Ponto sólido (núcleo do orbe)
       ctx.fillStyle = '#eaf4ff';
       ctx.beginPath();
       ctx.arc(ox, oy, orbSize, 0, Math.PI * 2);
@@ -1508,7 +1498,6 @@ function drawPortalStatue(portal, mid) {
     }
   }
 
-  // Partículas pequenas ao redor (só quando tem pelo menos 1)
   if (inserted > 0) {
     for (let i = 0; i < 4; i++) {
       const angle = (t * 1.4 + i * Math.PI / 2) % (Math.PI * 2);
@@ -1519,21 +1508,15 @@ function drawPortalStatue(portal, mid) {
     }
   }
 
-  // ------------------------------------------------------------
-  // 5) BORDA DOURADA DA BASE
-  //    Quando todos os 8 núcleos estão inseridos, fica mais grossa
-  //    e com brilho (sinal visual de "completo").
-  // ------------------------------------------------------------
   const completed = inserted >= 8;
   ctx.strokeStyle = completed
-    ? `rgba(254, 202, 87, ${0.9 + Math.sin(t * 3) * 0.1})`   // dourado pulsante
+    ? `rgba(254, 202, 87, ${0.9 + Math.sin(t * 3) * 0.1})`
     : '#c9a24d';
   ctx.lineWidth = completed ? 2.5 : 1.5;
   ctx.beginPath();
   ctx.arc(cx, cy, 20, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Halo dourado extra quando completo
   if (completed) {
     const extraGrd = ctx.createRadialGradient(cx, cy, 18, cx, cy, 30);
     extraGrd.addColorStop(0, 'rgba(254, 202, 87, 0.35)');
@@ -1545,41 +1528,33 @@ function drawPortalStatue(portal, mid) {
   }
 }
 
-// ============================================================
-// FONTE (3x3)
-// ============================================================
 function drawFountain(tx, ty, tilesW = 3, tilesH = 3) {
   const x = tx * TILE_SIZE;
   const y = ty * TILE_SIZE;
   const w = tilesW * TILE_SIZE;
   const h = tilesH * TILE_SIZE;
 
-  // Base circular (pedra)
   ctx.fillStyle = '#7a7a8a';
   ctx.beginPath();
   ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Borda interna
   ctx.fillStyle = '#6a6a7a';
   ctx.beginPath();
   ctx.ellipse(x + w / 2, y + h / 2, w / 2 - 2, h / 2 - 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Água
   const t = performance.now() / 400;
   ctx.fillStyle = `rgba(74, 144, 226, ${0.7 + Math.sin(t) * 0.1})`;
   ctx.beginPath();
   ctx.ellipse(x + w / 2, y + h / 2, w / 2 - 5, h / 2 - 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Jato central
   ctx.fillStyle = '#8ad8ff';
   ctx.beginPath();
   ctx.arc(x + w / 2, y + h / 2, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Gotas
   for (let i = 0; i < 3; i++) {
     const phase = (t + i * 0.5) % 1;
     const dropY = y + h / 2 - 10 - Math.sin(phase * Math.PI) * 8;
@@ -1593,33 +1568,21 @@ function renderInterior(room) {
   const cols = room.cols;
   const rows = room.rows;
 
-  // Offset para centralizar a sala no canvas
   const roomW = cols * TILE_SIZE;
   const roomH = rows * TILE_SIZE;
   const offX = Math.floor((CANVAS_W - roomW) / 2);
   const offY = Math.floor((CANVAS_H - roomH) / 2);
 
-  // Fundo do canvas inteiro (fica bonito se a sala for menor)
   ctx.fillStyle = '#0f0f1a';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // ============================================================
-  // CHÃO DE MADEIRA — tábuas horizontais contínuas
-  // ============================================================
-  const BOARD_H = TILE_SIZE; // altura de cada tábua (20px)
+  const BOARD_H = TILE_SIZE;
   const numBoards = Math.ceil(rows * TILE_SIZE / BOARD_H);
 
-  // Paleta das tábuas (tons do assoalho)
   const BOARD_COLORS = [
-    '#6b4a2b', // médio
-    '#6e4c2c',
-    '#65472a', // mais escuro
-    '#714f2e', // mais claro
-    '#6b4a2b',
-    '#68472a',
+    '#6b4a2b', '#6e4c2c', '#65472a', '#714f2e', '#6b4a2b', '#68472a',
   ];
 
-  // Hash determinístico simples por índice de tábua
   function boardHash(i) {
     let h = 2166136261 ^ i;
     h = Math.imul(h, 16777619);
@@ -1628,37 +1591,29 @@ function renderInterior(room) {
 
   for (let b = 0; b < numBoards; b++) {
     const py = offY + b * BOARD_H;
-    // Se a tábua passou do limite inferior da sala, apara
     const drawH = Math.min(BOARD_H, offY + rows * TILE_SIZE - py);
     if (drawH <= 0) break;
 
     const color = BOARD_COLORS[Math.floor(boardHash(b) * BOARD_COLORS.length)];
 
-    // Corpo da tábua (faixa horizontal)
     ctx.fillStyle = color;
     ctx.fillRect(offX, py, roomW, drawH);
 
-    // Linha de separação (junta) entre tábuas
-    // Desenha só a linha de cima da tábua (a de baixo é da próxima)
     ctx.fillStyle = '#3a2410';
     ctx.fillRect(offX, py, roomW, 1);
 
-    // Brilho sutil na parte de cima da tábua (dá volume)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
     ctx.fillRect(offX, py + 1, roomW, 1);
 
-    // Sombra sutil na parte de baixo
     ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
     ctx.fillRect(offX, py + drawH - 2, roomW, 2);
 
-    // Opcional: "nó de madeira" ocasional em algumas tábuas
     const h = boardHash(b);
     if (h < 0.35) {
-      const knots = 1 + Math.floor(h * 3); // 1 a 2 nós
+      const knots = 1 + Math.floor(h * 3);
       for (let k = 0; k < knots; k++) {
         const kx = offX + ((h * 977 + k * 331) % 1) * roomW;
         const ky = py + drawH * 0.5;
-        // nó: 2 pixels mais escuros
         ctx.fillStyle = 'rgba(40, 20, 8, 0.45)';
         ctx.fillRect(Math.floor(kx), Math.floor(ky), 2, 1);
         ctx.fillStyle = 'rgba(40, 20, 8, 0.25)';
@@ -1667,7 +1622,6 @@ function renderInterior(room) {
     }
   }
 
-  // Paredes / porta / mesa
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = room.map[y][x];
@@ -1696,10 +1650,7 @@ function renderInterior(room) {
     }
   }
 
-  // NPC
   const npc = room.npc;
-  // Se a Herbalista saiu pra colher ervas (quest ativa), não desenha
-  // ela na loja — o sprite dela está "no mundo", na sala -5,-2.
   const herbalistIsOut =
     npc && npc.buildingId === 'herbalist' && isQuestActive('story_herbalist_escort');
 
@@ -1713,7 +1664,6 @@ function renderInterior(room) {
     ctx.globalAlpha = 1;
   }
 
-  // Prompt de interação (tanto herbalista quanto ancião)
   const it = playerStats._nearInteractable;
   if (it && (it.kind === 'shop_keep' || it.kind === 'herbalist_quest' || it.kind === 'blacksmith_quest'  || it.kind === 'elder' || it.kind === 'banker')) {
     const cx = offX + it.tx * TILE_SIZE + TILE_SIZE / 2;
@@ -1746,7 +1696,6 @@ function renderInterior(room) {
     ctx.fillText(text, cx, cy - h / 2 + 1);
   }
 
-  // Jogador
   const composed = composeFrame(player.facing, player.step);
   const scale = (player.size + 4) / 32;
   ctx.drawImage(
@@ -1758,45 +1707,37 @@ function renderInterior(room) {
 
   const time = getTimeState();
   if (time.darkness > 0.3) {
-    // só uma penumbra MUITO leve — interiores têm velas/lampiões
     ctx.fillStyle = `rgba(20, 15, 30, ${0.18 * time.darkness})`;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
 }
 
 function drawLostBackpack(px, py) {
-  // Sombra no chão
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 8, 3, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Corpo da mochila (couro)
   const bx = px + 4;
   const by = py + 6;
   const bw = TILE_SIZE - 8;
   const bh = TILE_SIZE - 8;
 
-  // Corpo
   ctx.fillStyle = '#6b4a2b';
   ctx.fillRect(bx, by, bw, bh);
 
-  // Tampa
   ctx.fillStyle = '#4a3018';
   ctx.fillRect(bx, by, bw, 4);
 
-  // Fivela (dourado)
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(bx + bw / 2 - 1, by + 4, 2, 3);
 
-  // Alça
   ctx.strokeStyle = '#3a2410';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(bx + bw / 2, by - 1, 4, Math.PI, 0);
   ctx.stroke();
 
-  // Um brilho sutil pra chamar atenção (pulsante)
   const t = performance.now() / 500;
   const pulse = 0.3 + Math.sin(t) * 0.15;
   ctx.fillStyle = `rgba(254, 202, 87, ${pulse})`;
@@ -1805,48 +1746,36 @@ function drawLostBackpack(px, py) {
   ctx.fill();
 }
 
-// ============================================================
-// ERVAS (quest da Herbalista)
-// Desenha cada interactable `kind: 'herb'` que ainda existe na
-// sala (o input.js remove do `room.interactables` ao coletar).
-// Sprite desenhado "por cima" do tile, com glow pulsante pra
-// chamar atenção.
-// ============================================================
 function drawHerbs(room) {
   if (!room || !room.interactables) return;
   if (!isQuestActive('story_herbalist_escort')) return;
-  if (!playerStats._escortActive) return;  // só depois de falar com ela
+  if (!playerStats._escortActive) return;
 
   const now = performance.now() / 500;
   const pulse = 0.4 + Math.sin(now) * 0.2;
 
   for (const it of room.interactables) {
     if (it.kind !== 'herb') continue;
-    if (playerStats._collectedHerbs?.has(it.id)) continue; 
+    if (playerStats._collectedHerbs?.has(it.id)) continue;
     const px = it.tx * TILE_SIZE;
     const py = it.ty * TILE_SIZE;
     const cx = px + TILE_SIZE / 2;
     const cy = py + TILE_SIZE / 2;
 
-    // Sombra no chão
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     ctx.ellipse(cx, py + TILE_SIZE - 3, 7, 2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glow verde pulsante atrás (chama atenção)
     const grd = ctx.createRadialGradient(cx, cy, 1, cx, cy, 14);
     grd.addColorStop(0, `rgba(120, 220, 140, ${pulse * 0.5})`);
     grd.addColorStop(1, 'rgba(120, 220, 140, 0)');
     ctx.fillStyle = grd;
     ctx.fillRect(cx - 14, cy - 14, 28, 28);
 
-    // Caule (fino, verde escuro)
     ctx.fillStyle = '#3a6b2a';
     ctx.fillRect(cx - 1, cy - 2, 2, 8);
 
-    // 3 folhas (silhueta de "erva")
-    // Folha esquerda
     ctx.fillStyle = '#6fbd63';
     ctx.beginPath();
     ctx.moveTo(cx - 1, cy + 1);
@@ -1855,7 +1784,6 @@ function drawHerbs(room) {
     ctx.closePath();
     ctx.fill();
 
-    // Folha direita
     ctx.fillStyle = '#8ad88a';
     ctx.beginPath();
     ctx.moveTo(cx + 1, cy);
@@ -1864,7 +1792,6 @@ function drawHerbs(room) {
     ctx.closePath();
     ctx.fill();
 
-    // Folha central (a mais alta)
     ctx.fillStyle = '#a8e8a8';
     ctx.beginPath();
     ctx.moveTo(cx - 2, cy);
@@ -1873,22 +1800,15 @@ function drawHerbs(room) {
     ctx.closePath();
     ctx.fill();
 
-    // Brilho no topo da folha central
     ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
     ctx.fillRect(cx - 1, cy - 7, 1, 2);
   }
 }
 
-// ============================================================
-// HERBALISTA (parada na sala -5,-2, antes de virar companion)
-// Desenhada só enquanto a quest está ativa E o jogador ainda
-// não falou com ela. Depois disso, ela vira companion e é
-// desenhada atrás do jogador pelo bloco de companion.
-// ============================================================
 function drawHerbalistEscort(room) {
   if (!room || !room.interactables) return;
   if (!isQuestActive('story_herbalist_escort')) return;
-  if (playerStats._escortActive) return; // já virou companion
+  if (playerStats._escortActive) return;
 
   const it = room.interactables.find(x => x.kind === 'herbalist_escort');
   if (!it) return;
@@ -1896,13 +1816,11 @@ function drawHerbalistEscort(room) {
   const px = it.tx * TILE_SIZE;
   const py = it.ty * TILE_SIZE;
 
-  // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 10, 3, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Sprite da Herbalista (mesmo frame idle da loja)
   const sprites = NPC_SPRITES.herbalist;
   const frame = sprites.idle[0];
   ctx.globalAlpha = 0.95;
@@ -1916,7 +1834,6 @@ function drawHerbalistEscort(room) {
 }
 
 function drawCaveEntrance(px, py, room) {
-  // Decide o estilo: 'desert' (gruta de areia) ou 'cave' (buraco rochoso)
   const theme = room?.dungeonTheme
     || (room?.interactables?.find(it => it.kind === 'cave_entrance' && it.tx * TILE_SIZE === px)?.dungeonTheme)
     || 'cave';
@@ -1928,34 +1845,22 @@ function drawCaveEntrance(px, py, room) {
   }
 }
 
-// ============================================================
-// ENTRADA DA CAVERNA
-// Desenhada num tile de 20x20, mas com um "morcego" e um brilho
-// pra chamar atenção. A entrada em si é um buraco escuro.
-// ============================================================
-
 function drawRockyCaveEntrance(px, py) {
   const cx = px + TILE_SIZE / 2;
   const cy = py + TILE_SIZE / 2;
 
-  // 1. Salva o estado do contexto para não afetar os próximos tiles
   ctx.save();
 
-  // 2. Desenha a grama de fundo neste tile específico para "limpar" o local
-  // (Isso garante que não haja nada desenhado por baixo que possa ser misturado)
-  const grassFrame = grassTiles[0]; // Usa a grama padrão
+  const grassFrame = grassTiles[0];
   if (grassFrame) {
     ctx.drawImage(grassFrame, px, py, TILE_SIZE, TILE_SIZE);
   }
 
-  // 3. A partir daqui, desenhamos a caverna por cima
-  // Base de pedra (pedras irregulares em volta da entrada)
   ctx.fillStyle = '#4a4a52';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 4, 14, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Pedras menores em volta (detalhe)
   ctx.fillStyle = '#5a5a62';
   for (let i = 0; i < 5; i++) {
     const angle = (i / 5) * Math.PI * 2;
@@ -1966,41 +1871,33 @@ function drawRockyCaveEntrance(px, py) {
     ctx.fill();
   }
 
-  // Buraco escuro (a entrada em si)
   ctx.fillStyle = '#0a0a12';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Borda interna mais clara (profundidade)
   ctx.strokeStyle = '#2a2a32';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Brilho pulsante saindo do buraco (chama atenção)
   const t = performance.now() / 600;
   const pulse = 0.3 + Math.sin(t) * 0.15;
-  
-  // O SEGREDO: Em vez de um gradiente radial que vaza, usamos um gradiente
-  // que é mascarado pela área do tile, ou simplesmente desenhamos o brilho
-  // de forma mais controlada.
+
   const grd = ctx.createRadialGradient(cx, cy + 2, 2, cx, cy + 2, 12);
   grd.addColorStop(0, `rgba(120, 60, 160, ${pulse})`);
   grd.addColorStop(1, 'rgba(120, 60, 160, 0)');
-  
+
   ctx.fillStyle = grd;
   ctx.beginPath();
-  // Usamos um clip (recorte) para garantir que o brilho não saia do tile
   ctx.rect(px, py, TILE_SIZE, TILE_SIZE);
   ctx.clip();
-  
+
   ctx.beginPath();
   ctx.arc(cx, cy + 2, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // "Morcegos" (dois pontinhos pretos voando em círculo)
   for (let i = 0; i < 2; i++) {
     const angle = t * 2 + i * Math.PI;
     const bx = cx + Math.cos(angle) * 10;
@@ -2009,69 +1906,53 @@ function drawRockyCaveEntrance(px, py) {
     ctx.fillRect(bx - 1, by, 2, 2);
   }
 
-  // 4. Restaura o contexto
   ctx.restore();
 }
 
-// ============================================================
-// ENTRADA DA GRUTA DE AREIA (deserto)
-// Degraus de pedra descendo, areia compactada, brilho dourado.
-// Sem morcegos, sem grama. É uma "boca de pirâmide".
-// ============================================================
 function drawDesertCaveEntrance(px, py) {
   const cx = px + TILE_SIZE / 2;
   const cy = py + TILE_SIZE / 2;
 
   ctx.save();
 
-  // 1) Base de areia compactada (limpa o chão do deserto)
   ctx.fillStyle = '#c9a870';
   ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-  // Ruído de areia compactada
   ctx.fillStyle = '#a8854a';
   ctx.fillRect(px + 2, py + 3, 1, 1);
   ctx.fillRect(px + 14, py + 5, 1, 1);
   ctx.fillRect(px + 7, py + 15, 1, 1);
 
-  // 2) Aro de pedra (borda externa, mais escura)
   ctx.fillStyle = '#6b4a2a';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 3, 10, 6.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3) Aro interno (pedra mais clara)
   ctx.fillStyle = '#a07a50';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 3, 8.5, 5.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 4) Degraus de pedra descendo (3 faixas horizontais)
-  // Faixa 1 (topo, mais larga)
   ctx.fillStyle = '#8a6a48';
   ctx.fillRect(cx - 6, cy + 1, 12, 1);
   ctx.fillStyle = '#5a4020';
   ctx.fillRect(cx - 6, cy + 2, 12, 1);
 
-  // Faixa 2 (meio)
   ctx.fillStyle = '#7a5a3a';
   ctx.fillRect(cx - 4.5, cy + 3, 9, 1);
   ctx.fillStyle = '#4a3018';
   ctx.fillRect(cx - 4.5, cy + 4, 9, 1);
 
-  // Faixa 3 (fundo, mais estreita, escura)
   ctx.fillStyle = '#5a4020';
   ctx.fillRect(cx - 3, cy + 5, 6, 1);
   ctx.fillStyle = '#1a0e08';
   ctx.fillRect(cx - 3, cy + 6, 6, 1);
 
-  // 5) Buraco escuro no centro (fundo da gruta)
   ctx.fillStyle = '#0a0806';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 5, 4.5, 2.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 6) Brilho dourado pulsante subindo do buraco
   const t = performance.now() / 600;
   const pulse = 0.3 + Math.sin(t) * 0.15;
   const grd = ctx.createRadialGradient(cx, cy + 4, 1, cx, cy + 2, 9);
@@ -2085,7 +1966,6 @@ function drawDesertCaveEntrance(px, py) {
   ctx.arc(cx, cy + 2, 9, 0, Math.PI * 2);
   ctx.fill();
 
-  // 7) Partículas de areia subindo em espiral (vento)
   for (let i = 0; i < 3; i++) {
     const phase = (t * 0.8 + i * 0.33) % 1;
     const angle = phase * Math.PI * 2 + i;
@@ -2096,7 +1976,6 @@ function drawDesertCaveEntrance(px, py) {
     ctx.fillRect(sx, sy, 1, 1);
   }
 
-  // 8) Hieróglifo sutil no topo (2-3 pixels, marca de tumba antiga)
   ctx.fillStyle = `rgba(254, 202, 87, ${0.4 + pulse * 0.3})`;
   ctx.fillRect(cx - 2, cy - 5, 1, 1);
   ctx.fillRect(cx - 1, cy - 6, 2, 1);
@@ -2115,7 +1994,7 @@ function drawCage(room) {
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fillRect(x + 1, y + s - 3, s - 2, 3);
 
-  if (!freed) {                       // aldeão dentro
+  if (!freed) {
     ctx.fillStyle = '#c98b5a';
     ctx.beginPath(); ctx.arc(x + s / 2, y + s * 0.32, s * 0.16, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#6b4f8a';
@@ -2127,7 +2006,7 @@ function drawCage(room) {
   ctx.fillRect(x, y, s, 3);
 
   ctx.fillStyle = '#8a8a99';
-  for (const i of (freed ? [0, 4] : [0, 1, 2, 3, 4])) {   // aberta: só as barras das pontas
+  for (const i of (freed ? [0, 4] : [0, 1, 2, 3, 4])) {
     ctx.fillRect(x + (i * (s - 2)) / 4, y + 3, 2, s - 7);
   }
 }
@@ -2145,30 +2024,22 @@ function drawFloorTorch(room) {
   const now = performance.now() / 1000;
   const flicker = 0.85 + Math.sin(now * 9) * 0.1 + Math.sin(now * 23) * 0.05;
 
-  // 1) Glow quente MUITO sutil no chão (embaixo de tudo).
-  //    Raio pequeno e alpha baixo — só dá "calor" pra área, sem apagar
-  //    o cabo nem a jaula.
   const warmGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
   warmGrd.addColorStop(0, 'rgba(255, 170, 80, 0.10)');
   warmGrd.addColorStop(1, 'rgba(255, 170, 80, 0)');
   ctx.fillStyle = warmGrd;
   ctx.fillRect(cx - 30, cy - 30, 60, 60);
 
-  // 2) Sombra no chão
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 7, 6, 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3) Cabo (madeira) — desenhado DEPOIS do glow quente,
-  //    pra ficar visível mesmo com a luz forte.
   ctx.fillStyle = '#5a3a1a';
   ctx.fillRect(cx - 1, cy - 6, 2, 12);
-  // Brilho no cabo (dá leitura 3D)
   ctx.fillStyle = 'rgba(160, 120, 70, 0.5)';
   ctx.fillRect(cx - 1, cy - 6, 1, 12);
 
-  // 4) Chama (3 camadas, com flicker)
   const flameH = 6 * flicker;
   ctx.fillStyle = 'rgba(255, 120, 30, 0.9)';
   ctx.beginPath();
@@ -2192,9 +2063,6 @@ function drawFloorTorch(room) {
   ctx.fill();
 }
 
-// ============================================================
-// ACAMPAMENTO — Fogueira (sprite próprio, acesa/apagada)
-// ============================================================
 function drawCampfire(pos) {
   if (!pos) return;
   const px = pos.tx * TILE_SIZE;
@@ -2203,16 +2071,12 @@ function drawCampfire(pos) {
 
   if (isNight) {
     const frame = campfireFrames.on[Math.floor(performance.now() / 300) % 2];
-    // Desenha em 2×2 tiles (40×40), a partir do canto sup-esq do pos.tx/ty
     ctx.drawImage(frame, px, py, TILE_SIZE * 2, TILE_SIZE * 2);
   } else {
     ctx.drawImage(campfireFrames.off[0], px, py, TILE_SIZE * 2, TILE_SIZE * 2);
   }
 }
 
-// ============================================================
-// ACAMPAMENTO — Estandarte de Aethel (no chão, perto da fogueira)
-// ============================================================
 function drawBannerInCamp(pos) {
   if (!pos) return;
   const px = pos.tx * TILE_SIZE;
@@ -2222,13 +2086,11 @@ function drawBannerInCamp(pos) {
 
   const t = performance.now() / 1000;
 
-  // Sombra no chão
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
   ctx.ellipse(cx, py + TILE_SIZE - 2, 8, 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Glow dourado (chama atenção)
   const pulse = 0.4 + Math.sin(t * 1.5) * 0.2;
   const grd = ctx.createRadialGradient(cx, cy, 1, cx, cy, 16);
   grd.addColorStop(0, `rgba(254, 202, 87, ${pulse * 0.4})`);
@@ -2236,24 +2098,19 @@ function drawBannerInCamp(pos) {
   ctx.fillStyle = grd;
   ctx.fillRect(cx - 16, cy - 16, 32, 32);
 
-  // Mastro
   ctx.fillStyle = '#5a3a1a';
   ctx.fillRect(cx - 1, cy - 10, 2, 14);
-  // Ponta dourada
   ctx.fillStyle = '#feca57';
   ctx.fillRect(cx - 1, cy - 11, 2, 1);
 
-  // Pano (vermelho com borda dourada, ondulando levemente)
   const sway = Math.sin(t * 2) * 1;
   const bx = cx - 6 + sway;
   const by = cy - 8;
   ctx.fillStyle = '#9b1c1c';
   ctx.fillRect(bx, by, 8, 6);
-  // Borda dourada
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(bx, by, 8, 1);
   ctx.fillRect(bx, by + 5, 8, 1);
-  // Emblema
   ctx.fillStyle = '#feca57';
   ctx.fillRect(bx + 3, by + 2, 2, 2);
 }
@@ -2264,10 +2121,7 @@ function drawTreasureChest(room) {
   const s = TILE_SIZE;
   const x = c.tx * s, y = c.ty * s;
 
-  // Só desenha se ainda não foi aberto
-  // (o estado "aberto" fica em currentRoom._chestOpened)
   if (room._chestOpened) {
-    // baú aberto: tampa pra cima, interior escuro
     ctx.fillStyle = '#4a2a10';
     ctx.fillRect(x + 2, y + s - 12, s - 4, 10);
     ctx.fillStyle = '#1a0f08';
@@ -2277,20 +2131,15 @@ function drawTreasureChest(room) {
     return;
   }
 
-  // Baú fechado
-  // Corpo (madeira)
   ctx.fillStyle = '#6b4a2b';
   ctx.fillRect(x + 2, y + s - 12, s - 4, 10);
-  // Tampa (madeira mais escura)
   ctx.fillStyle = '#4a3018';
   ctx.fillRect(x + 2, y + s - 14, s - 4, 4);
-  // Faixa dourada
   ctx.fillStyle = '#c9a24d';
   ctx.fillRect(x + 2, y + s - 9, s - 4, 1);
-  // Fechadura
   ctx.fillStyle = '#f0d27a';
   ctx.fillRect(x + s / 2 - 1, y + s - 8, 2, 3);
-  // Brilho sutil pulsante
+
   const t = performance.now() / 500;
   const pulse = 0.25 + Math.sin(t) * 0.1;
   ctx.fillStyle = `rgba(254, 202, 87, ${pulse})`;
@@ -2299,15 +2148,10 @@ function drawTreasureChest(room) {
   ctx.fill();
 }
 
-// ============================================================
-// ACAMPAMENTO — Cones de visão dos goblins
-// Gradiente vermelho bem fraco, com fade na borda.
-// Some à noite (goblins dormem).
-// ============================================================
 function drawGoblinCones(room) {
   if (!room || !room.enemies) return;
   const time = getTimeState();
-  if (time.label === 'Noite') return;   // dormindo, sem cone
+  if (time.label === 'Noite') return;
 
   for (const e of room.enemies) {
     if (e.defeated || e.asleep || !e.cone || !e.questGoblin) continue;
@@ -2324,24 +2168,20 @@ function drawGoblinCones(room) {
     const rangePx = e.cone.range * TILE_SIZE;
     const halfAngle = (e.cone.angle / 2) * Math.PI / 180;
 
-    // Ângulo central do cone (em radianos)
     const baseAngle = Math.atan2(dirVec.y, dirVec.x);
 
-    // Gradiente radial: mais forte no centro, some na borda
     const grd = ctx.createRadialGradient(cx, cy, 4, cx, cy, rangePx);
     grd.addColorStop(0,   'rgba(255, 60, 60, 0.18)');
     grd.addColorStop(0.6, 'rgba(255, 60, 60, 0.08)');
     grd.addColorStop(1,   'rgba(255, 60, 60, 0)');
     ctx.fillStyle = grd;
 
-    // Desenha o setor (fatia de pizza) do cone
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, rangePx, baseAngle - halfAngle, baseAngle + halfAngle);
     ctx.closePath();
     ctx.fill();
 
-    // Linha sutil no meio (mostra a direção)
     ctx.strokeStyle = 'rgba(255, 100, 100, 0.12)';
     ctx.lineWidth = 1;
     ctx.beginPath();

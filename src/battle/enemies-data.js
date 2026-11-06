@@ -96,14 +96,14 @@ export const ENEMIES = {
   // ============================================================
   scorpion_giant: {
     name: 'Escorpião Gigante',
-    hp: 90, maxHp: 90, atk: 12, def: 5, xp: 140,
+    hp: 75, maxHp: 75, atk: 11, def: 4, xp: 140,
     goldMin: 40, goldMax: 80,
     poisonChance: 0.5,
-    poisonDmgMul: 0.35,   // veneno mais forte que o do escorpião comum
-    defPen: 0.4,
-    magicResist: 0.15,
+    poisonDmgMul: 0.30,
+    defPen: 0.30,
+    magicResist: 0.12,
     chargeChance: 0.4,
-    chargeMul: 2.0,
+    chargeMul: 1.9,
     isMiniboss: true,
   },
   guardian_fields: {
