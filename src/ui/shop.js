@@ -43,7 +43,7 @@ const SHOP_INVENTORY = {
     ],
     akmira: [
       'iron_shield','runic_shield',
-      'iron_helmet', 'iron_armor',
+      'iron_helmet', 'iron_armor', 'iron_boots',
       'runic_helmet', 'runic_armor', 'runic_boots',
       'shadowstep_boots',
     ],
