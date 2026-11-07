@@ -169,4 +169,5 @@ export const ABILITIES = {
   mummy:   [mummyCharge],
   scarab:  [scarabBuff],
   scorpion_giant: [scorpionGiantCharge, scorpionGiantFerrão],
+  raider_leader: [goblinCharge],
 };

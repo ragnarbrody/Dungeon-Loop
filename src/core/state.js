@@ -8,7 +8,7 @@ import { loadKnowledge, serializeKnowledge, revealRoom, addMarker, revealMarker,
 import {
   serializeQuests, loadQuests, setInventoryGetter, setVisitedRoomsGetter,
   setKnowledgeFunctions, setDungeonCacheGetter, setCurrentRoomGetter,
-  setRevealRoomFn,
+  setRevealRoomFn, setForcePathFn, 
 } from '../quests.js';
 import { setMusicMode, sfx } from '../audio/audio.js';
 import { serializeDungeons, loadDungeons, dungeonCache, setPendingDungeonsData } from '../world/rooms.js';
@@ -330,6 +330,19 @@ setDungeonCacheGetter(() => dungeonCache);
 setCurrentRoomGetter(() => currentRoom);
 setRevealRoomFn(revealRoom);
 setProgressionRoomGetter(() => currentRoom);
+
+setForcePathFn((tx, ty, fx, fy) => {
+  // import dinâmico pra evitar ciclo
+  import('../world/rooms.js').then(mod => mod.forcePathTo(tx, ty, fx, fy));
+});
+
+// Reaplica os "ajustes de sala" que dependem do estado das quests.
+// Roda UMA vez no boot, depois do save ser carregado — assim
+// `forcedDoors` é populado mesmo sem reload da página (ex.: F5
+// num save em que a desert_moral está ativa).
+import('../world/rooms.js').then(mod => {
+  if (mod.reapplyQuestRoomFixes) mod.reapplyQuestRoomFixes();
+}).catch(console.error);
 
 // Revela a sala inicial
 revealRoom(startGX, startGY);

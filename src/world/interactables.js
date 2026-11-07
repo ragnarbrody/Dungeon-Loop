@@ -1,7 +1,7 @@
 import { playerStats, player, addGold } from '../core/state.js';
 import { ITEMS_DB } from '../items.js';
 import { TILE_SIZE } from '../core/canvas.js';
-import { getActiveQuest, isQuestActive, isQuestCompleted, areProceduralCavesUnlocked, areDesertDungeonsUnlocked } from '../quests.js';
+import { getActiveQuest, isQuestActive, isQuestCompleted, areProceduralCavesUnlocked, areDesertDungeonsUnlocked, getProgress, isWellResolved } from '../quests.js';
 
 // ============================================================
 // INTERACTABLES
@@ -142,6 +142,11 @@ export function getInteractables(room) {
         if (!isQuestActive('story_banner')) continue;
         if (playerStats.inventory.some(i => i.id === 'banner_aethel')) continue;
       }
+
+      if (it.kind === 'well_leader') {
+        if (!isQuestActive('desert_moral')) continue;
+        if (isWellResolved()) continue;
+      }
       list.push({ ...it });
     }
   }
@@ -255,6 +260,7 @@ export function findNearbyInteractable(room) {
     herb:              1,
     cave_entrance:     1,
     caged_villager:    1,
+    well_leader:       1,
     lost_backpack:     1,
     portal:            1,
     oasis:             1,

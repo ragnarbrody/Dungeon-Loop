@@ -136,4 +136,17 @@ export const ENEMIES = {
     },
     loreDrop: 'seed_of_fields',
   },
+  raider_leader: {
+    name: 'Líder dos Saqueadores',
+    hp: 48, maxHp: 48, atk: 10, def: 3, xp: 90,
+    goldMin: 30, goldMax: 60,
+    defPen: 0.2,
+    chargeChance: 0.3, chargeMul: 2.0,
+    introText: 'A líder e dois capangas bloqueiam o caminho até o poço!',
+  },
+  raider: {
+    name: 'Saqueador',
+    hp: 24, maxHp: 24, atk: 7, def: 1, xp: 35,
+    goldMin: 10, goldMax: 25,
+  },
 };

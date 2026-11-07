@@ -4,6 +4,7 @@ import { makeVultureFrames } from './vulture.js';
 import { makeMummyFrames } from './mummy.js';
 import { makeScarabFrames } from './scarab.js';
 import { makeScorpionGiantFrames } from './scorpion_giant.js';
+import { wellLeaderFrames, wellFollowerFrames } from './well_leader.js';
 
 export function makeSlimeFrames() {
   const S = 32;
@@ -551,4 +552,6 @@ export const ENEMY_SPRITES = {
   bat: makeBatFrames(),
   goblin_sergeant: makeGoblinSergeantFrames(),
   guardian_fields: makeTreeMotherFrames(),
+  raider_leader: { idle: wellLeaderFrames.idle,   attack: [wellLeaderFrames.idle[0]] },
+  raider:        { idle: wellFollowerFrames.idle, attack: [wellFollowerFrames.idle[0]] },
 };

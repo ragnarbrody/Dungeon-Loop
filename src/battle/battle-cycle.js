@@ -14,17 +14,18 @@ import { hud, updateHud } from '../ui/hud.js';
 import { CANVAS_W, CANVAS_H } from '../core/canvas.js';
 import { playerEquip, weaponBonus } from '../sprites/equipment.js';
 import { getBiomeEnemies, pickBiome } from '../world/biomes.js';
-import { notifyEnemyKilled, notifyDungeonEnemyKilled, markBannerQuestViolent } from '../quests.js';
+import { notifyEnemyKilled, notifyDungeonEnemyKilled, markBannerQuestViolent,
+         markWellQuestViolent, advanceObjective } from '../quests.js';
 import { rollDrops, formatDrop } from '../drops.js';
 import { sfx, setMusicMode } from '../audio/audio.js';
-import { buildEnemyGroup } from './enemy-spawn.js';
+import { buildEnemyGroup, buildFixedGroup } from './enemy-spawn.js';
 import { isAnyAlive } from './battle-helpers.js';
 import { enemyTurn } from './turn.js';
 import { classAtk } from './skills.js';
 import { addItemToInventory } from '../items.js';
 import { showChapterItemToast } from '../ui/toast.js';
-import { buildCutscene } from './cutscene.js';
 import { roomCache } from '../world/rooms.js';
+import { buildCutscene, AFTER_GUARDIAN_FIELDS_SCENES } from './cutscene.js';
 
 const FADE_DURATION = 1.8;
 
@@ -40,7 +41,7 @@ const GOLD_BIOME_MUL = {
 export function startBattle(opts = {}) {
   if (currentRoom && currentRoom.isCity) return;
 
-  const { enemyId, mapEnemy, biomeGX, biomeGY, noFlee } = opts;
+  const { enemyId, mapEnemy, biomeGX, biomeGY, noFlee, group } = opts;
 
   setGameState(STATE.BATTLE);
   battle.active = true;
@@ -92,8 +93,8 @@ export function startBattle(opts = {}) {
   let chosenId;
   let pool = null;
 
-  if (enemyId) {
-    chosenId = enemyId;
+  if (enemyId || group) {
+    chosenId = enemyId || group[0];
   } else {
     pool = (biomeGX !== undefined && biomeGY !== undefined)
       ? getBiomeEnemies(biomeGX, biomeGY)
@@ -103,7 +104,9 @@ export function startBattle(opts = {}) {
     chosenId = pool[Math.floor(Math.random() * pool.length)];
   }
 
-  battle.enemies = buildEnemyGroup(chosenId, playerStats.level, enemyId ? null : pool, biomeId);
+  battle.enemies = (group && group.length)
+  ? buildFixedGroup(group, playerStats.level, biomeId)
+  : buildEnemyGroup(chosenId, playerStats.level, enemyId ? null : pool, biomeId);
 
   // Recalcula o ATK da classe com o equipamento atual
   battle.player.atk = classAtk();
@@ -189,10 +192,7 @@ export function endBattle(escaped) {
   // (o `createGuardianArena` já vai recriar sem boss, graças à flag
   //  playerStats.guardianFieldsDefeated)
   if (!escaped && playerStats.guardianFieldsDefeated) {
-    try {
-      const { roomCache } = require_rooms_cache();  // ver abaixo
-      roomCache.delete('6,8');
-    } catch (_) { /* opcional */ }
+    roomCache.delete('6,8');
   }
 
   saveGame();
@@ -235,6 +235,11 @@ export function clearDeadEnemies() {
       for (const d of drops) battle.dropEarned.push(d);
     }
     notifyEnemyKilled(e.id);
+    
+    if (e.id === 'raider_leader') {
+      markWellQuestViolent();
+      advanceObjective('desert_moral', 'resolve_well', 1);
+    }
     if (currentRoom?.isDungeon) {
       notifyDungeonEnemyKilled(currentRoom.dungeonId, e.id);
     }
@@ -269,6 +274,18 @@ export function clearDeadEnemies() {
           });
         }
       }
+
+      // ---- Cutscene pós-boss ----
+      // Roda NO ESTADO DE BATALHA (battle.cutscene). O `updateBattle`
+      // congela o resto do combate enquanto ela estiver ativa, e o
+      // `endBattle` só dispara depois que o jogador terminar de ver.
+      if (!battle.cutscene) {
+        battle.cutscene = buildCutscene(AFTER_GUARDIAN_FIELDS_SCENES, () => {
+          // Callback vazio — o `updateBattle` já cuida do fluxo
+          // (vitória → resolve-end → endBattle).
+        });
+        try { setMusicMode('cutscene'); } catch {}
+      }
     }
     battle.fadingEnemies.push({
       ref: e,
@@ -301,16 +318,36 @@ export function updateBattle(dt) {
   // Bloqueia timers de animação/floating text, mas NÃO altera turno.
   if (battle.cutscene) {
     const cs = battle.cutscene;
-    cs.timer -= dt;
     cs.totalElapsed += dt;
-    if (cs.timer <= 0) {
+
+    // ---- Pular a cutscene inteira (ESC) ----
+    if (cs._skipAll) {
+      cs.index = cs.lines.length;
+      cs._skipAll = false;
+      battle.cutscene = null;
+      if (typeof cs.onEnd === 'function') cs.onEnd();
+      return;
+    }
+
+    // Timer: "tempo decorrido" do slide atual. Sem teto — a cena segue
+    // animando em loop até o jogador avançar (ou `auto` zerar o timer).
+    const line = cs.lines[cs.index];
+    const dur = line?.duration ?? 2.0;
+    cs.timer += dt;
+
+    // ---- Avanço manual (jogador) ----
+    const wantAdvance = cs._advanceRequested;
+    // ---- Avanço automático só em slides com `auto: true` ----
+    const autoDone = line?.auto && cs.timer >= dur;
+
+    if (wantAdvance || autoDone) {
+      cs._advanceRequested = false;
       cs.index++;
       if (cs.index >= cs.lines.length) {
         battle.cutscene = null;
         if (typeof cs.onEnd === 'function') cs.onEnd();
       } else {
-        // Próxima cena: usa a duração própria dela
-        cs.timer = cs.lines[cs.index].duration ?? 2.0;
+        cs.timer = 0;   // reinicia "tempo decorrido" pro próximo slide
       }
     }
     return;

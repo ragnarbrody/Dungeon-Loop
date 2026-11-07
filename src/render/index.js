@@ -7,6 +7,7 @@ import { renderMinimap } from './minimap.js';
 import { renderMenu } from './menu.js';
 import { renderWorldMap } from '../ui/worldmap.js';
 import { renderIntroCutscene } from '../ui/introcutscene.js';
+import { isOutroActive, renderOutroCutscene } from '../battle/cutscene.js';
 
 export function render(dt) {
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
@@ -18,7 +19,8 @@ export function render(dt) {
   } else if (gameState === STATE.BATTLE) {
     renderBattle();
   } else if (gameState === STATE.INTRO) {
-    renderIntroCutscene();
+    if (isOutroActive()) renderOutroCutscene();
+    else renderIntroCutscene();
   } else if (gameState === STATE.QUEST_LOG) {
     // A tela é DOM (overlay), então o canvas fica congelado no fundo.
     // Só renderiza o explore por baixo.

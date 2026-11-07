@@ -107,6 +107,11 @@ function ensureContainer() {
             padding:8px 14px; border-radius:4px; cursor:pointer;
             font-family:inherit; font-weight:bold;
           ">⏭️ Avançar até a última missão</button>
+          <button data-action="jump-boss-arena" style="
+            background:#3a1a2e; color:#ff8ad8; border:2px solid #ff8ad8;
+            padding:8px 14px; border-radius:4px; cursor:pointer;
+            font-family:inherit; font-weight:bold;
+          ">⚔️ Pular pra arena do 1º boss (equipado)</button>
         </div>
       </div>
 
@@ -717,6 +722,118 @@ function handleAction(action) {
       color: godMode ? '#6fbd63' : '#8ad8ff',
     });
     refresh();
+    return;
+  }
+
+  // ---- Pular pra arena do 1º boss, já equipado e com poções ----
+  if (action === 'jump-boss-arena') {
+    Promise.all([
+      import('../quests.js'),
+      import('../core/state.js'),
+      import('../world/rooms.js'),
+      import('../world/knowledge.js'),
+      import('../sprites/equipment.js'),
+      import('../core/canvas.js'),
+    ]).then(([questsMod, stateMod, roomsMod, knowledgeMod, equipMod, canvasMod]) => {
+      // 1) Conclui silenciosamente todas as quests anteriores à prep
+      const prereqs = [
+        'story_slimes',
+        'story_rat_tails',
+        'story_lost_traveler',
+        'story_forge_materials',
+        'story_torch',
+        'story_cave',
+        'story_herbalist_escort',
+        'story_banner',
+      ];
+
+      // Equipa a armadura de ferro
+      // (se os IDs não existirem no ITEMS_DB, o addItemToInventory
+      //  simplesmente ignora — sem crashar)
+      const ironSet = [
+        'iron_helmet',
+        'iron_armor',
+        'iron_boots',
+        'iron_ring1',   // se existirem
+        'iron_ring2',
+        'iron_amulet',
+      ];
+      for (const id of ironSet) {
+        if (!addItemToInventory(playerStats.inventory, id, 1)) continue;
+        // Equipa direto (assume slot = prefixo do id, sem o "iron_")
+        const slot = id.replace(/^iron_/, '');
+        // Mapeamento de slot pra o `playerEquip`:
+        const slotMap = {
+          helmet: 'helmet',
+          armor:  'armor',
+          boots:  'boots',
+          amulet: 'amulet',
+          ring1:  'ring1',
+          ring2:  'ring2',
+        };
+        const targetSlot = slotMap[slot];
+        if (targetSlot && equipMod.playerEquip[targetSlot] == null) {
+          equipMod.playerEquip[targetSlot] = id;
+        }
+      }
+
+      // Poções (20 + 20)
+      addItemToInventory(playerStats.inventory, 'potion_medium', 20);
+      addItemToInventory(playerStats.inventory, 'potion_mana_medium', 20);
+
+      // 2) Conclui os prereqs (silenciosamente, sem recompensa)
+      let chain = Promise.resolve();
+      for (const id of prereqs) {
+        chain = chain.then(() => markQuestCompletedSilently(id));
+      }
+
+      chain.then(() => {
+        // 3) Ativa a story_guardian_prep (necessária pra arena existir)
+        if (!questsMod.isQuestCompleted('story_guardian_prep') &&
+            !questsMod.isQuestActive('story_guardian_prep')) {
+          questsMod.activateQuest('story_guardian_prep');
+        }
+
+        // 4) Força o cache a regenerar a arena COM o boss
+        roomsMod.roomCache.delete('6,8');
+
+        // 5) Vai pra arena
+        const room = roomsMod.getRoom(6, 8);
+        stateMod.setCurrentRoom(room);
+        stateMod.markRoomVisited(6, 8);
+        knowledgeMod.revealRoom(6, 8);
+
+        // Posiciona o player na porta de BAIXO da arena.
+        // O boss fica em (mid, mid). O spawn da porta de baixo fica
+        // em (mid, GRID_SIZE - 3). Assim o jogador vê o boss de longe.
+        const GRID = canvasMod.GRID_SIZE;
+        const TILE = canvasMod.TILE_SIZE;
+        const mid = Math.floor(GRID / 2);
+        stateMod.player.x = mid * TILE + TILE / 2;
+        stateMod.player.y = (GRID - 3) * TILE + TILE / 2;
+
+        stateMod.setTransitionCooldown(60);
+
+        // 6) Salva com tudo pronto
+        saveGame();
+        showToast({
+          itemId: 'sword',
+          title: 'Arena do boss',
+          subtitle: 'Armadura de ferro + 20 poções de cada',
+          color: '#ff8ad8',
+        });
+        refresh();
+        closeDevMenu();
+      }).catch(err => {
+        console.error('[devmenu] jump-boss-arena falhou:', err);
+        showToast({
+          itemId: 'questlog',
+          title: 'Falha ao pular pra arena',
+          subtitle: String(err?.message || err),
+          color: '#ff6b6b',
+        });
+      });
+    });
     return;
   }
 

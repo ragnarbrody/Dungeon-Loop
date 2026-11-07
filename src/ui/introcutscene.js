@@ -25,6 +25,7 @@ import {
   SCENE_DUR, rng, clamp01, ease, lerp,
   vignette, camera, fog, motes, drawWanderer,
 } from '../battle/cutscene.js';
+import { greeting, vocative, agree } from './classvocative.js';
 
 // ------------------------------------------------------------
 // Helpers locais
@@ -89,18 +90,27 @@ function crack(r, x0, y0, x1, y1, jit, prog, w) {
 }
 
 // Árvore pequena (dá escala à torre)
-function smallTree(x, baseY, s) {
+// `sway` (px): deslocamento lateral da copa — a base do tronco fica
+// parada e o topo acompanha parte do movimento, como vento de verdade.
+function smallTree(x, baseY, s, sway = 0) {
+  const cx = x + sway;
   ctx.fillStyle = '#4a3320';
-  ctx.fillRect(x - 1.5 * s, baseY - 14 * s, 3 * s, 14 * s);
+  ctx.beginPath();
+  ctx.moveTo(x - 1.5 * s, baseY);
+  ctx.lineTo(x + 1.5 * s, baseY);
+  ctx.lineTo(x + 1.5 * s + sway * 0.6, baseY - 14 * s);
+  ctx.lineTo(x - 1.5 * s + sway * 0.6, baseY - 14 * s);
+  ctx.closePath();
+  ctx.fill();
   ctx.fillStyle = '#2f6b33';
   ctx.beginPath();
-  ctx.arc(x, baseY - 22 * s, 9 * s, 0, Math.PI * 2);
-  ctx.arc(x - 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
-  ctx.arc(x + 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
+  ctx.arc(cx, baseY - 22 * s, 9 * s, 0, Math.PI * 2);
+  ctx.arc(cx - 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
+  ctx.arc(cx + 6 * s, baseY - 16 * s, 7 * s, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#4a9a48';
   ctx.beginPath();
-  ctx.arc(x - 2 * s, baseY - 25 * s, 5 * s, 0, Math.PI * 2);
+  ctx.arc(cx - 2 * s, baseY - 25 * s, 5 * s, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -199,9 +209,13 @@ function drawTowerWorld(t, o = {}) {
   if (birds) {
     ctx.strokeStyle = 'rgba(40,50,40,0.7)';
     ctx.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) {
-      const bx = ((t * 22 + i * 140) % (W + 120)) - 60;
-      const by0 = 110 + i * 22 + Math.sin(t * 1.3 + i) * 4;
+    // 5 pássaros, cada um com velocidade/altura próprias, atravessando a
+    // tela e reaparecendo do outro lado (módulo). Como `t` não é mais
+    // travado, o bando continua passando enquanto o jogador lê.
+    for (let i = 0; i < 5; i++) {
+      const speed = 20 + i * 4;
+      const bx = ((t * speed + i * 170) % (W + 120)) - 60;
+      const by0 = 100 + (i % 3) * 24 + i * 6 + Math.sin(t * 1.3 + i) * 4;
       const wing = Math.sin(t * 9 + i * 2) * 4;
       ctx.beginPath();
       ctx.moveTo(bx - 6, by0 + wing); ctx.lineTo(bx, by0); ctx.lineTo(bx + 6, by0 + wing);
@@ -261,8 +275,9 @@ function drawTowerWorld(t, o = {}) {
     [56, 6, 0.7], [88, 9, 1.0], [122, 12, 1.3], [160, 16, 1.6], [196, 22, 1.8],
   ];
   TREES.forEach(([dx, dy, s], i) => {
-    const sway = Math.sin(t * 0.8 + i) * 0.8 * s;
-    smallTree(tx + dx + sway, hz + 10 + dy, s);
+    // balanço da copa: duas ondas somadas (lenta + rápida), fase por árvore
+    const sway = (Math.sin(t * 1.1 + i * 0.9) * 1.8 + Math.sin(t * 2.3 + i * 1.7) * 0.5) * s;
+    smallTree(tx + dx, hz + 10 + dy, s, sway);
   });
 
   // colinas próximas (ancoram torre e árvores)
@@ -295,6 +310,7 @@ const SCENES = {
   // ---------- Título ----------
   title: {
     duration: 3.5,
+    auto: true,
     text: '',
     draw(t) {
       ctx.fillStyle = '#000';
@@ -726,13 +742,17 @@ function buildIntro() {
       scene: s.draw,
       duration: s.duration ?? SCENE_DUR,
       flash: !!s.flash,
+      auto: !!s.auto || key === 'title',       // ← força title a auto
     };
   });
   return {
     lines,
     index: 0,
-    timer: lines[0].duration,
+    timer: 0,              // começa em 0 (tempo decorrido)
     totalElapsed: 0,
+    manual: true,
+    _advanceRequested: false,
+    _skipAll: false,
     onEnd: null,
   };
 }
@@ -757,11 +777,30 @@ export function updateIntroCutscene(dt) {
   if (!intro) return;
   const cs = intro.cs;
   cs.totalElapsed += dt;
-  cs.timer -= dt;
-  if (cs.timer > 0) return;
-  cs.index++;
-  if (cs.index >= cs.lines.length) { finishIntro(); return; }
-  cs.timer = cs.lines[cs.index].duration;
+
+  // ---- Pular tudo (ESC) ----
+  if (cs._skipAll) {
+    cs._skipAll = false;
+    finishIntro();
+    return;
+  }
+
+  // Tempo decorrido do slide atual. Sem teto: a cena continua "viva"
+  // (ver drawCutscene). O `auto` do title continua usando timer >= dur.
+  const line = cs.lines[cs.index];
+  const dur = line?.duration ?? SCENE_DUR;
+  cs.timer += dt;
+
+  // Avanço manual OU automático (só `title`).
+  const wantAdvance = cs._advanceRequested;
+  const autoDone = line?.auto && cs.timer >= dur;
+
+  if (wantAdvance || autoDone) {
+    cs._advanceRequested = false;
+    cs.index++;
+    if (cs.index >= cs.lines.length) { finishIntro(); return; }
+    cs.timer = 0;
+  }
 }
 
 export function renderIntroCutscene() {
@@ -772,14 +811,14 @@ export function renderIntroCutscene() {
 // com um Enter/clique que veio da tela de classe).
 const SKIP_GRACE = 0.4;
 
-/** Espaço / Enter / clique: pula o slide atual. */
+/** Espaço / Enter / clique: avança o slide atual. */
 export function skipIntroScene() {
   if (!intro || intro.cs.totalElapsed < SKIP_GRACE) return;
-  skipCutsceneScene(intro.cs);
+  intro.cs._advanceRequested = true;
 }
 
 /** Esc: pula a cutscene inteira. */
 export function skipIntroAll() {
   if (!intro || intro.cs.totalElapsed < SKIP_GRACE) return;
-  finishIntro();
+  intro.cs._skipAll = true;
 }

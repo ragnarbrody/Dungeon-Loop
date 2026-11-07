@@ -29,6 +29,96 @@ export const dungeonCache = new Map();
 // Exporta o cache para poder ser limpo
 export const roomCache = new Map();
 
+// Portas forçadas por quest (chave canônica da borda → true)
+const forcedDoors = new Set();
+
+export function forcePathTo(targetGx, targetGy, fromGx, fromGy) {
+  // BFS no grid (com limites razoáveis) até o alvo, marcando
+  // cada borda do caminho como "porta forçada".
+  const keyOf = (gx, gy) => `${gx},${gy}`;
+  const start = keyOf(fromGx, fromGy);
+  const goal  = keyOf(targetGx, targetGy);
+
+  // BFS simples (Manhattan; mapa é pequeno)
+  const prev = new Map();
+  const q = [[fromGx, fromGy]];
+  prev.set(start, null);
+  const seen = new Set([start]);
+  const LIMIT = 40;   // raio de busca
+
+  while (q.length) {
+    const [x, y] = q.shift();
+    if (x === targetGx && y === targetGy) break;
+    if (Math.abs(x - fromGx) > LIMIT || Math.abs(y - fromGy) > LIMIT) continue;
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      const k = keyOf(nx, ny);
+      if (seen.has(k)) continue;
+      // Não atravessar cidades (exceto o destino, se for uma)
+      if (isCity(nx, ny) && !(nx === targetGx && ny === targetGy)) continue;
+      seen.add(k);
+      prev.set(k, [x, y]);
+      q.push([nx, ny]);
+    }
+  }
+
+  if (!prev.has(goal)) {
+    console.warn(`[forcePathTo] sem caminho de (${fromGx},${fromGy}) até (${targetGx},${targetGy})`);
+    return false;
+  }
+
+  // Reconstrói o caminho e força as portas em ambas as direções
+  let cur = [targetGx, targetGy];
+  while (prev.get(keyOf(cur[0], cur[1]))) {
+    const [px, py] = prev.get(keyOf(cur[0], cur[1]));
+    const dx = cur[0] - px, dy = cur[1] - py;
+    // Borda vertical (movimento horizontal): canônica V:min(gx),gy
+    if (dx !== 0) {
+      const gx = Math.min(px, cur[0]);
+      forcedDoors.add(`V:${gx},${py}`);
+    } else {
+      const gy = Math.min(py, cur[1]);
+      forcedDoors.add(`H:${px},${gy}`);
+    }
+    cur = [px, py];
+  }
+  return true;
+}
+
+// ============================================================
+// Reaplica os "ajustes de sala" que dependem do estado das quests.
+// Deve ser chamada:
+//   - uma vez no boot, depois do load do save;
+//   - quando uma quest é ativada/concluída (via activateQuest/
+//     completeActiveQuest).
+//
+// É IDEMPOTENTE: pode rodar várias vezes sem efeito colateral.
+// ============================================================
+export function reapplyQuestRoomFixes() {
+  // ---- desert_moral: caminho até o poço + portas na sala ----
+  const desertMoralActive = isQuestActive('desert_moral');
+  const desertMoralDone   = isQuestCompleted('desert_moral');
+
+  if (desertMoralActive || desertMoralDone) {
+    // 1) Caminho Akmira → Poço
+    forcePathTo(-22, 2, -19, -4);
+
+    // 2) As 4 bordas do poço têm porta nos DOIS lados (sala do poço + vizinhas)
+    for (const side of ['top', 'bottom', 'left', 'right']) {
+      forcedDoors.add(edgeKey(-22, 2, side));
+    }
+
+    // 3) Invalida o cache do retângulo (igual ao que já existe)
+    const minX = -23, maxX = -18, minY = -5, maxY = 3;
+    for (const key of [...roomCache.keys()]) {
+      const [gx, gy] = key.split(',').map(Number);
+      if (gx >= minX && gx <= maxX && gy >= minY && gy <= maxY) {
+        roomCache.delete(key);
+      }
+    }
+  }
+}
+
 // ---------- Lazy loading de dungeons ----------
 // Os dados serializados do save ficam guardados aqui até a primeira
 // vez que a dungeon for acessada. Isso evita reconstruir no import
@@ -73,6 +163,7 @@ function edgeHasDoorRaw(key) {
 
 // Decisão final (com a regra de bloco)
 function edgeHasDoor(key) {
+  if (forcedDoors.has(key)) return true; 
   // Parse da chave canônica
   const isV = key[0] === 'V';
   const [gxStr, gyStr] = key.slice(2).split(',');
@@ -107,6 +198,8 @@ export function hasDoor(gx, gy, side) {
 
   return edgeHasDoor(edgeKey(gx, gy, side));
 }
+
+export function getForcedDoors() { return forcedDoors; }
 
 // Gera uma sala de dungeon procedural
 function createDungeonRoom(instanceId, depth, seed, maxDepth, isProcedural, theme = 'cave') {
@@ -744,11 +837,22 @@ export function createRoom(gx, gy) {
     map[i][GRID_SIZE - 1] = T.WALL;
   }
 
+  // ---- Poço dos Perdidos: portas em TODAS as bordas (quest desert_moral) ----
+  // A sala precisa ser alcançável de qualquer direção, porque o `forcePathTo`
+  // pode ter sido chamado depois das salas vizinhas já terem sido geradas.
+  const isWellRoom = (gx === -22 && gy === 2 && isQuestActive('desert_moral'));
+
   const allSides = ['top', 'bottom', 'left', 'right'];
   const doors = allSides.filter(side => hasDoor(gx, gy, side));
 
   if (doors.length === 0) {
     doors.push('left');
+  }
+
+  if (isWellRoom) {
+    for (const s of allSides) {
+      if (!doors.includes(s)) doors.push(s);
+    }
   }
 
   const mid = Math.floor(GRID_SIZE / 2);
@@ -859,6 +963,7 @@ export function createRoom(gx, gy) {
   }
 
   let interactables = [];
+  let wellCamp = null;
   if (gx === -2 && gy === -4) {
     const mid = Math.floor(GRID_SIZE / 2);
     let packTx = mid;
@@ -992,6 +1097,7 @@ export function createRoom(gx, gy) {
   if (
     areDesertDungeonsUnlocked() &&
     biomeId === 'desert' &&
+    !(gx === -22 && gy === 2) &&
     Math.hypot(gx, gy) > 3 &&
     Math.hypot(gx - (-19), gy - (-4)) > 4 &&
     !interactables.some(it => it.kind === 'cave_entrance')
@@ -1027,15 +1133,45 @@ export function createRoom(gx, gy) {
     }
   }
 
-  return {
-    gx, gy, map, doors, biomeId,
-    name: biome.name,
-    nameCoords: `${gx}, ${gy}`,
-    reserved,
-    enemies: roomEnemies,
-    hasTrees,
-    interactables,
-  };
+  // ---- Sala especial: Poço dos Perdidos (quest desert_moral) ----
+  if (gx === -22 && gy === 2 && isQuestActive('desert_moral')) {
+    const mid = Math.floor(GRID_SIZE / 2);
+    roomEnemies.length = 0; // sem inimigos errantes no acampamento
+
+    const well = { tx: mid, ty: mid };
+    const tents = [
+      { tx: mid - 5, ty: mid - 4, w: 2, h: 2 },
+      { tx: mid + 3, ty: mid - 4, w: 2, h: 2 },
+    ];
+    const campfire = { tx: mid - 1, ty: mid + 3 };
+    const followers = [
+      { tx: mid + 2, ty: mid + 2 },
+      { tx: mid - 2, ty: mid + 2 },
+      { tx: mid + 1, ty: mid - 2 },
+      { tx: mid - 3, ty: mid - 1 },
+    ];
+
+    // Colisão: poço, tendas e fogueira ocupam tiles sólidos
+    const solid = (tx, ty) => { map[ty][tx] = T.TREE; reserved.add(`${tx},${ty}`); };
+    solid(well.tx, well.ty);
+    for (const t of tents) for (let y = t.ty; y < t.ty + t.h; y++) for (let x = t.tx; x < t.tx + t.w; x++) solid(x, y);
+    for (let y = campfire.ty; y < campfire.ty + 2; y++) for (let x = campfire.tx; x < campfire.tx + 2; x++) solid(x, y);
+
+    const leaderTx = mid + 2, leaderTy = mid;
+    map[leaderTy][leaderTx] = T.FLOOR;
+    reserved.add(`${leaderTx},${leaderTy}`);
+    interactables.push({
+      tx: leaderTx, ty: leaderTy,
+      kind: 'well_leader',
+      title: 'Líder dos Saqueadores',
+      id: 'well_leader_talk',
+    });
+
+    wellCamp = { well, tents, campfire, followers };
+  }
+
+  return { gx, gy, map, doors, biomeId, name: biome.name, nameCoords: `${gx}, ${gy}`,
+         reserved, enemies: roomEnemies, hasTrees, interactables, wellCamp };
 }
 
 // Exporta a função de limpar o cache
@@ -1045,6 +1181,20 @@ export function clearRoomCache() {
 
 export function getRoom(gx, gy) {
   const key = `${gx},${gy}`;
+  const isWellRoom = (gx === -22 && gy === 2 && isQuestActive('desert_moral'));
+
+  // Se é o poço e a sala em cache foi gerada SEM as 4 portas
+  // (ex.: antes da quest ativar), regenera.
+  if (isWellRoom && roomCache.has(key)) {
+    const cached = roomCache.get(key);
+    const needed = ['top', 'bottom', 'left', 'right'];
+    const hasAll = needed.every(s => cached.doors.includes(s));
+    const hasWell = (cached.interactables || []).some(it => it.kind === 'well_leader') && !!cached.wellCamp;
+    if (!hasAll || !hasWell) {
+      roomCache.delete(key);
+    }
+  }
+
   if (!roomCache.has(key)) {
     roomCache.set(key, createRoom(gx, gy));
   }

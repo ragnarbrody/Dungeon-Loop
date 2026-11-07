@@ -26,6 +26,7 @@ import { STARTER_ITEMS, captureMilestoneIfNeeded, resetProgression } from './pro
 import { resetVaultGreetingCache, resetShopGreetings } from '../ui/shopgreetings.js';
 import { startIntroCutscene, updateIntroCutscene } from '../ui/introcutscene.js';
 import { musicForCity } from '../world/cities.js';
+import { isOutroActive, updateOutroCutscene } from '../battle/cutscene.js';
 
 let lastDeath = null;
 let lastTime = performance.now();
@@ -385,14 +386,26 @@ function finishStart() {
   btnMap.classList.remove('hidden');
   btnMap.style.display = '';
 
-  // ---- NOVO: botÃ£o de missÃµes ----
   const btnQuest = document.getElementById('btn-questlog');
   if (btnQuest) {
     btnQuest.classList.remove('hidden');
     btnQuest.style.display = '';
   }
 
+  const btnAudio = document.getElementById('btn-audio');
+  if (btnAudio) {
+    btnAudio.style.display = '';
+  }
+
   updateHud();
+
+  // Reaplica as portas forçadas / coerência de cache (saves existentes
+  // e o caso de "Continuar" também precisam disso, porque `forcedDoors`
+  // zera ao recarregar a página).
+  import('../world/rooms.js').then(mod => {
+    if (mod.reapplyQuestRoomFixes) mod.reapplyQuestRoomFixes();
+  }).catch(console.error);
+
   startDayCycle(false);
 
   // garante que a mÃºsica bate com a sala atual.
@@ -456,7 +469,8 @@ export function loop(now) {
       setMusicMode('menu');
     }
   } else if (gameState === STATE.INTRO) {
-    updateIntroCutscene(dt);
+    if (isOutroActive()) updateOutroCutscene(dt);
+    else updateIntroCutscene(dt);
   } else if (gameState === STATE.EXPLORE) {
     tickTime(dt);
     captureMilestoneIfNeeded(playerStats);
@@ -476,6 +490,16 @@ export function loop(now) {
     updateHud();
   }
 
+  // ---- Cutscene (intro ou outro): HUD escondido ----
+  if (gameState === STATE.INTRO) {
+    const hud = document.getElementById('hud');
+    if (hud && hud.style.display !== 'none') hud.style.display = 'none';
+    for (const id of ['btn-inventory', 'btn-map', 'btn-questlog', 'btn-audio']) {
+      const btn = document.getElementById(id);
+      if (btn && btn.style.display !== 'none') btn.style.display = 'none';
+    }
+  }
+  
   if (gameState === STATE.EXPLORE && (!window.lastSaveTime || now - window.lastSaveTime > 3000)) {
     saveGame();
     window.lastSaveTime = now;

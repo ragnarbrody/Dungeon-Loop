@@ -2,6 +2,7 @@ import { openDialogue } from './dialogue.js';
 import { playerStats, saveGame, checkLevelUp } from '../core/state.js';
 import { addItemToInventory } from '../items.js';
 import { isQuestActive, getProgress, advanceObjective, completeActiveQuest } from '../quests.js';
+import { greeting, vocative, agree } from './classvocative.js';
 
 const QUEST_ID = 'story_cave';
 

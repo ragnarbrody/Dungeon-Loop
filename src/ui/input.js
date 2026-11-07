@@ -1,6 +1,6 @@
 import { canvas } from '../core/canvas.js';
 import { STATE, gameState, battle, setGameState, playerStats, addGold, saveGame, currentRoom, startGX, startGY, player } from '../core/state.js';
-import { playerAction } from '../battle/battle.js';
+import { playerAction, startBattle } from '../battle/battle.js';
 import { renderInventory } from './inventory.js';
 import { CLASSES } from '../classes.js';
 import { getIcon } from '../sprites/icons.js';
@@ -20,13 +20,14 @@ import { talkToHerbalist } from './herbalistdialog.js';
 import { talkToBlacksmith } from './blacksmithdialog.js';
 import { sfx } from '../audio/audio.js';
 import { openAudioMenu, closeAudioMenu, isAudioMenuOpen } from './audiomenu.js';
-import { isQuestActive, advanceObjective, getProgress } from '../quests.js';
+import { isQuestActive, advanceObjective, getProgress, isWellResolved,
+         markWellQuestPeaceful, markWellQuestViolent } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { showToast } from './toast.js';
 import { talkToCagedVillager } from './villagerrescue.js';
 import { addMarker, revealMarker, getMarker } from '../world/knowledge.js';
 import { openVault, closeVault, isVaultOpen } from './vault.js';
-import { skipCutsceneScene } from '../battle/cutscene.js';
+import { skipCutsceneScene, skipCutsceneAll } from '../battle/cutscene.js';
 import { skipIntroScene, skipIntroAll } from './introcutscene.js';
 
 const CHEST_GOLD_MIN = 30;
@@ -108,6 +109,17 @@ export function installInput() {
 
   // clique (só dispara se não arrastou)
   canvas.addEventListener('click', e => {
+    if (gameState === STATE.INTRO) {
+      import('../battle/cutscene.js').then(mod => {
+        if (mod.isOutroActive && mod.isOutroActive()) {
+          if (typeof mod.skipOutroScene === 'function') mod.skipOutroScene();
+          else mod.skipCutsceneScene(mod.getOutroCs?.() ?? null);
+        } else {
+          skipIntroScene();
+        }
+      });
+      return;
+    }
     if (gameState !== STATE.WORLDMAP) return;
     if (wasMapDrag()) return;
     const { mx, my } = clientToCanvas(e);
@@ -138,14 +150,30 @@ export function installInput() {
     keys[k] = true;
 
     if (gameState === STATE.INTRO) {
-      if (k === ' ' || k === 'enter' || k === 'spacebar') { e.preventDefault(); skipIntroScene(); }
-      else if (k === 'escape') { e.preventDefault(); skipIntroAll(); }
+      import('../battle/cutscene.js').then(mod => {
+        if (mod.isOutroActive && mod.isOutroActive()) {
+          const cs = mod.getOutroCs?.() ?? null;
+          if (k === ' ' || k === 'enter' || k === 'spacebar') {
+            e.preventDefault();
+            mod.skipCutsceneScene(cs);
+          } else if (k === 'escape') {
+            e.preventDefault();
+            mod.skipCutsceneAll(cs);
+          }
+        } else {
+          if (k === ' ' || k === 'enter' || k === 'spacebar') { e.preventDefault(); skipIntroScene(); }
+          else if (k === 'escape') { e.preventDefault(); skipIntroAll(); }
+        }
+      });
       return;
     }
 
-    // ---- Cutscene de boss: Espaço / Enter / Esc pulam o slide atual ----
+    // ---- Cutscene de boss: Espaço/Enter avança, Esc pula tudo ----
     if (gameState === STATE.BATTLE && battle.cutscene) {
-      if (k === ' ' || k === 'enter' || k === 'escape' || k === 'spacebar') {
+      if (k === 'escape') {
+        e.preventDefault();
+        skipCutsceneAll(battle.cutscene);
+      } else if (k === ' ' || k === 'enter' || k === 'spacebar') {
         e.preventDefault();
         skipCutsceneScene(battle.cutscene);
       }
@@ -395,6 +423,78 @@ export function installInput() {
               color: '#ff6b6b',
             });
           }
+        } else if (it.kind === 'well_leader') {
+          if (isWellResolved()) return;   // trava: já resolvido, não reabre
+          openDialogue({
+            title: 'Líder dos Saqueadores',
+            text:
+              'O líder é uma mulher de ombros largos, com a pele rachada de sol. ' +
+              'Ela não se levanta quando você chega.\n\n' +
+              '"Você veio de Akmira. Eu sei. O Ancião mandou você.\n\n' +
+              'Olha em volta. Somos doze. Quatro estão doentes. As crianças ' +
+              'não comem há dois dias. O poço é a única água entre nós e a morte.\n\n' +
+              'Você pode nos matar. Você parece capaz. Mas antes de decidir, ' +
+              'olha nos olhos deles. Depois me diz o que Akmira tem que a gente não tem."',
+            actions: [
+              {
+                label: 'Negociar (dar água a eles em troca do poço)',
+                action: () => {
+                  closeDialogue();
+                  openDialogue({
+                    title: 'Líder dos Saqueadores',
+                    text:
+                      'Ela ergue o olhar pela primeira vez. Não sorri. Mas assente.\n\n' +
+                      '"Akmira tem comida. Tem remédio. Tem um teto pra quem ' +
+                      'se ajoelha." Ela cospe no chão. "Nós não nos ajoelhamos. ' +
+                      'Mas podemos ir embora. E vocês ficam com o poço. ' +
+                      'Se a água que vocês nos derem for suficiente até o próximo oásis."\n\n' +
+                      'Ela espera.',
+                    actions: [
+                      {
+                        label: 'Dar 50 de ouro (comida e remédio)',
+                        action: () => {
+                          if (playerStats.gold >= 50) {
+                            playerStats.gold -= 50;
+                            markWellQuestPeaceful();
+                            advanceObjective('desert_moral', 'resolve_well', 1);
+                            playerStats._nearInteractable = null;
+                            saveGame();
+                            closeDialogue();
+                            showToast({ itemId: 'gold', title: 'Acordo selado', subtitle: '-50 ouro', color: '#feca57' });
+                          } else {
+                            openDialogue({
+                              title: 'Líder dos Saqueadores',
+                              text: 'Ouro insuficiente. Ela vira as costas.',
+                            });
+                          }
+                        },
+                      },
+                      {
+                        label: 'Recusar (voltar e contar ao Ancião)',
+                        action: () => {
+                          closeDialogue();
+                          showToast({
+                            itemId: 'questlog',
+                            title: 'Você recusou',
+                            subtitle: 'A situação continua a mesma.',
+                            color: '#ff6b6b',
+                          });
+                        },
+                      },
+                    ],
+                  });
+                },
+              },
+              {
+                label: 'Atacar (a líder e dois capangas)',
+                action: () => {
+                  closeDialogue();
+                  startBattle({ group: ['raider_leader', 'raider', 'raider'], noFlee: true });
+                },
+              },
+              { label: 'Agora não (sair do diálogo)', action: () => closeDialogue() },
+            ],
+          });
         }
         for (let kk in keys) keys[kk] = false;
       }

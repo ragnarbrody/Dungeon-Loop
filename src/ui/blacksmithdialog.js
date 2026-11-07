@@ -15,7 +15,7 @@ import {
   completeActiveQuest, getProgress, isQuestActive 
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
-import { greeting, vocative } from './classvocative.js';
+import { greeting, vocative, agree } from './classvocative.js';
 
 // Retorna true se o Ferreiro tem algo a dizer (quest ativa ligada a ele).
 export function hasBlacksmithQuest() {

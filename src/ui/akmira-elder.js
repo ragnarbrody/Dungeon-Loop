@@ -4,6 +4,7 @@ import { playerStats, saveGame, checkLevelUp } from '../core/state.js';
 import {
   getActiveQuest, isQuestReadyToComplete, isQuestActive, isQuestCompleted,
   completeActiveQuest, activateQuest, getAvailableQuests, advanceObjective,
+  isWellQuestViolent, isWellQuestPeaceful
 } from '../quests.js';
 import { addItemToInventory } from '../items.js';
 import { greeting, vocative, agree } from './classvocative.js';
@@ -11,12 +12,9 @@ import { showToast } from './toast.js';
 
 export function talkToAkmiraElder() {
   // ============================================================
-  // Quest de chegada (story_to_akmira) — ativa
+  // 1) Quest de chegada (story_to_akmira) — ativa
   // ============================================================
   if (isQuestActive('story_to_akmira')) {
-    // Avança o objetivo "talk_akmira_elder" (síncrono — o `getProgress`
-    // do tipo 'interact' lê de state.progress, então essa chamada basta
-    // pra `isQuestReadyToComplete` virar true no mesmo frame).
     advanceObjective('story_to_akmira', 'talk_akmira_elder', 1);
 
     if (isQuestReadyToComplete('story_to_akmira')) {
@@ -51,11 +49,6 @@ export function talkToAkmiraElder() {
       return;
     }
 
-    // Objetivo "reach_akmira" já foi concluído (o jogador chegou),
-    // mas o "talk" acabou de ser avançado agora. Cai aqui só se o
-    // jogador falou antes de chegar em Akmira (não deveria acontecer),
-    // ou se o `advanceObjective` já tinha sido feito antes.
-    // Em qualquer caso, mostra o "boa chegada" e sai.
     openDialogue({
       title: 'Ancião de Akmira',
       text:
@@ -67,38 +60,130 @@ export function talkToAkmiraElder() {
   }
 
   // ============================================================
-  // Quest de chegada já concluída (pós-entrega) — Akmira em paz
+  // 2) ENTREGA da desert_moral (prioridade sobre "Akmira em paz")
   // ============================================================
-  if (isQuestCompleted('story_to_akmira')) {
-    const active = getActiveQuest();
-    if (active) {
-      // Se o jogador aceitou alguma quest daqui (futuro), lembra ele
-      openDialogue({
-        title: 'Ancião de Akmira',
-        text:
-          `${greeting()} Você ainda está em "${active.title}".\n\n` +
-          `${active.description}`,
-      });
-      return;
-    }
+  if (
+    isQuestActive('desert_moral') &&
+    isQuestReadyToComplete('desert_moral')
+  ) {
+    const violent = isWellQuestViolent();
+    const peaceful = isWellQuestPeaceful();
+
+    // Ajusta a recompensa antes de completar (a quest base é xp:180, gold:140)
+    const extra = violent ? 180 : peaceful ? 70 : 0;
 
     openDialogue({
       title: 'Ancião de Akmira',
-      text:
-        `${greeting()}\n\n` +
-        `Akmira ainda está de pé. O oásis segura o deserto — por enquanto.\n\n` +
-        `Quando o Conselho do Deserto se reunir, eu te chamarei. Até lá, ` +
-        `as lojas estão abertas. A Joalheira chegou há pouco; talvez tenha ` +
-        `algo que te interesse.`,
+      text: violent
+        ? `${greeting()}\n\n` +
+          `Eu sinto o peso do que você fez. A água é de Akmira, sim. ` +
+          `Mas o preço foi sangue. E sangue não lava fácil.\n\n` +
+          `Aceite isto. Não como recompensa — como lembrete de que, ` +
+          `no deserto, toda escolha tem um custo.`
+        : `${greeting()}\n\n` +
+          `Você falou com eles. Não sei o que disse, nem o que ofereceu. ` +
+          `Mas Akmira tem o poço de volta — e ninguém morreu por isso.\n\n` +
+          `Isso é mais raro do que você imagina. Aceite isto.`,
+      actions: [
+        {
+          label: 'Receber',
+          action: () => {
+            if (extra) {
+              const q = getActiveQuest();
+              if (q) q.rewards.gold = (q.rewards.gold || 0) + extra;
+            }
+            const q = completeActiveQuest(playerStats, addItemToInventory);
+            saveGame();
+            closeDialogue();
+            checkLevelUp();
+            if (q) {
+              // Dispara a cutscene de cliffhanger (fim da demo)
+              import('../battle/cutscene.js').then(mod => {
+                mod.playOutroCutscene(
+                  mod.DESERT_CLIFFHANGER_SCENES,
+                  () => { saveGame(); }
+                );
+              }).catch(console.error);
+            }
+          },
+        },
+      ],
     });
     return;
   }
 
   // ============================================================
-  // Jogador chegou em Akmira SEM ter a quest ativa (explorou por conta)
+  // 3) desert_moral ATIVA mas AINDA NÃO pronta — lembrete
   // ============================================================
-  // (não deveria acontecer na run normal, mas se acontecer, não
-  //  oferecemos a quest daqui — ela é dada pelo Ancião de Aethel)
+  if (isQuestActive('desert_moral')) {
+    openDialogue({
+      title: 'Ancião de Akmira',
+      text:
+        `${greeting()}\n\n` +
+        `O poço ainda está nas mãos deles. Vá até lá — a oeste, no meio ` +
+        `das dunas. O mapa (M) mostra o caminho.\n\n` +
+        `Decida o que for preciso. Eu confio no seu julgamento.`,
+    });
+    return;
+  }
+
+  // ============================================================
+  // 4) OFERTA da desert_moral (chegou aqui = não está ativa, não foi feita)
+  //    Requer story_to_akmira concluída.
+  // ============================================================
+  if (
+    isQuestCompleted('story_to_akmira') &&
+    !isQuestCompleted('desert_moral') &&
+    !isQuestActive('desert_moral')
+  ) {
+    openDialogue({
+      title: 'Ancião de Akmira',
+      text:
+        `${greeting()}\n\n` +
+        `Há um poço no meio das dunas, a oeste. Akmira depende dele. ` +
+        `Mas um grupo de saqueadores se instalou lá — refugiados de outro anel, ` +
+        `segundo eles. Podem estar mentindo. Podem estar dizendo a verdade.\n\n` +
+        `Eu não vou mandar ninguém daqui pra resolver à força. Não é o nosso jeito. ` +
+        `Mas você... você é um Andarilho. A Fratura te marcou, mas não te consumiu. ` +
+        `Você pode ir até lá. Pode falar com eles. Ou pode fazer o que achar necessário.\n\n` +
+        `Vá. E decida. Eu confio no seu julgamento — seja ele qual for.`,
+      actions: [
+        {
+          label: 'Aceitar',
+          action: () => {
+            activateQuest('desert_moral');
+            saveGame();
+            closeDialogue();
+          },
+        },
+        {
+          label: 'Agora não',
+          action: () => closeDialogue(),
+        },
+      ],
+    });
+    return;
+  }
+
+  // ============================================================
+  // 5) desert_moral CONCLUÍDA — fim da demo (Akmira em paz)
+  // ============================================================
+  if (isQuestCompleted('desert_moral')) {
+    openDialogue({
+      title: 'Ancião de Akmira',
+      text:
+        `${greeting()}\n\n` +
+        `Akmira ainda está de pé. O oásis segura o deserto — por enquanto.\n\n` +
+        `O que você fez pelo poço vai ecoar por muito tempo. Quando o Conselho ` +
+        `do Deserto se reunir, eu te chamarei. Até lá, as lojas estão abertas. ` +
+        `A Joalheira chegou há pouco; talvez tenha algo que te interesse.`,
+    });
+    return;
+  }
+
+  // ============================================================
+  // 6) Fallback — quest ativa genérica (outras quests)
+  // ============================================================
   const active = getActiveQuest();
   if (active) {
     openDialogue({
@@ -110,6 +195,9 @@ export function talkToAkmiraElder() {
     return;
   }
 
+  // ============================================================
+  // 7) Sem quest, sem nada — Akmira em paz
+  // ============================================================
   openDialogue({
     title: 'Ancião de Akmira',
     text:

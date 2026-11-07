@@ -9,7 +9,7 @@ import {
   markCaveCollapseLoreSeen, isBannerQuestViolent
 } from '../quests.js';
 import { addItemToInventory, removeItem } from '../items.js';
-import { greeting, vocative } from './classvocative.js';
+import { greeting, vocative, agree } from './classvocative.js';
 import { talkToAkmiraElder } from './akmira-elder.js';
 
 const LORE_INTRO =
@@ -131,8 +131,8 @@ export function offerQuests() {
         `Mas você trouxe a semente. Eu a senti quando você entrou em Aethel.\n\n` +
         `Talvez — só talvez — haja uma forma de plantá-la. De fazer o anel voltar ` +
         `a ter um Guardião. Não agora. Mas há esperança.\n\n` +
-        `Descanse, ${vocative()}. Você fez o que precisava. O que vem a seguir, ` +
-        `faremos juntos.`,
+        `Descanse, ${vocative()}. Quando estiver ${agree('pronto', 'pronta')}` +
+        `Volte para conversarmos.`,
     });
     return;
   }

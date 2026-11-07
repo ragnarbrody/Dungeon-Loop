@@ -136,3 +136,12 @@ export function buildEnemyGroup(chosenId, playerLevel, pool = null, biomeId = 'f
   }
   return enemies;
 }
+
+export function buildFixedGroup(ids, playerLevel, biomeId = 'fields') {
+  return ids.map(id => {
+    const base = ENEMIES[id] || ENEMIES.slime;
+    const safeId = ENEMIES[id] ? id : 'slime';
+    const scaled = getScaledEnemy(base, playerLevel, biomeId);
+    return { ...scaled, id: safeId, name: base.name };
+  });
+}

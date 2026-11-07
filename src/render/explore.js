@@ -11,7 +11,7 @@ import { makeRng, seedFrom } from '../core/rng.js';
 import { drawMapEnemies } from '../entities/enemies.js';
 import { NPC_SPRITES } from '../sprites/npcs.js';
 import { getTrackedQuest, getProgress, isQuestReadyToComplete,
-         isQuestActive, isQuestCompleted } from '../quests.js';
+         isQuestActive, isQuestCompleted, isWellResolved } from '../quests.js';
 import { playerEquip } from '../sprites/equipment.js';
 import { getTimeState, getTimeOfDay } from '../core/timeofday.js';
 import { applyLighting, applyDayNight, torchLight, nightFactor } from './lighting.js';
@@ -202,10 +202,17 @@ export function renderExplore() {
 
   // ---------- OBSTÁCULOS (cactos / pedras de caverna / pilares) ----------
   if (biomeId === 'desert' && !isDesertDungeon) {
-    // Cactos (apenas no mundo aberto do deserto)
+    const campTiles = new Set();
+    const wc = currentRoom.wellCamp;
+    if (wc) {
+      campTiles.add(`${wc.well.tx},${wc.well.ty}`);
+      for (const t of wc.tents) for (let y = t.ty; y < t.ty + t.h; y++) for (let x = t.tx; x < t.tx + t.w; x++) campTiles.add(`${x},${y}`);
+      for (let y = wc.campfire.ty; y < wc.campfire.ty + 2; y++) for (let x = wc.campfire.tx; x < wc.campfire.tx + 2; x++) campTiles.add(`${x},${y}`);
+    }
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         if (currentRoom.map[y][x] !== T.TREE) continue;
+        if (campTiles.has(`${x},${y}`)) continue;
         const frame = cactusFrames[Math.floor(performance.now() / 600 + (x + y)) % 2];
         const dx = x * TILE_SIZE + TILE_SIZE / 2 - cactusFrames[0].width / 2;
         const dy = y * TILE_SIZE + TILE_SIZE - cactusFrames[0].height;
@@ -288,6 +295,7 @@ export function renderExplore() {
 
   drawCage(currentRoom);
   drawTreasureChest(currentRoom);
+  drawWellCamp(currentRoom);
   drawGoblinCones(currentRoom);
   drawMapEnemies(currentRoom);
 
@@ -300,6 +308,38 @@ export function renderExplore() {
         if (hasLetter) continue;
         drawLostBackpack(it.tx * TILE_SIZE, it.ty * TILE_SIZE);
       }
+    }
+  }
+
+  // ---- Líder dos Saqueadores (quest desert_moral) ----
+  if (currentRoom.interactables) {
+    for (const it of currentRoom.interactables) {
+      if (it.kind !== 'well_leader') continue;
+      if (!isQuestActive('desert_moral')) continue;
+      // já resolveu (pacífica ou violenta)? Some (usa progresso da quest)
+      if (isWellResolved()) continue;
+
+      const sprites = NPC_SPRITES.well_leader;
+      if (!sprites) continue;
+      const frame = sprites.idle[Math.floor(performance.now() / 500) % sprites.idle.length];
+      const px = it.tx * TILE_SIZE;
+      const py = it.ty * TILE_SIZE;
+
+      // sombra
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 10, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // sprite
+      ctx.globalAlpha = 0.95;
+      ctx.drawImage(
+        frame,
+        px + TILE_SIZE / 2 - 16,
+        py + TILE_SIZE - 30,
+        32, 32
+      );
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -2192,4 +2232,74 @@ function drawGoblinCones(room) {
     );
     ctx.stroke();
   }
+}
+
+function drawWellCamp(room) {
+  const c = room?.wellCamp;
+  if (!c || !isQuestActive('desert_moral')) return;
+  const now = performance.now();
+
+  for (const t of c.tents) {
+    ctx.drawImage(tentFrames[0], t.tx * TILE_SIZE, t.ty * TILE_SIZE, TILE_SIZE * 2, TILE_SIZE * 2);
+  }
+
+  const night = getTimeState().darkness > 0.15;
+  const cf = night ? campfireFrames.on[Math.floor(now / 300) % 2] : campfireFrames.off[0];
+  ctx.drawImage(cf, c.campfire.tx * TILE_SIZE, c.campfire.ty * TILE_SIZE, TILE_SIZE * 2, TILE_SIZE * 2);
+
+  drawWell(c.well.tx, c.well.ty);
+
+  // Bando: só enquanto a situação não foi resolvida
+  if (isWellResolved()) return;
+  const sprites = NPC_SPRITES.well_follower;
+  if (!sprites) return;
+  c.followers.forEach((f, i) => {
+    const frame = sprites.idle[Math.floor(now / 600 + i) % sprites.idle.length];
+    const px = f.tx * TILE_SIZE, py = f.ty * TILE_SIZE;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE - 2, 9, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(frame, px + TILE_SIZE / 2 - 16, py + TILE_SIZE - 30, 32, 32);
+    ctx.globalAlpha = 1;
+  });
+}
+
+function drawWell(tx, ty) {
+  const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+  const base = ty * TILE_SIZE + TILE_SIZE;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(cx, base - 1, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+  // boca do poço
+  ctx.fillStyle = '#6b5a45';
+  ctx.beginPath(); ctx.ellipse(cx, base - 9, 14, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1208';
+  ctx.beginPath(); ctx.ellipse(cx, base - 10, 10, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2f5f70';
+  ctx.beginPath(); ctx.ellipse(cx, base - 9, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // parede de pedra frontal
+  ctx.fillStyle = '#8a7a62';
+  ctx.fillRect(cx - 14, base - 9, 28, 8);
+  ctx.strokeStyle = '#4a3a28';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(cx - 13.5, base - 8.5, 27, 7);
+  ctx.beginPath();
+  ctx.moveTo(cx - 14, base - 5); ctx.lineTo(cx + 14, base - 5);
+  ctx.moveTo(cx - 5, base - 9);  ctx.lineTo(cx - 5, base - 5);
+  ctx.moveTo(cx + 6, base - 5);  ctx.lineTo(cx + 6, base - 1);
+  ctx.stroke();
+
+  // armação de madeira + corda + balde
+  ctx.fillStyle = '#5a3a1a';
+  ctx.fillRect(cx - 13, base - 32, 3, 24);
+  ctx.fillRect(cx + 10, base - 32, 3, 24);
+  ctx.fillRect(cx - 14, base - 34, 28, 3);
+  ctx.strokeStyle = '#c9b48a';
+  ctx.beginPath(); ctx.moveTo(cx, base - 31); ctx.lineTo(cx, base - 20); ctx.stroke();
+  ctx.fillStyle = '#6b4a2b';
+  ctx.fillRect(cx - 3, base - 20, 6, 5);
 }

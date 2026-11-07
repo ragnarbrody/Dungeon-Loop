@@ -29,10 +29,13 @@
 //import { checkLevelUp } from './core/state.js';
 import { countItem, ITEMS_DB } from './items.js';
 
+
 let _removeMarker = () => {};
 let _addMarker = () => {};
 let _revealMarker = () => {};
 let _revealRoom = () => {};
+let _forcePathTo = () => {};
+export function setForcePathFn(fn) { _forcePathTo = fn; }
 export function setRevealRoomFn(fn) { _revealRoom = fn; }
 
 export function setKnowledgeFunctions(removeFn, addFn, revealFn) {
@@ -55,6 +58,12 @@ export function setCurrentRoomGetter(fn) { _getCurrentRoom = fn; }
 export function setDungeonCacheGetter(fn) { _getDungeonCache = fn; }
 export function setInventoryGetter(fn) { _getInventory = fn; }
 export function setVisitedRoomsGetter(fn) { _visitedRooms = fn; }
+
+export function isWellResolved() {
+  return state.wellQuestPeaceful === true
+      || state.wellQuestViolent === true
+      || (state.progress.desert_moral?.resolve_well ?? 0) >= 1;
+}
 
 export const QUEST_DB = {
   story_slimes: {
@@ -340,7 +349,42 @@ export const QUEST_DB = {
       gold: 150,
       items: [{ id: 'potion_strong', qty: 1 }],
     },
-    next: null,   // próxima virá no capítulo do deserto
+    next: 'desert_moral',
+  },
+
+  // ============================================================
+  // DESERTO — 1ª missão (peso moral)
+  // ============================================================
+  desert_moral: {
+    id: 'desert_moral',
+    type: 'story',
+    chapter: 'desert',
+    optional: true,
+    title: 'O Poço dos Perdidos',
+    giver: 'akmira_elder',
+    prereq: ['story_to_akmira'],
+    description:
+      'Akmira depende de um poço no meio das dunas. Um grupo de saqueadores se instalou nele. ' +
+      'Eles são refugiados de outro anel — ou pelo menos é o que dizem. Akmira depende de ter o poço ' +
+      'de volta, mas não sabemos se temos o direito de tomar à força. Vá até lá. Decida.',
+    objectives: [
+      {
+        id: 'reach_well',
+        text: 'Chegue ao Poço dos Perdidos (marcado no mapa)',
+        target: 1,
+        type: 'visit',
+        filter: { gx: -22, gy: 2 },
+      },
+      {
+        id: 'resolve_well',
+        text: 'Resolva a situação do poço (negociando ou lutando)',
+        target: 1,
+        type: 'interact',
+        filter: 'well_leader_talk',
+      },
+    ],
+    rewards: { xp: 180, gold: 140 },
+    next: null,
   },
 
 };
@@ -354,6 +398,9 @@ const state = {
   elderIntroSeen: false,   // já viu o diálogo de lore?
   caveCollapseLoreSeen: false,
   bannerQuestViolent: false,
+  // ---- resolução do poço (quest desert_moral) ----
+  wellQuestViolent: false,
+  wellQuestPeaceful: false,
 };
 
 // ---------- API ----------
@@ -493,6 +540,35 @@ export function activateQuest(id) {
       revealed: true,
     });
     _revealMarker('marker_akmira');
+  } else if (id === 'desert_moral') {
+    state.wellQuestViolent = false;
+    state.wellQuestPeaceful = false;
+    _addMarker({
+      id: 'marker_well',
+      type: 'quest',
+      gx: -22, gy: 2,
+      title: 'Poço dos Perdidos',
+      revealed: true,
+    });
+    _revealMarker('marker_well');
+    _revealRoom(-20, 2);
+    _revealRoom(-22, 2);
+
+    // Reaplica as portas forçadas + invalida o cache do retângulo.
+    // (É assíncrono — import pra evitar ciclo — mas idempotente.)
+    import('./world/rooms.js').then(mod => {
+      if (mod.reapplyQuestRoomFixes) mod.reapplyQuestRoomFixes();
+      else {
+        // Fallback se a versão de rooms.js for antiga (defensivo)
+        mod.forcePathTo?.(-22, 2, -19, -4);
+        for (const key of [...mod.roomCache.keys()]) {
+          const [gx, gy] = key.split(',').map(Number);
+          if (gx >= -23 && gx <= -18 && gy >= -5 && gy <= 3) {
+            mod.roomCache.delete(key);
+          }
+        }
+      }
+    }).catch(console.error);
   }
 
   return true;
@@ -700,6 +776,16 @@ export function completeActiveQuest(playerStats, addItemToInventoryFn) {
     }).catch(console.error);
   }
 
+  if (q.id === 'desert_moral') {
+    _removeMarker('marker_well');
+    // Reaplica a coerência do cache (a sala pode ainda estar em cache
+    // em outra sessão; reapplyQuestRoomFixes deleta + força).
+    import('./world/rooms.js').then(mod => {
+      if (mod.reapplyQuestRoomFixes) mod.reapplyQuestRoomFixes();
+      else mod.roomCache.delete('-22,2');
+    }).catch(console.error);
+  }
+
   // ---- 3) Marca como concluída ----
   state.completed.add(q.id);
   state.active = null;
@@ -760,6 +846,24 @@ export function markBannerQuestViolent() {
   state.bannerQuestViolent = true;
 }
 
+export function isWellQuestViolent() {
+  return state.wellQuestViolent === true;
+}
+export function markWellQuestViolent() {
+  if (state.wellQuestViolent) return;
+  state.wellQuestViolent = true;
+  state.wellQuestPeaceful = false;
+}
+
+export function isWellQuestPeaceful() {
+  return state.wellQuestPeaceful === true;
+}
+export function markWellQuestPeaceful() {
+  if (state.wellQuestPeaceful) return;
+  state.wellQuestPeaceful = true;
+  state.wellQuestViolent = false;
+}
+
 // ---------- Serialização ----------
 export function serializeQuests() {
   return {
@@ -771,6 +875,9 @@ export function serializeQuests() {
     pendingCaveCollapse: _pendingCaveCollapse,
     caveCollapseLoreSeen: state.caveCollapseLoreSeen === true,
     bannerQuestViolent: state.bannerQuestViolent === true,
+    // ---- missão do deserto ----
+    wellQuestViolent: state.wellQuestViolent === true,
+    wellQuestPeaceful: state.wellQuestPeaceful === true,
   };
 }
 
@@ -784,6 +891,9 @@ export function loadQuests(data) {
   _pendingCaveCollapse = !!data.pendingCaveCollapse;
   state.caveCollapseLoreSeen = !!data.caveCollapseLoreSeen;
   state.bannerQuestViolent = !!data.bannerQuestViolent;
+  // ---- missão do deserto ----
+  state.wellQuestViolent = !!data.wellQuestViolent;
+  state.wellQuestPeaceful = !!data.wellQuestPeaceful;
 }
 
 export function resetQuests({ keepIntroLore = false } = {}) {
@@ -797,6 +907,9 @@ export function resetQuests({ keepIntroLore = false } = {}) {
   }
   _pendingCaveCollapse = false;
   state.bannerQuestViolent = false;
+  // ---- missão do deserto ----
+  state.wellQuestViolent = false;
+  state.wellQuestPeaceful = false;
 }
 
 // Retorna a lista (ordenada por id) de quests concluídas com dados completos.
@@ -840,6 +953,10 @@ export function pruneQuestsToChapters(keepChapterIds) {
   for (const id of Object.keys(state.progress)) if (!kept(id)) delete state.progress[id];
   if (state.active && !kept(state.active)) state.active = null;
   if (state.tracked && !kept(state.tracked)) state.tracked = null;
+  if (!kept('desert_moral')) {
+    state.wellQuestViolent = false;
+    state.wellQuestPeaceful = false;
+  }
   _pendingCaveCollapse = false;
 }
 
